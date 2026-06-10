@@ -48,6 +48,16 @@ def chat_endpoint(message: str = Body(..., embed=True), db: Session = Depends(ge
 @app.get("/health")
 def health(): return {"status": "ok", "version": "4.0.0"}
 
+@app.get("/health/db")
+def health_db(db: Session = Depends(get_db)):
+    from sqlalchemy import text
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "error", "database": "disconnected", "detail": str(e)}
+
+
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
     return templates.TemplateResponse(request=request, name="index.html", context={"request": request})

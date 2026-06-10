@@ -29,30 +29,42 @@ def register(
     db: Session = Depends(get_db),
 ):
     """Yeni kullanıcı kaydı. İlk kullanıcı otomatik ADMIN olur."""
-    # E-posta kontrolü
-    existing = db.query(models.User).filter(models.User.email == user_data.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Bu e-posta adresi zaten kayıtlı")
+    from sqlalchemy.exc import SQLAlchemyError
+    
+    try:
+        # E-posta kontrolü
+        existing = db.query(models.User).filter(models.User.email == user_data.email).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Bu e-posta adresi zaten kayıtlı")
+    
+        # İlk kullanıcıyı admin yap
+        user_count = db.query(models.User).count()
+        # Ensure role is a string value
+        role_val = models.UserRole.ADMIN.value if user_count == 0 else user_data.role
+    
+        user = models.User(
+            email=user_data.email,
+            hashed_password=get_password_hash(user_data.password),
+            full_name=user_data.full_name,
+            role=role_val,
+            department=user_data.department,
+            phone=user_data.phone,
+            is_active=True,
+            is_verified=True,  # Şimdilik e-posta doğrulaması olmadan aktif
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Veritabanı bağlantı hatası oluştu. Lütfen tekrar deneyin. Detay: {str(e)}"
+        )
 
-    # İlk kullanıcıyı admin yap
-    user_count = db.query(models.User).count()
-    # Ensure role is a string value
-    role_val = models.UserRole.ADMIN.value if user_count == 0 else user_data.role
-
-    user = models.User(
-        email=user_data.email,
-        hashed_password=get_password_hash(user_data.password),
-        full_name=user_data.full_name,
-        role=role_val,
-        department=user_data.department,
-        phone=user_data.phone,
-        is_active=True,
-        is_verified=True,  # Şimdilik e-posta doğrulaması olmadan aktif
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
 
 
 @router.post("/login", response_model=schemas.Token)
