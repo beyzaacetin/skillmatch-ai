@@ -51,11 +51,7 @@ os.makedirs(static_dir, exist_ok=True)
 os.makedirs(templates_dir, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
-templates = Jinja2Templates(
-    directory=templates_dir,
-    variable_start_string='((',
-    variable_end_string='))'
-)
+templates = Jinja2Templates(directory=templates_dir)
 
 # Routers
 from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth
