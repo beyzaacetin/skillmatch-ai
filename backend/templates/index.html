@@ -529,14 +529,24 @@
 
     <!-- INTERVIEWS -->
     <template v-if="page==='interviews'">
-      <div class="page-hdr">
-        <div>
-          <div class="page-hdr-title">Mülakatlar</div>
-          <div class="page-hdr-sub">Tüm mülakat planlamalarınız</div>
+      <div class="page-hdr" style="height: auto; flex-direction: column; align-items: flex-start; padding: 15px 24px; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+          <div>
+            <div class="page-hdr-title">Mülakatlar</div>
+            <div class="page-hdr-sub">İşe alım mülakat süreci ve AI asistan araçları</div>
+          </div>
+        </div>
+        <!-- Sub Tabs -->
+        <div style="display: flex; border-bottom: 1px solid var(--g200); width: 100%; margin-top: 10px;">
+          <div class="modal-tab" :class="{active: interviewTab === 'list'}" @click="interviewTab = 'list'">Mülakat Listesi</div>
+          <div class="modal-tab" :class="{active: interviewTab === 'questions'}" @click="interviewTab = 'questions'">AI Soru Üretimi</div>
+          <div class="modal-tab" :class="{active: interviewTab === 'analysis'}" @click="interviewTab = 'analysis'">Mülakat Notu Analizi</div>
         </div>
       </div>
+
       <div class="page-body">
-        <div class="card" style="overflow:hidden">
+        <!-- Sub-Tab 1: List -->
+        <div v-if="interviewTab === 'list'" class="card" style="overflow:hidden">
           <table class="tbl">
             <thead><tr><th>Aday</th><th>Pozisyon</th><th>Tür</th><th>Tarih</th><th>Görüşmeci</th><th>Durum</th><th>İşlem</th></tr></thead>
             <tbody>
@@ -562,6 +572,126 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Sub-Tab 2: AI Soru Üretimi -->
+        <div v-if="interviewTab === 'questions'" class="card" style="padding: 20px;">
+          <div style="max-width: 600px;">
+            <div class="fg">
+              <label class="fl">Aday Seçin</label>
+              <select v-model="ivAssistant.candidateId" class="fs">
+                <option value="">Aday Seçin...</option>
+                <option v-for="c in candidates" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">Pozisyon Seçin</label>
+              <select v-model="ivAssistant.positionId" class="fs">
+                <option value="">Pozisyon Seçin...</option>
+                <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.title }}</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" @click="generateAiQuestionsTab()" :disabled="ivAssistant.loading">
+              <span v-if="ivAssistant.loading" class="loading-spin" style="width:14px;height:14px;margin-right:6px;border-top-color:#fff"></span>
+              {{ ivAssistant.loading ? 'Sorular Üretiliyor...' : 'Yapay Zeka Soruları Üret' }}
+            </button>
+          </div>
+
+          <div v-if="ivAssistant.questions.length > 0" style="margin-top: 24px; border-top: 1px solid var(--g200); padding-top: 20px;">
+            <h4 style="font-weight: 700; margin-bottom: 12px; font-size: 15px;">Adaya Özel AI Soruları:</h4>
+            <div v-for="(q, index) in ivAssistant.questions" :key="index" style="background: var(--g50); border: 1px solid var(--g200); padding: 14px; border-radius: 8px; margin-bottom: 10px;">
+              <div style="font-weight: 600; color: var(--primary); font-size: 13px; margin-bottom: 4px;">Soru {{ index + 1 }}</div>
+              <p style="font-size: 13.5px; color: var(--g900); margin-bottom: 0;">{{ q }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Tab 3: Mülakat Notu Analizi -->
+        <div v-if="interviewTab === 'analysis'" class="card" style="padding: 20px;">
+          <div style="max-width: 700px;">
+            <div class="fg">
+              <label class="fl">Mülakat Seçin (Not girilecek mülakatlar)</label>
+              <select v-model="ivAnalysis.interviewId" class="fs">
+                <option value="">Mülakat Seçin...</option>
+                <option v-for="iv in allInterviews" :key="iv.id" :value="iv.id">
+                  {{ iv.candidate_name }} - {{ iv.position_title }} (Tur {{ iv.round_number }})
+                </option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">Ham Mülakat Notları (Görüşme sırasındaki notlarınız, konuşma dökümleri vb.)</label>
+              <textarea v-model="ivAnalysis.rawNotes" class="fta" rows="6" placeholder="Adayın verdiği cevaplar, teknik değerlendirmeleriniz, gözlemleriniz..."></textarea>
+            </div>
+            <button class="btn btn-primary" @click="analyzeRawNotesTab()" :disabled="ivAnalysis.loading">
+              <span v-if="ivAnalysis.loading" class="loading-spin" style="width:14px;height:14px;margin-right:6px;border-top-color:#fff"></span>
+              {{ ivAnalysis.loading ? 'Notlar Analiz Ediliyor...' : 'Yapay Zeka ile Analiz Et' }}
+            </button>
+          </div>
+
+          <div v-if="ivAnalysis.result" style="margin-top: 24px; border-top: 1px solid var(--g200); padding-top: 20px;">
+            <h4 style="font-weight: 700; margin-bottom: 16px; font-size: 15px; color: var(--g900)">Yapay Zeka Analiz Sonuçları:</h4>
+            
+            <div class="grid-2" style="margin-bottom: 20px;">
+              <div class="stat-card">
+                <div class="stat-val">%{{ Math.round((ivAnalysis.result.overall_score || 0) * 10) }}</div>
+                <div class="stat-lbl">Genel Uyum Skoru</div>
+              </div>
+              <div class="stat-card" style="background: var(--primary-light); border-color: var(--primary)">
+                <div class="stat-val" style="color: var(--primary)">
+                  {{ ivAnalysis.result.ai_recommendation === 'proceed' ? 'İlerle' : ivAnalysis.result.ai_recommendation === 'reject' ? 'Elendi' : 'Beklemede' }}
+                </div>
+                <div class="stat-lbl" style="color: var(--primary-hover)">AI Tavsiyesi</div>
+              </div>
+            </div>
+
+            <div class="grid-2" style="margin-bottom: 20px;">
+              <div style="background: var(--g50); padding: 14px; border-radius: 8px; border: 1px solid var(--g200)">
+                <div style="font-weight: 600; font-size: 12px; color: var(--g600); margin-bottom: 4px;">Teknik Seviye</div>
+                <div style="font-size: 18px; font-weight: 700;">{{ ivAnalysis.result.technical_score }} / 10</div>
+              </div>
+              <div style="background: var(--g50); padding: 14px; border-radius: 8px; border: 1px solid var(--g200)">
+                <div style="font-weight: 600; font-size: 12px; color: var(--g600); margin-bottom: 4px;">Kültürel Uyum</div>
+                <div style="font-size: 18px; font-weight: 700;">{{ ivAnalysis.result.cultural_score }} / 10</div>
+              </div>
+            </div>
+
+            <div class="fg">
+              <label class="fl">Temizlenmiş / Yapılandırılmış Notlar:</label>
+              <p style="font-size: 13.5px; color: var(--g700); line-height: 1.6; background: var(--g50); padding: 14px; border-radius: 8px; border: 1px solid var(--g200); margin: 0; white-space: pre-line;">
+                {{ ivAnalysis.result.cleaned_notes }}
+              </p>
+            </div>
+
+            <div class="fg">
+              <label class="fl">İletişim Değerlendirmesi:</label>
+              <p style="font-size: 13.5px; color: var(--g700); line-height: 1.6; background: var(--g50); padding: 14px; border-radius: 8px; border: 1px solid var(--g200); margin: 0; white-space: pre-line;">
+                {{ ivAnalysis.result.communication_assessment }}
+              </p>
+            </div>
+
+            <div class="fg">
+              <label class="fl">Teknik Değerlendirme:</label>
+              <p style="font-size: 13.5px; color: var(--g700); line-height: 1.6; background: var(--g50); padding: 14px; border-radius: 8px; border: 1px solid var(--g200); margin: 0; white-space: pre-line;">
+                {{ ivAnalysis.result.technical_assessment }}
+              </p>
+            </div>
+
+            <div class="fg">
+              <label class="fl">Kültür Değerlendirmesi:</label>
+              <p style="font-size: 13.5px; color: var(--g700); line-height: 1.6; background: var(--g50); padding: 14px; border-radius: 8px; border: 1px solid var(--g200); margin: 0; white-space: pre-line;">
+                {{ ivAnalysis.result.culture_fit_assessment }}
+              </p>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Sonraki Aşama:</label>
+                <div style="background: var(--blue-bg); color: var(--blue); padding: 10px 14px; border-radius: 6px; font-weight: 600; font-size: 13px;">
+                  {{ ivAnalysis.result.next_step }}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </template>

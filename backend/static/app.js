@@ -16,6 +16,11 @@ createApp({
     const allInterviews = ref([]);
     const pipelineStats = ref({});
 
+    // AI Interview Assistant State
+    const interviewTab = ref('list');
+    const ivAssistant = ref({ candidateId: '', positionId: '', loading: false, questions: [] });
+    const ivAnalysis = ref({ interviewId: '', rawNotes: '', loading: false, result: null });
+
     // Toast system
     const toasts = ref([]);
     function showToast(msg, type = 'info') {
@@ -692,6 +697,46 @@ createApp({
       } catch (e) { alert('AI özeti üretilemedi'); }
     }
 
+    async function generateAiQuestionsTab() {
+      if (!ivAssistant.value.candidateId || !ivAssistant.value.positionId) {
+        alert('Lütfen aday ve pozisyon seçin.');
+        return;
+      }
+      ivAssistant.value.loading = true;
+      ivAssistant.value.questions = [];
+      try {
+        const res = await api('POST', '/api/interviews/ai/interview-questions', {
+          candidate_id: parseInt(ivAssistant.value.candidateId),
+          position_id: parseInt(ivAssistant.value.positionId)
+        });
+        ivAssistant.value.questions = res.questions || [];
+      } catch (e) {
+        alert('AI soruları üretilemedi: ' + e.message);
+      }
+      ivAssistant.value.loading = false;
+    }
+
+    async function analyzeRawNotesTab() {
+      if (!ivAnalysis.value.interviewId || !ivAnalysis.value.rawNotes) {
+        alert('Lütfen mülakat seçin ve ham notları girin.');
+        return;
+      }
+      ivAnalysis.value.loading = true;
+      ivAnalysis.value.result = null;
+      try {
+        const res = await api('POST', `/api/interviews/${ivAnalysis.value.interviewId}/analyze-notes`, {
+          raw_notes: ivAnalysis.value.rawNotes
+        });
+        ivAnalysis.value.result = res;
+        alert('Mülakat notu analizi başarıyla tamamlandı!');
+        loadInitialData();
+        loadAllInterviews();
+      } catch (e) {
+        alert('Not analizi başarısız oldu: ' + e.message);
+      }
+      ivAnalysis.value.loading = false;
+    }
+
     async function openIvDetail(iv) {
       // Find the application and open it
       try {
@@ -928,6 +973,7 @@ createApp({
       chatOpen, chatInput, chatMessages, chatLoading, chatMsgs,
       analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
+      interviewTab, ivAssistant, ivAnalysis,
       // methods
       loadPipeline, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
       loadCandidateApps, openMatchModal, runMatch, matchModal,
@@ -937,6 +983,7 @@ createApp({
       runDeepAIAnalysis, getCandidateForDeepAI, handlePositionCvDrop, handlePositionCvSelect, startPositionUploads,
       loadAppInterviews, saveInterview, generateQuestions,
       openFeedbackModal, saveFeedback, generateAISummary, openIvDetail,
+      generateAiQuestionsTab, analyzeRawNotesTab,
       loadOffer, saveOffer, generateLetter, sendOffer,
       loadOnboarding, generateOnboarding, updateTask,
       handleFileSelect, handleFileDrop,
