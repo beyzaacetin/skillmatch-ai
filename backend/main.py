@@ -50,4 +50,4 @@ def health(): return {"status": "ok", "version": "4.0.0"}
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
