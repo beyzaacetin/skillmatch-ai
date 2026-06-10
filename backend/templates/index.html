@@ -1,3 +1,4 @@
+{% raw %}
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -633,7 +634,7 @@
             
             <div class="grid-2" style="margin-bottom: 20px;">
               <div class="stat-card">
-                <div class="stat-val">%{{ Math.round((ivAnalysis.result.overall_score || 0) * 10) }}</div>
+                <div class="stat-val">{{ Math.round((ivAnalysis.result.overall_score || 0) * 10) }}%</div>
                 <div class="stat-lbl">Genel Uyum Skoru</div>
               </div>
               <div class="stat-card" style="background: var(--primary-light); border-color: var(--primary)">
@@ -1851,3 +1852,4 @@
 <script src="/static/app.js"></script>
 </body>
 </html>
+{% endraw %}
