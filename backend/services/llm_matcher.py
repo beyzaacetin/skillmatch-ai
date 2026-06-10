@@ -65,7 +65,7 @@ class LLMMatcherService:
         if API_KEY:
             try:
                 # Setup prompt
-                model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+                model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
                 
                 candidate_info = {
                     "name": candidate.name,
@@ -235,7 +235,7 @@ class LLMMatcherService:
         match_score.recommendation = llm_data.get("recommendation")
         match_score.interview_focus_areas = llm_data.get("interview_focus_areas", [])
         match_score.suggested_questions = llm_data.get("suggested_questions", [])
-        match_score.llm_model = "gemini-1.5-flash" if API_KEY else "rule-fallback"
+        match_score.llm_model = "gemini-flash-latest" if API_KEY else "rule-fallback"
         match_score.prompt_version = "v1.0"
         match_score.calculated_at = datetime.utcnow()
 

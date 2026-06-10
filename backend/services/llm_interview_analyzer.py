@@ -22,7 +22,7 @@ class LLMInterviewAnalyzerService:
             ]
         
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+            model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
             prompt = f"""
             Sen kurumsal seviyede bir İK Yapay Zeka Uzmanısın.
             Adayın özeti ve yetenekleri ile başvurulan pozisyonun detaylarına göre bu adaya özel 5 adet mülakat sorusu hazırla.
@@ -75,7 +75,7 @@ class LLMInterviewAnalyzerService:
             }
         
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+            model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
             prompt = f"""
             Aşağıdaki ham mülakat notlarını analiz et.
             Bu notları temiz, profesyonel ve yapılandırılmış bir özete dönüştür.

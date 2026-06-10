@@ -44,9 +44,9 @@ class Candidate(CandidateBase):
     blacklist_reason: Optional[str] = None
     ai_profile_summary: Optional[str] = None
     created_at: datetime
-    applications: List[Any] = []
     class Config:
         from_attributes = True
+
 
 class PositionBase(BaseModel):
     title: str

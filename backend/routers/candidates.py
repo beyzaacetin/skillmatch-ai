@@ -63,16 +63,72 @@ async def upload_cv(file: UploadFile = File(...), db: Session = Depends(database
 
 @router.get("/", response_model=List[schemas.Candidate])
 def read_candidates(skip: int = 0, limit: int = 200, db: Session = Depends(database.get_db)):
-    from sqlalchemy.orm import joinedload
-    return db.query(models.Candidate).options(joinedload(models.Candidate.applications).joinedload(models.Application.position)).offset(skip).limit(limit).all()
+    return db.query(models.Candidate).offset(skip).limit(limit).all()
+
+@router.get("/with-best-position")
+def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
+    candidates = db.query(models.Candidate).all()
+    positions = db.query(models.Position).filter(models.Position.is_active == True).all()
+    
+    results = []
+    from services.llm_matcher import llm_matcher_service
+    
+    for cand in candidates:
+        best_pos = None
+        best_score = -1.0
+        best_decision = "not_match"
+        
+        # Check pre-calculated match scores
+        match_scores = db.query(models.MatchScore).filter(models.MatchScore.candidate_id == cand.id).all()
+        
+        if match_scores and positions:
+            for ms in match_scores:
+                pos = next((p for p in positions if p.id == ms.position_id), None)
+                if pos and ms.overall_score > best_score:
+                    best_score = ms.overall_score
+                    best_pos = pos
+                    best_decision = ms.decision
+        
+        # If not pre-calculated, evaluate
+        if best_score == -1.0 and positions:
+            for pos in positions:
+                try:
+                    ms = llm_matcher_service.match_candidate_position(cand.id, pos.id, db)
+                    if ms.overall_score > best_score:
+                        best_score = ms.overall_score
+                        best_pos = pos
+                        best_decision = ms.decision
+                except Exception:
+                    pass
+                    
+        results.append({
+            "id": cand.id,
+            "name": cand.name,
+            "email": cand.email,
+            "phone": cand.phone,
+            "skills": cand.skills or [],
+            "seniority_level": cand.seniority_level,
+            "rating": cand.rating,
+            "is_favorite": cand.is_favorite,
+            "is_blacklisted": cand.is_blacklisted,
+            "best_position": {
+                "id": best_pos.id if best_pos else None,
+                "title": best_pos.title if best_pos else "Eşleşme Yok",
+                "department": best_pos.department if best_pos else None
+            } if best_pos else None,
+            "best_score": best_score if best_score != -1.0 else 0.0,
+            "best_decision": best_decision
+        })
+        
+    return results
 
 @router.get("/{candidate_id}", response_model=schemas.Candidate)
 def read_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
-    from sqlalchemy.orm import joinedload
-    c = db.query(models.Candidate).options(joinedload(models.Candidate.applications).joinedload(models.Application.position)).filter(models.Candidate.id == candidate_id).first()
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     return c
+
 
 @router.patch("/{candidate_id}/rating")
 def update_rating(candidate_id: int, data: schemas.CandidateRatingUpdate, db: Session = Depends(database.get_db)):
@@ -137,62 +193,6 @@ def compare_candidates(request: schemas.CandidateComparisonRequest, db: Session 
     cand2 = {"name": c2.name, "summary": c2.summary or "", "skills": safe(c2.skills), "experience": safe(c2.experience)}
     return ai_analyzer.compare_candidates(cand1, cand2, position)
 
-@router.get("/with-best-position")
-def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
-    candidates = db.query(models.Candidate).all()
-    positions = db.query(models.Position).filter(models.Position.is_active == True).all()
-    
-    results = []
-    from services.llm_matcher import llm_matcher_service
-    
-    for cand in candidates:
-        best_pos = None
-        best_score = -1.0
-        best_decision = "not_match"
-        
-        # Check pre-calculated match scores
-        match_scores = db.query(models.MatchScore).filter(models.MatchScore.candidate_id == cand.id).all()
-        
-        if match_scores and positions:
-            for ms in match_scores:
-                pos = next((p for p in positions if p.id == ms.position_id), None)
-                if pos and ms.overall_score > best_score:
-                    best_score = ms.overall_score
-                    best_pos = pos
-                    best_decision = ms.decision
-        
-        # If not pre-calculated, evaluate
-        if best_score == -1.0 and positions:
-            for pos in positions:
-                try:
-                    ms = llm_matcher_service.match_candidate_position(cand.id, pos.id, db)
-                    if ms.overall_score > best_score:
-                        best_score = ms.overall_score
-                        best_pos = pos
-                        best_decision = ms.decision
-                except Exception:
-                    pass
-                    
-        results.append({
-            "id": cand.id,
-            "name": cand.name,
-            "email": cand.email,
-            "phone": cand.phone,
-            "skills": cand.skills or [],
-            "seniority_level": cand.seniority_level,
-            "rating": cand.rating,
-            "is_favorite": cand.is_favorite,
-            "is_blacklisted": cand.is_blacklisted,
-            "best_position": {
-                "id": best_pos.id if best_pos else None,
-                "title": best_pos.title if best_pos else "Eşleşme Yok",
-                "department": best_pos.department if best_pos else None
-            } if best_pos else None,
-            "best_score": best_score if best_score != -1.0 else 0.0,
-            "best_decision": best_decision
-        })
-        
-    return results
 
 @router.get("/{candidate_id}/best-position")
 def get_candidate_best_position(candidate_id: int, db: Session = Depends(database.get_db)):
