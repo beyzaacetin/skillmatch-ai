@@ -3,9 +3,13 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timezone
 import json
+import logging
 import models, schemas, database
 from services.matcher import matcher_service
 
+from services.llm_matcher import llm_matcher_service
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 def _push_history(app, status, note=None):
@@ -21,27 +25,57 @@ def create_application(data: schemas.ApplicationCreate, db: Session = Depends(da
         models.Application.position_id == data.position_id
     ).first()
     if exists:
-        raise HTTPException(status_code=400, detail="Bu aday bu pozisyon için zaten başvurmuş")
+        raise HTTPException(status_code=400, detail="Bu aday bu pozisyona zaten eklenmiş.")
     candidate = db.query(models.Candidate).filter(models.Candidate.id == data.candidate_id).first()
     position = db.query(models.Position).filter(models.Position.id == data.position_id).first()
     if not candidate or not position:
         raise HTTPException(status_code=404, detail="Aday veya pozisyon bulunamadı")
-    # Compute AI match score
-    matches = matcher_service.match_candidates(data.position_id, db)
-    score_data = next((m for m in matches if m["candidate"].id == data.candidate_id), None)
+    
+    # Compute AI match score using LLM Matcher Service
+    score_val = None
+    semantic_val = None
+    keyword_val = None
+    skills_val = []
+    
+    try:
+        match_score_obj = llm_matcher_service.match_candidate_position(data.candidate_id, data.position_id, db)
+        score_val = match_score_obj.overall_score
+        semantic_val = match_score_obj.domain_fit_score
+        keyword_val = match_score_obj.required_skill_score
+        skills_val = match_score_obj.matching_skills or []
+    except Exception as match_err:
+        logger.error(f"Error calling llm_matcher_service: {match_err}")
+        # fallback to old matcher
+        try:
+            matches = matcher_service.match_candidates(data.position_id, db)
+            score_data = next((m for m in matches if m["candidate"].id == data.candidate_id), None)
+            if score_data:
+                score_val = score_data["score"]
+                semantic_val = score_data.get("semantic_score")
+                keyword_val = score_data.get("keyword_score")
+                skills_val = score_data.get("matching_skills", [])
+        except Exception as fallback_err:
+            logger.error(f"Fallback matcher failed: {fallback_err}")
+
     app = models.Application(
         candidate_id=data.candidate_id, position_id=data.position_id,
         status="applied",
         status_history=[{"status": "applied", "date": datetime.now(timezone.utc).isoformat(), "note": "Başvuru oluşturuldu"}],
         cover_letter=data.cover_letter, source=data.source,
-        match_score=score_data["score"] if score_data else None,
-        semantic_score=score_data.get("semantic_score") if score_data else None,
-        keyword_score=score_data.get("keyword_score") if score_data else None,
-        matching_skills=score_data.get("matching_skills", []) if score_data else [],
+        match_score=score_val,
+        semantic_score=semantic_val,
+        keyword_score=keyword_val,
+        matching_skills=skills_val,
     )
-    db.add(app)
-    db.commit()
-    db.refresh(app)
+    try:
+        db.add(app)
+        db.commit()
+        db.refresh(app)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating application: {e}")
+        raise HTTPException(status_code=500, detail=f"Başvuru oluşturulurken hata oluştu: {str(e)}")
+        
     return _load(app.id, db)
 
 @router.get("/", response_model=List[schemas.ApplicationOut])
@@ -56,13 +90,25 @@ def get_pipeline(position_id: Optional[int]=None, db: Session = Depends(database
     q = db.query(models.Application).options(joinedload(models.Application.candidate), joinedload(models.Application.position))
     if position_id: q = q.filter(models.Application.position_id == position_id)
     apps = q.order_by(models.Application.match_score.desc().nullslast()).all()
-    stages = ["applied","screening","interview","offer","hired","rejected"]
-    labels = {"applied":"Başvurdu","screening":"Değerlendirme","interview":"Mülakat","offer":"Teklif","hired":"İşe Alındı","rejected":"Elendi"}
+    stages = ["applied", "screening", "hr_interview", "tech_interview", "manager_interview", "reference_check", "offer", "hired", "rejected", "hold"]
+    labels = {
+        "applied": "Başvurdu",
+        "screening": "Değerlendirme",
+        "hr_interview": "İK Mülakatı",
+        "tech_interview": "Teknik Mülakat",
+        "manager_interview": "Yönetici Mülakatı",
+        "reference_check": "Referans Kontrolü",
+        "offer": "Teklif",
+        "hired": "İşe Alındı",
+        "rejected": "Elendi",
+        "hold": "Beklemede"
+    }
     cols = []
     for s in stages:
         group = [_app_dict(a) for a in apps if a.status == s]
         cols.append({"status": s, "label": labels[s], "count": len(group), "applications": group})
     return {"columns": cols, "total": len(apps)}
+
 
 def _load(app_id, db):
     return db.query(models.Application).options(
@@ -119,3 +165,25 @@ def delete_application(app_id: int, db: Session = Depends(database.get_db)):
     if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
     db.delete(a)
     db.commit()
+
+@router.get("/{app_id}/match-score", response_model=schemas.MatchScoreOut)
+def get_application_match_score(app_id: int, db: Session = Depends(database.get_db)):
+    app = db.query(models.Application).filter(models.Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+    
+    # Check if MatchScore exists
+    ms = db.query(models.MatchScore).filter(
+        models.MatchScore.candidate_id == app.candidate_id,
+        models.MatchScore.position_id == app.position_id
+    ).first()
+    
+    if not ms:
+        from services.llm_matcher import llm_matcher_service
+        try:
+            ms = llm_matcher_service.match_candidate_position(app.candidate_id, app.position_id, db)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Eşleşme skoru hesaplanırken hata oluştu: {str(e)}")
+            
+    return ms
+

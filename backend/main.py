@@ -14,6 +14,32 @@ import models
 
 Base.metadata.create_all(bind=engine)
 
+# Auto-migrate database schema additions
+try:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        queries = [
+            "ALTER TABLE candidates ADD COLUMN ai_profile_summary TEXT",
+            "ALTER TABLE interviews ADD COLUMN raw_notes TEXT",
+            "ALTER TABLE interviews ADD COLUMN cleaned_notes TEXT",
+            "ALTER TABLE interviews ADD COLUMN communication_assessment TEXT",
+            "ALTER TABLE interviews ADD COLUMN culture_fit_assessment TEXT",
+            "ALTER TABLE interviews ADD COLUMN technical_assessment TEXT",
+            "ALTER TABLE interviews ADD COLUMN ai_recommendation VARCHAR(255)",
+            "ALTER TABLE interviews ADD COLUMN next_step VARCHAR(255)"
+        ]
+        for q in queries:
+            try:
+                conn.execute(text(q))
+                if hasattr(conn, "commit"):
+                    conn.commit()
+                print(f"Database migration: {q} executed.")
+            except Exception:
+                pass
+except Exception as migration_err:
+    print(f"Database migrations failed to run on startup: {migration_err}")
+
+
 app = FastAPI(title="SkillMatch AI v4", version="4.0.0", docs_url="/api/docs")
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])

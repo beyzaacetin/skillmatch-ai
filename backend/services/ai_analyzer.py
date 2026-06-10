@@ -22,38 +22,56 @@ def analyze_cv(text: str):
     model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
     
     prompt = f"""
-    You are an expert HR AI Assistant. Analyze the following CV text and extract structured information.
-    Return the output strictly as a JSON object with the following schema:
+    Sen uzman bir İK Yapay Zeka Asistanısın. Aşağıdaki CV metnini analiz et ve yapılandırılmış bilgileri çıkar.
+    Çıkarttığın tüm metinsel alanları, özetleri, güçlü yanları ve geliştirilmesi gereken yönleri TÜRKÇE olarak oluştur.
+    Kıdem seviyesini (seniority_level) "Giriş Seviyesi", "Orta Seviye", veya "Kıdemli" değerlerinden biri olarak ata.
+
+    Çıktıyı kesinlikle aşağıdaki şemaya uygun bir JSON nesnesi olarak döndür:
     {{
-        "name": "Candidate Name",
+        "name": "Aday Adı Soyadı",
         "email": "email@example.com",
         "phone": "+123456789",
-        "summary": "Professional summary...",
+        "summary": "Türkçe profesyonel özet...",
         "skills": ["Skill1", "Skill2"],
         "experience": [
-            {{"title": "Job Title", "company": "Company", "years": "2020-2022", "description": "..."}}
+            {{"title": "İş Unvanı", "company": "Şirket", "years": "2020-2022", "description": "İş tanımı..."}}
         ],
         "education": [
-            {{"degree": "Degree", "school": "School", "year": "2019"}}
+            {{"degree": "Derece/Bölüm", "school": "Okul", "year": "2019"}}
         ],
-        "certifications": ["Cert 1", "Cert 2"],
-        "projects": ["Project 1", "Project 2"],
-        "seniority_level": "Junior/Mid/Senior",
+        "certifications": ["Sertifika 1", "Sertifika 2"],
+        "projects": ["Proje 1", "Proje 2"],
+        "seniority_level": "Giriş Seviyesi/Orta Seviye/Kıdemli",
         "seniority_score": 85.5,
-        "strengths": ["Strength 1", "Strength 2"],
-        "areas_for_improvement": ["Area 1", "Area 2"]
+        "strengths": ["Güçlü Yön 1", "Güçlü Yön 2"],
+        "areas_for_improvement": ["Gelişmesi Gereken Yön 1", "Gelişmesi Gereken Yön 2"]
     }}
 
-    CV Text:
+    CV Metni:
     {text}
     """
     
     try:
         response = model.generate_content(prompt)
-        return json.loads(response.text)
+        text_clean = response.text.replace("```json", "").replace("```", "").strip()
+        data = json.loads(text_clean)
+        
+        # Enforce Turkish seniority mappings just in case
+        sen_level = data.get("seniority_level", "Orta Seviye")
+        sen_map = {
+            "junior": "Giriş Seviyesi",
+            "entry": "Giriş Seviyesi",
+            "mid": "Orta Seviye",
+            "senior": "Kıdemli"
+        }
+        if sen_level.lower() in sen_map:
+            data["seniority_level"] = sen_map[sen_level.lower()]
+            
+        return data
     except Exception as e:
         print(f"AI Analysis failed: {e}")
         return get_mock_data()
+
 
 def get_mock_data():
     return {

@@ -16,6 +16,45 @@ createApp({
     const allInterviews = ref([]);
     const pipelineStats = ref({});
 
+    // Toast system
+    const toasts = ref([]);
+    function showToast(msg, type = 'info') {
+      const id = Date.now();
+      toasts.value.push({ id, message: msg, type });
+      setTimeout(() => {
+        toasts.value = toasts.value.filter(t => t.id !== id);
+      }, 4500);
+    }
+    // Intercept default window alert
+    window.alert = (msg) => {
+      let type = 'info';
+      const lower = msg.toLowerCase();
+      if (lower.includes('hata') || lower.includes('başarısız') || lower.includes('silinemedi') || lower.includes('dikkat') || lower.includes('hata oluştu')) {
+        type = 'error';
+      } else if (lower.includes('başarıyla') || lower.includes('güncellendi') || lower.includes('eklendi') || lower.includes('kaydedildi')) {
+        type = 'success';
+      }
+      showToast(msg, type);
+    };
+
+    // Match Details Modal State
+    const showMatchDetails = ref(false);
+    const currentMatchScore = ref(null);
+    const matchScoreLoading = ref(false);
+
+    async function viewMatchDetails(app) {
+      showMatchDetails.value = true;
+      matchScoreLoading.value = true;
+      currentMatchScore.value = null;
+      try {
+        const ms = await api('GET', `/api/applications/${app.id}/match-score`);
+        currentMatchScore.value = ms;
+      } catch (e) {
+        showToast('Eşleşme detayı yüklenemedi: ' + e.message, 'error');
+      }
+      matchScoreLoading.value = false;
+    }
+
     // Filters
     const candidateSearch = ref('');
     const talentFilter = ref({ seniority: '', sort: 'newest', showInactive: false });
@@ -91,15 +130,27 @@ createApp({
     const stages = [
       { value: 'applied', label: 'Başvurdu' },
       { value: 'screening', label: 'Değerlendirme' },
-      { value: 'interview', label: 'Mülakat' },
+      { value: 'hr_interview', label: 'İK Mülakatı' },
+      { value: 'tech_interview', label: 'Teknik Mülakat' },
+      { value: 'manager_interview', label: 'Yönetici Mülakatı' },
+      { value: 'reference_check', label: 'Referans Kontrolü' },
       { value: 'offer', label: 'Teklif' },
       { value: 'hired', label: 'İşe Alındı' },
       { value: 'rejected', label: 'Elendi' },
+      { value: 'hold', label: 'Beklemede' },
     ];
 
     const stageLabelMap = {
-      applied: 'Başvurdu', screening: 'Değerlendirme', interview: 'Mülakat',
-      offer: 'Teklif', hired: 'İşe Alındı', rejected: 'Elendi',
+      applied: 'Başvurdu',
+      screening: 'Değerlendirme',
+      hr_interview: 'İK Mülakatı',
+      tech_interview: 'Teknik Mülakat',
+      manager_interview: 'Yönetici Mülakatı',
+      reference_check: 'Referans Kontrolü',
+      offer: 'Teklif',
+      hired: 'İşe Alındı',
+      rejected: 'Elendi',
+      hold: 'Beklemede'
     };
 
     // ─── COMPUTED ─────────────────────────────────────────────────────
@@ -775,8 +826,16 @@ createApp({
     // ─── HELPERS ──────────────────────────────────────────────────────
     function stageColor(status) {
       const colors = {
-        applied: '#3B82F6', screening: '#F59E0B', interview: '#7C3AED',
-        offer: '#D97706', hired: '#059669', rejected: '#6B7280',
+        applied: '#3B82F6',
+        screening: '#F59E0B',
+        hr_interview: '#7C3AED',
+        tech_interview: '#2563EB',
+        manager_interview: '#8B5CF6',
+        reference_check: '#EC4899',
+        offer: '#D97706',
+        hired: '#059669',
+        rejected: '#6B7280',
+        hold: '#64748B'
       };
       return colors[status] || '#6B7280';
     }
@@ -788,7 +847,7 @@ createApp({
     }
 
     function stageIndex(status) {
-      const order = ['applied', 'screening', 'interview', 'offer', 'hired'];
+      const order = ['applied', 'screening', 'hr_interview', 'tech_interview', 'manager_interview', 'reference_check', 'offer', 'hired', 'rejected', 'hold'];
       return order.indexOf(status);
     }
 
@@ -868,6 +927,7 @@ createApp({
       feedbackIv, ivFeedback, uploadQueue, dragover, draggedApp, dragOverCol,
       chatOpen, chatInput, chatMessages, chatLoading, chatMsgs,
       analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
+      toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       // methods
       loadPipeline, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
       loadCandidateApps, openMatchModal, runMatch, matchModal,
@@ -882,6 +942,7 @@ createApp({
       handleFileSelect, handleFileDrop,
       sendChat,
       stageColor, scoreClass, stageIndex, ivTypeLabel, formatDate, calculateBestMatch,
+      showToast, viewMatchDetails,
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
       allUsers, loadUsers, updateUserRole, deleteUser,

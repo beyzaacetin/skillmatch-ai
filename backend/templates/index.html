@@ -10,6 +10,13 @@
 </head>
 <body>
 <div id="app" class="app">
+  <!-- TOAST NOTIFICATIONS -->
+  <div class="toast-container">
+    <div v-for="t in toasts" :key="t.id" class="toast" :class="t.type">
+      {{ t.message }}
+    </div>
+  </div>
+
 
   <!-- LOGIN SCREEN -->
   <div v-if="!currentUser" class="login-page">
@@ -949,12 +956,17 @@
                   <span style="font-size:28px;font-weight:700;color:var(--primary)">%{{ Math.round(selectedApp.match_score||0) }}</span>
                   <div style="flex:1">
                     <div style="font-size:11px;color:var(--g500);margin-bottom:2px">Semantik: %{{ Math.round(selectedApp.semantic_score||0) }}</div>
-                    <div class="score-bar"><div class="score-fill sf-high" :style="`width:${selectedApp.semantic_score||0}%`"></div></div>
+                    <div class="score-bar"><div class="score-fill" :class="scoreClass(selectedApp.semantic_score||0)" :style="`width:${selectedApp.semantic_score||0}%`"></div></div>
                     <div style="font-size:11px;color:var(--g500);margin-bottom:2px;margin-top:4px">Keyword: %{{ Math.round(selectedApp.keyword_score||0) }}</div>
-                    <div class="score-bar"><div class="score-fill sf-mid" :style="`width:${selectedApp.keyword_score||0}%`"></div></div>
+                    <div class="score-bar"><div class="score-fill" :class="scoreClass(selectedApp.keyword_score||0)" :style="`width:${selectedApp.keyword_score||0}%`"></div></div>
                   </div>
                 </div>
+                <button class="btn btn-secondary btn-sm" style="margin-top:12px;width:100%" @click="viewMatchDetails(selectedApp)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                  Neden Uygun? (AI Detaylı Analiz)
+                </button>
               </div>
+
               <div v-if="(selectedApp.matching_skills||[]).length" class="fg">
                 <div style="font-size:12px;font-weight:600;color:var(--g500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Eşleşen Yetenekler</div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap">
@@ -1568,7 +1580,142 @@
     </div>
   </div>
 
+  <!-- NEDEN UYGUN? (AI MATCH DETAILS) MODAL -->
+  <div v-if="showMatchDetails" class="overlay" @click.self="showMatchDetails=false">
+    <div class="modal modal-lg">
+      <div class="modal-hdr">
+        <div>
+          <div class="modal-title">AI Detaylı Uyum Analizi</div>
+          <div class="modal-sub">{{ selectedApp?.candidate?.name }} · {{ selectedApp?.position?.title }}</div>
+        </div>
+        <button class="modal-x" @click="showMatchDetails=false">×</button>
+      </div>
+      <div class="modal-body">
+        <div v-if="matchScoreLoading" style="text-align:center;padding:60px">
+          <div class="loading-spin" style="margin: 0 auto 16px auto; border-top-color: var(--primary)"></div>
+          <div style="font-weight:600;color:var(--primary)">Yapay Zeka analizi yükleniyor...</div>
+        </div>
+        <div v-else-if="currentMatchScore">
+          <!-- Overall Stats Banner -->
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--primary-light);border:1px solid #cce5ff;border-radius:12px;padding:20px;margin-bottom:20px">
+            <div>
+              <div style="font-size:12px;color:var(--g500);font-weight:600;text-transform:uppercase">Genel AI Değerlendirmesi</div>
+              <div style="font-size:20px;font-weight:800;color:var(--primary);margin-top:4px">
+                {{ currentMatchScore.decision === 'strong_match' ? 'Güçlü Eşleşme' : currentMatchScore.decision === 'potential_match' ? 'Olası Eşleşme' : currentMatchScore.decision === 'weak_match' ? 'Zayıf Eşleşme' : 'Eşleşmiyor' }}
+              </div>
+            </div>
+            <div style="text-align:right">
+              <span style="font-size:36px;font-weight:900;color:var(--primary)">%{{ Math.round(currentMatchScore.overall_score) }}</span>
+              <span style="font-size:12px;color:var(--g500);margin-left:4px">Skor</span>
+            </div>
+          </div>
+
+          <!-- Summary & Recommendation -->
+          <div style="margin-bottom:20px">
+            <div style="font-size:13px;font-weight:700;color:var(--g800);margin-bottom:6px">Değerlendirme Özeti:</div>
+            <p style="font-size:13px;color:var(--g700);line-height:1.6;background:var(--g50);padding:14px;border-radius:8px;margin:0">{{ currentMatchScore.summary }}</p>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <div style="font-size:13px;font-weight:700;color:var(--g800);margin-bottom:6px">İK Tavsiyesi:</div>
+            <p style="font-size:13px;color:var(--g700);line-height:1.6;background:var(--primary-light);padding:14px;border-radius:8px;border-left:4px solid var(--primary);margin:0">{{ currentMatchScore.recommendation }}</p>
+          </div>
+
+          <!-- Strengths and Risks Grid -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+            <div style="background:var(--green-bg);border:1px solid #d1e7dd;border-radius:10px;padding:16px">
+              <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px">Güçlü Yanlar (AI)</div>
+              <div v-for="s in currentMatchScore.strengths" :key="s" style="font-size:12.5px;color:var(--g800);margin-bottom:6px;display:flex;align-items:flex-start;gap:6px">
+                <span style="color:var(--green)">✓</span> <span>{{ s }}</span>
+              </div>
+              <div v-if="!currentMatchScore.strengths?.length" style="font-size:12px;color:var(--g500)">Belirgin bir güçlü yön listelenmedi.</div>
+            </div>
+
+            <div style="background:#fff5f5;border:1px solid #ffcccc;border-radius:10px;padding:16px">
+              <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:10px">Riskler &amp; Soru İşaretleri (AI)</div>
+              <div v-for="r in currentMatchScore.risks" :key="r" style="font-size:12.5px;color:var(--g800);margin-bottom:6px;display:flex;align-items:flex-start;gap:6px">
+                <span style="color:var(--red)">⚠</span> <span>{{ r }}</span>
+              </div>
+              <div v-if="!currentMatchScore.risks?.length" style="font-size:12px;color:var(--g500)">Herhangi bir risk tespit edilmedi.</div>
+            </div>
+          </div>
+
+          <!-- Specific Scores Detail Progress Bars -->
+          <div class="card" style="margin-bottom:20px;padding:16px">
+            <div style="font-size:13px;font-weight:700;color:var(--g800);margin-bottom:12px">Detaylı Kriter Puanları</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap: 12px 20px">
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Zorunlu Yetkinlikler</span><b>%{{ currentMatchScore.required_skill_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.required_skill_score)" :style="`width:${currentMatchScore.required_skill_score}%`"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Tercih Edilen Yetkinlikler</span><b>%{{ currentMatchScore.preferred_skill_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.preferred_skill_score)" :style="`width:${currentMatchScore.preferred_skill_score}%`"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Deneyim Süresi</span><b>%{{ currentMatchScore.experience_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.experience_score)" :style="`width:${currentMatchScore.experience_score}%`"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Kıdem/Seviye Uyum</span><b>%{{ currentMatchScore.seniority_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.seniority_score)" :style="`width:${currentMatchScore.seniority_score}%`"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Eğitim Geçmişi</span><b>%{{ currentMatchScore.education_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.education_score)" :style="`width:${currentMatchScore.education_score}%`"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Dil Yeterliliği</span><b>%{{ currentMatchScore.language_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.language_score)" :style="`width:${currentMatchScore.language_score}%`"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Sektör Bilgisi</span><b>%{{ currentMatchScore.domain_fit_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.domain_fit_score)" :style="`width:${currentMatchScore.domain_fit_score}%`"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Kültür Uyumu</span><b>%{{ currentMatchScore.culture_fit_score }}</b></div>
+                <div class="score-bar"><div class="score-fill" :class="scoreClass(currentMatchScore.culture_fit_score)" :style="`width:${currentMatchScore.culture_fit_score}%`"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skills breakdown -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+            <div style="border:1px solid var(--g200);border-radius:10px;padding:14px">
+              <div style="font-size:12.5px;font-weight:700;color:var(--g800);margin-bottom:8px">Eksik Yetenekler (AI):</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span v-for="s in currentMatchScore.missing_skills" :key="s" class="skill-tag" style="background:#fff5f5;color:var(--red)">{{ s }}</span>
+                <span v-if="!currentMatchScore.missing_skills?.length" style="font-size:12px;color:var(--green)">Hiç eksik yetenek yok!</span>
+              </div>
+            </div>
+            <div style="border:1px solid var(--g200);border-radius:10px;padding:14px">
+              <div style="font-size:12.5px;font-weight:700;color:var(--g800);margin-bottom:8px">Aktarılabilir Yetenekler (AI):</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span v-for="s in currentMatchScore.transferable_skills" :key="s" class="skill-tag" style="background:#e0f2fe;color:#0284c7">{{ s }}</span>
+                <span v-if="!currentMatchScore.transferable_skills?.length" style="font-size:12px;color:var(--g500)">Aktarılabilir yetenek belirtilmedi.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Focus Areas & Suggested Questions -->
+          <div style="background:var(--g50);border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;color:var(--g800);margin-bottom:8px">Mülakat Odak Alanları:</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+              <span v-for="fa in currentMatchScore.interview_focus_areas" :key="fa" class="badge b-applied">{{ fa }}</span>
+            </div>
+            
+            <div style="font-size:13px;font-weight:700;color:var(--g800);margin-bottom:8px">Önerilen Özel Sorular:</div>
+            <div v-for="(q, qi) in currentMatchScore.suggested_questions" :key="qi" style="background:#fff;border:1px solid var(--g200);border-radius:6px;padding:10px;margin-bottom:8px;font-size:13px;color:var(--g800)">
+              <span style="font-weight:700;color:var(--primary);margin-right:6px">Soru {{ qi+1 }}:</span>{{ q }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- end #app -->
+
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="/static/app.js"></script>

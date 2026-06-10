@@ -19,6 +19,20 @@ class CandidateBase(BaseModel):
 class CandidateCreate(CandidateBase):
     original_filename: str
 
+class CandidateSimple(CandidateBase):
+    id: int
+    upload_status: str
+    rating: Optional[float] = None
+    notes: Optional[str] = None
+    tags: List[str] = []
+    is_favorite: bool = False
+    is_blacklisted: bool = False
+    blacklist_reason: Optional[str] = None
+    ai_profile_summary: Optional[str] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
 class Candidate(CandidateBase):
     id: int
     upload_status: str
@@ -28,6 +42,7 @@ class Candidate(CandidateBase):
     is_favorite: bool = False
     is_blacklisted: bool = False
     blacklist_reason: Optional[str] = None
+    ai_profile_summary: Optional[str] = None
     created_at: datetime
     applications: List[Any] = []
     class Config:
@@ -82,7 +97,7 @@ class ApplicationOut(BaseModel):
     source: Optional[str] = None
     applied_at: datetime
     hired_at: Optional[datetime] = None
-    candidate: Optional[Candidate] = None
+    candidate: Optional[CandidateSimple] = None
     position: Optional[Position] = None
     class Config:
         from_attributes = True
@@ -274,3 +289,58 @@ class UserPasswordChange(BaseModel):
 
 class UserRoleUpdate(BaseModel):
     role: str
+
+class MatchScoreOut(BaseModel):
+    id: int
+    candidate_id: int
+    position_id: int
+    overall_score: Optional[float] = None
+    decision: Optional[str] = None
+    required_skill_score: Optional[float] = None
+    preferred_skill_score: Optional[float] = None
+    experience_score: Optional[float] = None
+    seniority_score: Optional[float] = None
+    education_score: Optional[float] = None
+    language_score: Optional[float] = None
+    domain_fit_score: Optional[float] = None
+    culture_fit_score: Optional[float] = None
+    matching_skills: List[str] = []
+    missing_skills: List[str] = []
+    transferable_skills: List[str] = []
+    strengths: List[str] = []
+    risks: List[str] = []
+    summary: Optional[str] = None
+    recommendation: Optional[str] = None
+    interview_focus_areas: List[str] = []
+    suggested_questions: List[str] = []
+    llm_model: Optional[str] = None
+    prompt_version: Optional[str] = None
+    calculated_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class InterviewNotesAnalysisRequest(BaseModel):
+    raw_notes: str
+
+class InterviewNotesAnalysisResponse(BaseModel):
+    cleaned_notes: Optional[str] = None
+    communication_assessment: Optional[str] = None
+    culture_fit_assessment: Optional[str] = None
+    technical_assessment: Optional[str] = None
+    ai_recommendation: Optional[str] = None
+    next_step: Optional[str] = None
+    overall_score: Optional[float] = None
+    technical_score: Optional[float] = None
+    cultural_score: Optional[float] = None
+
+class InterviewQuestionsRequest(BaseModel):
+    candidate_id: int
+    position_id: int
+
+class InterviewQuestionsResponse(BaseModel):
+    questions: List[str]
+
+

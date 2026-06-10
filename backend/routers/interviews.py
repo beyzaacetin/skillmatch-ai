@@ -150,3 +150,62 @@ def delete_interview(iv_id: int, db: Session = Depends(database.get_db)):
     if not iv: raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
     db.delete(iv)
     db.commit()
+
+@router.post("/{iv_id}/analyze-notes", response_model=schemas.InterviewOut)
+def analyze_notes_endpoint(iv_id: int, data: schemas.InterviewNotesAnalysisRequest, db: Session = Depends(database.get_db)):
+    iv = db.query(models.Interview).options(
+        joinedload(models.Interview.application).joinedload(models.Application.candidate)
+    ).filter(models.Interview.id == iv_id).first()
+    if not iv:
+        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+    
+    from services.llm_interview_analyzer import llm_interview_analyzer_service
+    analysis = llm_interview_analyzer_service.analyze_notes(data.raw_notes)
+    
+    iv.raw_notes = data.raw_notes
+    iv.cleaned_notes = analysis.get("cleaned_notes")
+    iv.communication_assessment = analysis.get("communication_assessment")
+    iv.culture_fit_assessment = analysis.get("culture_fit_assessment")
+    iv.technical_assessment = analysis.get("technical_assessment")
+    iv.ai_recommendation = analysis.get("ai_recommendation")
+    iv.next_step = analysis.get("next_step")
+    
+    # Optionally update scores if generated
+    if analysis.get("overall_score") is not None:
+        iv.overall_score = float(analysis.get("overall_score"))
+    if analysis.get("technical_score") is not None:
+        iv.technical_score = float(analysis.get("technical_score"))
+    if analysis.get("cultural_score") is not None:
+        iv.cultural_score = float(analysis.get("cultural_score"))
+        
+    iv.status = "completed"
+    
+    # Update Candidate's AI profile summary if application and candidate exist
+    if iv.application and iv.application.candidate:
+        cand = iv.application.candidate
+        summary_addition = f"\nMülakat Değerlendirmesi ({iv.round_number}. Tur - {iv.interview_type}): {iv.cleaned_notes}"
+        if cand.ai_profile_summary:
+            cand.ai_profile_summary += summary_addition
+        else:
+            cand.ai_profile_summary = summary_addition
+            
+    db.commit()
+    db.refresh(iv)
+    return iv
+
+@router.post("/ai/interview-questions", response_model=schemas.InterviewQuestionsResponse)
+def generate_questions_endpoint(data: schemas.InterviewQuestionsRequest, db: Session = Depends(database.get_db)):
+    cand = db.query(models.Candidate).filter(models.Candidate.id == data.candidate_id).first()
+    pos = db.query(models.Position).filter(models.Position.id == data.position_id).first()
+    if not cand or not pos:
+        raise HTTPException(status_code=404, detail="Aday veya pozisyon bulunamadı")
+        
+    from services.llm_interview_analyzer import llm_interview_analyzer_service
+    questions = llm_interview_analyzer_service.generate_questions(
+        candidate_summary=cand.summary or "",
+        candidate_skills=cand.skills or [],
+        position_title=pos.title,
+        position_desc=pos.description
+    )
+    return {"questions": questions}
+

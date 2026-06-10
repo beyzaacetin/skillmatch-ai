@@ -30,6 +30,7 @@ class Candidate(Base):
     is_favorite = Column(Boolean, default=False)
     is_blacklisted = Column(Boolean, default=False)
     blacklist_reason = Column(Text, nullable=True)
+    ai_profile_summary = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     applications = relationship("Application", back_populates="candidate", cascade="all, delete-orphan")
 
@@ -106,6 +107,13 @@ class Interview(Base):
     ai_summary = Column(Text, nullable=True)         # AI mülakat özeti
     result = Column(String, nullable=True)           # "passed", "failed", "pending"
     result_note = Column(Text, nullable=True)        # Sonuç notu
+    raw_notes = Column(Text, nullable=True)
+    cleaned_notes = Column(Text, nullable=True)
+    communication_assessment = Column(Text, nullable=True)
+    culture_fit_assessment = Column(Text, nullable=True)
+    technical_assessment = Column(Text, nullable=True)
+    ai_recommendation = Column(String, nullable=True)
+    next_step = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     application = relationship("Application", back_populates="interviews")
 
@@ -179,3 +187,37 @@ class Log(Base):
     target_id = Column(Integer)
     details = Column(JSON, default={})
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class MatchScore(Base):
+    __tablename__ = "match_scores"
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=False)
+    position_id = Column(Integer, ForeignKey("positions.id"), nullable=False)
+    overall_score = Column(Float, nullable=True)
+    decision = Column(String, nullable=True) # strong_match | potential_match | weak_match | not_match
+    required_skill_score = Column(Float, nullable=True)
+    preferred_skill_score = Column(Float, nullable=True)
+    experience_score = Column(Float, nullable=True)
+    seniority_score = Column(Float, nullable=True)
+    education_score = Column(Float, nullable=True)
+    language_score = Column(Float, nullable=True)
+    domain_fit_score = Column(Float, nullable=True)
+    culture_fit_score = Column(Float, nullable=True)
+    matching_skills = Column(JSON, default=[])
+    missing_skills = Column(JSON, default=[])
+    transferable_skills = Column(JSON, default=[])
+    strengths = Column(JSON, default=[])
+    risks = Column(JSON, default=[])
+    summary = Column(Text, nullable=True)
+    recommendation = Column(Text, nullable=True)
+    interview_focus_areas = Column(JSON, default=[])
+    suggested_questions = Column(JSON, default=[])
+    llm_model = Column(String, default="gemini-1.5-flash")
+    prompt_version = Column(String, default="v1.0")
+    calculated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relations
+    candidate = relationship("Candidate")
+    position = relationship("Position")

@@ -136,3 +136,109 @@ def compare_candidates(request: schemas.CandidateComparisonRequest, db: Session 
     cand1 = {"name": c1.name, "summary": c1.summary or "", "skills": safe(c1.skills), "experience": safe(c1.experience)}
     cand2 = {"name": c2.name, "summary": c2.summary or "", "skills": safe(c2.skills), "experience": safe(c2.experience)}
     return ai_analyzer.compare_candidates(cand1, cand2, position)
+
+@router.get("/with-best-position")
+def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
+    candidates = db.query(models.Candidate).all()
+    positions = db.query(models.Position).filter(models.Position.is_active == True).all()
+    
+    results = []
+    from services.llm_matcher import llm_matcher_service
+    
+    for cand in candidates:
+        best_pos = None
+        best_score = -1.0
+        best_decision = "not_match"
+        
+        # Check pre-calculated match scores
+        match_scores = db.query(models.MatchScore).filter(models.MatchScore.candidate_id == cand.id).all()
+        
+        if match_scores and positions:
+            for ms in match_scores:
+                pos = next((p for p in positions if p.id == ms.position_id), None)
+                if pos and ms.overall_score > best_score:
+                    best_score = ms.overall_score
+                    best_pos = pos
+                    best_decision = ms.decision
+        
+        # If not pre-calculated, evaluate
+        if best_score == -1.0 and positions:
+            for pos in positions:
+                try:
+                    ms = llm_matcher_service.match_candidate_position(cand.id, pos.id, db)
+                    if ms.overall_score > best_score:
+                        best_score = ms.overall_score
+                        best_pos = pos
+                        best_decision = ms.decision
+                except Exception:
+                    pass
+                    
+        results.append({
+            "id": cand.id,
+            "name": cand.name,
+            "email": cand.email,
+            "phone": cand.phone,
+            "skills": cand.skills or [],
+            "seniority_level": cand.seniority_level,
+            "rating": cand.rating,
+            "is_favorite": cand.is_favorite,
+            "is_blacklisted": cand.is_blacklisted,
+            "best_position": {
+                "id": best_pos.id if best_pos else None,
+                "title": best_pos.title if best_pos else "Eşleşme Yok",
+                "department": best_pos.department if best_pos else None
+            } if best_pos else None,
+            "best_score": best_score if best_score != -1.0 else 0.0,
+            "best_decision": best_decision
+        })
+        
+    return results
+
+@router.get("/{candidate_id}/best-position")
+def get_candidate_best_position(candidate_id: int, db: Session = Depends(database.get_db)):
+    candidate = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+        
+    positions = db.query(models.Position).filter(models.Position.is_active == True).all()
+    if not positions:
+        return {"best_position": None, "score": 0, "decision": "not_match"}
+        
+    from services.llm_matcher import llm_matcher_service
+    best_pos = None
+    best_score = -1.0
+    best_decision = "not_match"
+    best_match_details = None
+    
+    for pos in positions:
+        try:
+            match_score = llm_matcher_service.match_candidate_position(candidate.id, pos.id, db)
+            if match_score.overall_score > best_score:
+                best_score = match_score.overall_score
+                best_pos = pos
+                best_decision = match_score.decision
+                best_match_details = {
+                    "id": match_score.id,
+                    "overall_score": match_score.overall_score,
+                    "decision": match_score.decision,
+                    "strengths": match_score.strengths,
+                    "risks": match_score.risks,
+                    "summary": match_score.summary,
+                    "recommendation": match_score.recommendation
+                }
+        except Exception:
+            pass
+            
+    if best_pos:
+        return {
+            "best_position": {
+                "id": best_pos.id,
+                "title": best_pos.title,
+                "department": best_pos.department
+            },
+            "score": best_score,
+            "decision": best_decision,
+            "match_details": best_match_details
+        }
+    return {"best_position": None, "score": 0, "decision": "not_match"}
+
