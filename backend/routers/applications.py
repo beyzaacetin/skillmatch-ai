@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timezone
 import json
-from .. import models, schemas, database
-from ..services.matcher import matcher_service
+import models, schemas, database
+from services.matcher import matcher_service
 
 router = APIRouter()
 
@@ -100,7 +100,7 @@ def update_status(app_id: int, data: schemas.ApplicationStatusUpdate, db: Sessio
     db.commit()
     
     # Log the transition
-    from .candidates import _log
+    from routers.candidates import _log
     _log(db, "status_changed", "application", a.id, {"from": old_status, "to": a.status, "candidate_id": a.candidate_id})
     
     return {"status": a.status}

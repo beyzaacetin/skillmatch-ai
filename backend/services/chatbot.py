@@ -1,6 +1,6 @@
 import google.generativeai as genai
 from sqlalchemy.orm import Session
-from .. import models
+import models
 import os
 from dotenv import load_dotenv
 
