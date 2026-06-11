@@ -1277,7 +1277,7 @@ createApp({
 
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
-      allUsers, loadUsers, updateUserRole, deleteUser,
+      allUsers, loadUsers,
     };
   }
 }).mount('#app');
