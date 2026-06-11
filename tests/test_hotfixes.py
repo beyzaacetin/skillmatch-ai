@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from database import Base, get_db
 from main import app
 import models
+from config import settings
 from services.llm_matcher import extract_and_parse_json, validate_llm_data, llm_matcher_service
 from services.semantic_matcher import semantic_matcher
 
@@ -80,7 +81,7 @@ def test_delete_candidate_with_match_scores():
         candidate_id=candidate.id,
         position_id=position.id,
         overall_score=85.0,
-        llm_model="gemini-2.0-flash"
+        llm_model=settings.GEMINI_MODEL
     )
     db.add(match_score)
     db.commit()

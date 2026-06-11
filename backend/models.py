@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Float, Boo
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
+from config import settings
 
 # ─── MEVCUT (v3) ─────────────────────────────────────────────────────────────
 
@@ -217,7 +218,7 @@ class MatchScore(Base):
     recommendation = Column(Text, nullable=True)
     interview_focus_areas = Column(JSON, default=[])
     suggested_questions = Column(JSON, default=[])
-    llm_model = Column(String, default="gemini-2.0-flash")
+    llm_model = Column(String, default=lambda: settings.GEMINI_MODEL)
     prompt_version = Column(String, default="v1.0")
     calculated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
