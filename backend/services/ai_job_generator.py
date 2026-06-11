@@ -1,3 +1,4 @@
+from config import settings
 import google.generativeai as genai
 import os
 import json
@@ -12,8 +13,8 @@ if API_KEY:
 
 class AIJobGenerator:
     def __init__(self):
-        # Using gemini-flash-latest as verified working
-        self.model = genai.GenerativeModel('gemini-flash-latest')
+        # Using centralized model config
+        self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
 
     def generate_job_specs(self, title: str):
         """

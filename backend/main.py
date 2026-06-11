@@ -28,7 +28,10 @@ try:
             "ALTER TABLE interviews ADD COLUMN ai_recommendation VARCHAR(255)",
             "ALTER TABLE interviews ADD COLUMN next_step VARCHAR(255)",
             "ALTER TABLE candidates ADD COLUMN cv_file_path TEXT",
-            "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT"
+            "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT",
+            "ALTER TABLE candidates ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE candidates ADD COLUMN deleted_at TIMESTAMP",
+            "ALTER TABLE candidates ADD COLUMN deleted_by VARCHAR(255)"
         ]
         for q in queries:
             try:

@@ -15,6 +15,94 @@ if API_KEY:
     genai.configure(api_key=API_KEY)
 
 
+def extract_and_parse_json(text: str) -> dict:
+    cleaned = text.strip()
+    
+    # 1. Remove markdown code fences if present
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+        
+    # 2. Extract first {...} block
+    start_idx = cleaned.find("{")
+    end_idx = cleaned.rfind("}")
+    if start_idx == -1 or end_idx == -1 or start_idx > end_idx:
+        raise ValueError(f"No valid JSON object found in text: {text[:200]}")
+    
+    json_str = cleaned[start_idx:end_idx+1]
+    
+    # 3. Handle trailing commas before closing braces/brackets
+    import re
+    json_str_clean = re.sub(r',\s*([\]}])', r'\1', json_str)
+    
+    # Try parsing
+    try:
+        return json.loads(json_str_clean)
+    except Exception as e:
+        # Fallback to original extracted block
+        try:
+            return json.loads(json_str)
+        except Exception:
+            raise ValueError(f"JSON parsing failed: {e}. Cleaned string: {json_str_clean}")
+
+def validate_llm_data(data: dict) -> dict:
+    if not isinstance(data, dict):
+        raise ValueError("Parsed JSON is not a dictionary")
+        
+    # Check overall_score
+    if "overall_score" not in data:
+        raise ValueError("Missing overall_score in LLM response")
+    try:
+        data["overall_score"] = float(data["overall_score"])
+    except (ValueError, TypeError):
+        raise ValueError("overall_score is not a valid number")
+        
+    # Ensure other expected keys exist with fallback defaults
+    defaults = {
+        "decision": "potential_match",
+        "required_skill_score": 50.0,
+        "preferred_skill_score": 50.0,
+        "experience_score": 50.0,
+        "seniority_score": 50.0,
+        "education_score": 50.0,
+        "language_score": 50.0,
+        "domain_fit_score": 50.0,
+        "culture_fit_score": 50.0,
+        "matching_skills": [],
+        "missing_skills": [],
+        "transferable_skills": [],
+        "strengths": [],
+        "risks": [],
+        "summary": "Analiz tamamlandı.",
+        "recommendation": "",
+        "interview_focus_areas": [],
+        "suggested_questions": []
+    }
+    
+    for key, def_val in defaults.items():
+        if key not in data or data[key] is None:
+            data[key] = def_val
+        else:
+            # Cast numeric fields
+            if isinstance(def_val, float):
+                try:
+                    data[key] = float(data[key])
+                except (ValueError, TypeError):
+                    data[key] = def_val
+            # Ensure list fields are list
+            elif isinstance(def_val, list):
+                if not isinstance(data[key], list):
+                    data[key] = [str(data[key])] if data[key] else []
+            # Ensure string fields are string
+            elif isinstance(def_val, str):
+                data[key] = str(data[key])
+                
+    return data
+
 class LLMMatcherService:
     def calculate_combined_score(self, llm_overall: float, skill_overlap_ratio: float, experience_fit_ratio: float) -> float:
         # Birleşik Skor = %70 LLM overall_score + %20 Skill Overlap + %10 Rule-based experience/seniority
@@ -67,7 +155,7 @@ class LLMMatcherService:
         return 0.25
 
     def match_candidate_position(self, candidate_id: int, position_id: int, db: Session, force_recalculate: bool = False) -> models.MatchScore:
-        candidate = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+        candidate = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
         position = db.query(models.Position).filter(models.Position.id == position_id).first()
         
         if not candidate or not position:
@@ -79,7 +167,7 @@ class LLMMatcherService:
             models.MatchScore.position_id == position_id
         ).first()
 
-        if match_score and match_score.overall_score is not None and match_score.llm_model != "rule-fallback" and not force_recalculate:
+        if match_score and match_score.overall_score is not None and not force_recalculate:
             return match_score
 
         # Calculate rule-based components
@@ -91,7 +179,7 @@ class LLMMatcherService:
         if API_KEY:
             try:
                 # Setup prompt
-                model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+                model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
                 
                 candidate_info = {
                     "name": candidate.name,
@@ -119,13 +207,13 @@ class LLMMatcherService:
                 Aşağıdaki aday bilgilerini ve pozisyon detaylarını analiz et.
                 Adayın bu pozisyona uygunluğunu 0-100 arası puanlayarak detaylı bir eşleştirme analizi yap.
                 TÜM YAZILI DEĞERLENDİRMELERİ VE METİNLERİ TÜRKÇE OLARAK DÖN.
-
+ 
                 ADAY BİLGİLERİ:
                 {json.dumps(candidate_info, ensure_ascii=False)}
-
+ 
                 POZİSYON DETAYLARI:
                 {json.dumps(position_info, ensure_ascii=False)}
-
+ 
                 ANALİZ YÖNERGELERİ:
                 1. overall_score: 0-100 arası tam sayı. Adayın pozisyonla genel uyumu.
                 2. decision: "strong_match" (güçlü), "potential_match" (olası), "weak_match" (zayıf), veya "not_match" (uygun değil).
@@ -146,7 +234,7 @@ class LLMMatcherService:
                 17. recommendation: İşe alım yöneticisine yönelik Türkçe tavsiye.
                 18. interview_focus_areas: Mülakatta odaklanılması gereken Türkçe konular/alanlar listesi.
                 19. suggested_questions: Bu adaya özel mülakatta sorulabilecek 3 adet Türkçe soru.
-
+ 
                 ÇIKTI ŞABLONU (Strict JSON):
                 {{
                   "overall_score": 85,
@@ -171,11 +259,19 @@ class LLMMatcherService:
                 }}
                 """
                 response = model.generate_content(prompt)
-                clean_text = response.text.replace("```json", "").replace("```", "").strip()
-                llm_data = json.loads(clean_text)
+                llm_data = extract_and_parse_json(response.text)
+                llm_data = validate_llm_data(llm_data)
                 llm_success = True
+                logger.info("LLM matching succeeded")
             except Exception as e:
-                logger.error(f"LLM Matcher failed, falling back to keyword/semantic matcher: {e}")
+                # Log raw response safely if possible
+                raw_text = None
+                try:
+                    if 'response' in locals() and response is not None:
+                        raw_text = response.text
+                except Exception:
+                    pass
+                logger.error(f"LLM failed, rule fallback used. Error: {e}. Raw response: {raw_text}")
 
         # Fallback if LLM failed or API_KEY is missing
         if not llm_data:
@@ -187,12 +283,15 @@ class LLMMatcherService:
             semantic_score_100 = 50.0
             try:
                 from services.semantic_matcher import semantic_matcher
-                exp_text = " ".join([f"{e.get('title','')} {e.get('description','')}" for e in (candidate.experience or [])])
-                cand_text = f"{candidate.name} {candidate.summary} {' '.join(candidate.skills or [])} {exp_text}"
-                pos_text = f"{position.title} {position.description} {' '.join(position.required_skills or [])}"
-                val = semantic_matcher.calculate_semantic_score(cand_text, pos_text)
-                if val > 0:
-                    semantic_score_100 = val
+                if semantic_matcher.model is not None:
+                    exp_text = " ".join([f"{e.get('title','')} {e.get('description','')}" for e in (candidate.experience or [])])
+                    cand_text = f"{candidate.name} {candidate.summary} {' '.join(candidate.skills or [])} {exp_text}"
+                    pos_text = f"{position.title} {position.description} {' '.join(position.required_skills or [])}"
+                    val = semantic_matcher.calculate_semantic_score(cand_text, pos_text)
+                    if val > 0:
+                        semantic_score_100 = val
+                    else:
+                        semantic_score_100 = max(50.0, keyword_score_100)
                 else:
                     semantic_score_100 = max(50.0, keyword_score_100)
             except Exception as ml_err:
@@ -269,7 +368,7 @@ class LLMMatcherService:
         match_score.recommendation = llm_data.get("recommendation")
         match_score.interview_focus_areas = llm_data.get("interview_focus_areas", [])
         match_score.suggested_questions = llm_data.get("suggested_questions", [])
-        match_score.llm_model = "gemini-flash-latest" if llm_success else "rule-fallback"
+        match_score.llm_model = settings.GEMINI_MODEL if llm_success else "rule-fallback"
         match_score.prompt_version = "v1.0"
         match_score.calculated_at = datetime.utcnow()
 

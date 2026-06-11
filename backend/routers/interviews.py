@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import json, os
 import models, schemas, database
+from config import settings
 
 router = APIRouter()
 
@@ -11,7 +12,7 @@ def _get_gemini():
         import google.generativeai as genai
         key = os.getenv("GEMINI_API_KEY")
         if key: genai.configure(api_key=key)
-        return genai.GenerativeModel('gemini-flash-latest') if key else None
+        return genai.GenerativeModel(settings.GEMINI_MODEL) if key else None
     except: return None
 
 @router.post("/", response_model=schemas.InterviewOut, status_code=201)
@@ -97,7 +98,7 @@ JSON formatında döndür:
 """
     try:
         m = __import__("google.generativeai", fromlist=["GenerativeModel"])
-        model2 = m.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+        model2 = m.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
         key = os.getenv("GEMINI_API_KEY")
         if key: m.configure(api_key=key)
         resp = model2.generate_content(prompt)
@@ -195,7 +196,7 @@ def analyze_notes_endpoint(iv_id: int, data: schemas.InterviewNotesAnalysisReque
 
 @router.post("/ai/interview-questions", response_model=schemas.InterviewQuestionsResponse)
 def generate_questions_endpoint(data: schemas.InterviewQuestionsRequest, db: Session = Depends(database.get_db)):
-    cand = db.query(models.Candidate).filter(models.Candidate.id == data.candidate_id).first()
+    cand = db.query(models.Candidate).filter(models.Candidate.id == data.candidate_id, models.Candidate.is_deleted == False).first()
     pos = db.query(models.Position).filter(models.Position.id == data.position_id).first()
     if not cand or not pos:
         raise HTTPException(status_code=404, detail="Aday veya pozisyon bulunamadı")

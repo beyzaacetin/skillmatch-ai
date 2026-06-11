@@ -1,3 +1,4 @@
+from config import settings
 import google.generativeai as genai
 import os
 import json
@@ -13,13 +14,13 @@ if API_KEY:
 
 def analyze_cv(text: str):
     """
-    Analyzes CV text using Gemini 1.5 Pro to extract structured data.
+    Analyzes CV text using Gemini to extract structured data.
     """
     if not API_KEY:
         # Return mock data if no API key is found
         return get_mock_data()
 
-    model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+    model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
     
     prompt = f"""
     Sen uzman bir İK Yapay Zeka Asistanısın. Aşağıdaki CV metnini analiz et ve yapılandırılmış bilgileri çıkar.
@@ -107,7 +108,7 @@ def compare_candidates(candidate1: dict, candidate2: dict, position: dict = None
             "comparison_table": []
         }
 
-    model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+    model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
     
     position_context = ""
     if position:
@@ -179,7 +180,7 @@ def deep_rank_candidates(position_dict: dict, candidates_list: list, all_positio
     if not API_KEY:
         raise Exception("API Key eksik. Explainable AI çalıştırılamıyor.")
 
-    model = genai.GenerativeModel('gemini-1.5-pro-latest', generation_config={"response_mime_type": "application/json"})
+    model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
     
     # Trim candidate data to fit within reasonable prompt size
     trimmed_candidates = []

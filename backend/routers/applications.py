@@ -80,14 +80,14 @@ def create_application(data: schemas.ApplicationCreate, db: Session = Depends(da
 
 @router.get("/", response_model=List[schemas.ApplicationOut])
 def list_applications(position_id: Optional[int]=None, status: Optional[str]=None, db: Session = Depends(database.get_db)):
-    q = db.query(models.Application).options(joinedload(models.Application.candidate), joinedload(models.Application.position))
+    q = db.query(models.Application).join(models.Candidate).filter(models.Candidate.is_deleted == False).options(joinedload(models.Application.candidate), joinedload(models.Application.position))
     if position_id: q = q.filter(models.Application.position_id == position_id)
     if status: q = q.filter(models.Application.status == status)
     return q.order_by(models.Application.applied_at.desc()).all()
 
 @router.get("/pipeline")
 def get_pipeline(position_id: Optional[int]=None, db: Session = Depends(database.get_db)):
-    q = db.query(models.Application).options(joinedload(models.Application.candidate), joinedload(models.Application.position))
+    q = db.query(models.Application).join(models.Candidate).filter(models.Candidate.is_deleted == False).options(joinedload(models.Application.candidate), joinedload(models.Application.position))
     if position_id: q = q.filter(models.Application.position_id == position_id)
     apps = q.order_by(models.Application.match_score.desc().nullslast()).all()
     stages = ["applied", "screening", "hr_interview", "tech_interview", "manager_interview", "reference_check", "offer", "hired", "rejected", "hold"]
@@ -133,7 +133,7 @@ def _app_dict(a):
 @router.get("/{app_id}", response_model=schemas.ApplicationOut)
 def get_application(app_id: int, db: Session = Depends(database.get_db)):
     a = _load(app_id, db)
-    if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+    if not a or (a.candidate and a.candidate.is_deleted): raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
     return a
 
 @router.patch("/{app_id}/status")

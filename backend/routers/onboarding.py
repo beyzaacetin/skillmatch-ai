@@ -4,6 +4,7 @@ from typing import List
 from datetime import datetime, timezone
 import json, os
 import models, database
+from config import settings
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ def generate_checklist(app_id: int, db: Session = Depends(database.get_db)):
         try:
             import google.generativeai as genai
             genai.configure(api_key=key)
-            model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+            model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
             prompt = f"""
 {app.position.title} pozisyonu için 3-4 ek onboarding görevi öner.
 Departman: {app.position.department or 'Genel'}

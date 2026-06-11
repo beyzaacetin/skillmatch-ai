@@ -1,3 +1,4 @@
+from config import settings
 import google.generativeai as genai
 from sqlalchemy.orm import Session
 import models
@@ -13,14 +14,14 @@ if API_KEY:
 
 class ChatbotService:
     def __init__(self):
-        # Use a model confirmed to be in the user's available list
-        self.model = genai.GenerativeModel('gemini-flash-latest')
+        # Use centralized GEMINI_MODEL
+        self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
         # We don't use stateful history list here anymore for robustness in this simple structure.
         # We will build prompt per request.
 
     def get_context(self, db: Session):
         """Retrieves all candidates and positions to form the context."""
-        candidates = db.query(models.Candidate).all()
+        candidates = db.query(models.Candidate).filter(models.Candidate.is_deleted == False).all()
         positions = db.query(models.Position).all()
         
         context_str = "--- CURRENT DATABASE CONTEXT ---\n"

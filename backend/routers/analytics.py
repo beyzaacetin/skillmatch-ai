@@ -11,7 +11,7 @@ router = APIRouter()
 @router.get("/stats")
 def get_stats(position_id: Optional[int] = None, date_range: Optional[str] = "30d", db: Session = Depends(database.get_db)):
     # 1. Base candidate/position queries
-    candidate_query = db.query(models.Candidate)
+    candidate_query = db.query(models.Candidate).filter(models.Candidate.is_deleted == False)
     position_query = db.query(models.Position).filter(models.Position.is_active == True)
     app_query = db.query(models.Application)
     
@@ -76,7 +76,7 @@ def get_stats(position_id: Optional[int] = None, date_range: Optional[str] = "30
     top_candidates = []
     top_apps = app_query.order_by(models.Application.match_score.desc()).limit(5).all()
     for app in top_apps:
-        cand = db.query(models.Candidate).filter(models.Candidate.id == app.candidate_id).first()
+        cand = db.query(models.Candidate).filter(models.Candidate.id == app.candidate_id, models.Candidate.is_deleted == False).first()
         pos = db.query(models.Position).filter(models.Position.id == app.position_id).first()
         if cand and pos:
             top_candidates.append({
@@ -138,9 +138,9 @@ def get_stats(position_id: Optional[int] = None, date_range: Optional[str] = "30
                 "data": list(sources_data.values())[:5]
             },
             "seniority": {
-                "Junior": db.query(models.Candidate).filter(models.Candidate.seniority_level == "Giriş Seviyesi").count(),
-                "Mid": db.query(models.Candidate).filter(models.Candidate.seniority_level == "Orta Seviye").count(),
-                "Senior": db.query(models.Candidate).filter(models.Candidate.seniority_level == "Kıdemli").count()
+                "Junior": db.query(models.Candidate).filter(models.Candidate.seniority_level == "Giriş Seviyesi", models.Candidate.is_deleted == False).count(),
+                "Mid": db.query(models.Candidate).filter(models.Candidate.seniority_level == "Orta Seviye", models.Candidate.is_deleted == False).count(),
+                "Senior": db.query(models.Candidate).filter(models.Candidate.seniority_level == "Kıdemli", models.Candidate.is_deleted == False).count()
             }
         },
         "performance": {

@@ -84,12 +84,18 @@ async def upload_cv(file: UploadFile = File(...), db: Session = Depends(database
     return db_candidate
 
 @router.get("/", response_model=List[schemas.Candidate])
-def read_candidates(skip: int = 0, limit: int = 200, db: Session = Depends(database.get_db)):
-    return db.query(models.Candidate).offset(skip).limit(limit).all()
+def read_candidates(skip: int = 0, limit: int = 200, include_deleted: bool = False, db: Session = Depends(database.get_db)):
+    q = db.query(models.Candidate)
+    if not include_deleted:
+        q = q.filter(models.Candidate.is_deleted == False)
+    return q.offset(skip).limit(limit).all()
 
 @router.get("/with-best-position")
-def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
-    candidates = db.query(models.Candidate).all()
+def get_candidates_with_best_position(include_deleted: bool = False, db: Session = Depends(database.get_db)):
+    q = db.query(models.Candidate)
+    if not include_deleted:
+        q = q.filter(models.Candidate.is_deleted == False)
+    candidates = q.all()
     positions = db.query(models.Position).filter(models.Position.is_active == True).all()
     
     results = []
@@ -111,8 +117,6 @@ def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
                     best_pos = pos
                     best_decision = ms.decision
         
-
-                    
         results.append({
             "id": cand.id,
             "name": cand.name,
@@ -151,15 +155,14 @@ def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
 
 @router.get("/{candidate_id}", response_model=schemas.Candidate)
 def read_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     return c
 
-
 @router.patch("/{candidate_id}/rating")
 def update_rating(candidate_id: int, data: schemas.CandidateRatingUpdate, db: Session = Depends(database.get_db)):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.rating = max(1, min(5, data.rating))
@@ -168,7 +171,7 @@ def update_rating(candidate_id: int, data: schemas.CandidateRatingUpdate, db: Se
 
 @router.patch("/{candidate_id}/notes")
 def update_notes(candidate_id: int, data: schemas.CandidateNotesUpdate, db: Session = Depends(database.get_db)):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.notes = data.notes
@@ -177,7 +180,7 @@ def update_notes(candidate_id: int, data: schemas.CandidateNotesUpdate, db: Sess
 
 @router.patch("/{candidate_id}/favorite")
 def toggle_favorite(candidate_id: int, db: Session = Depends(database.get_db)):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.is_favorite = not c.is_favorite
@@ -186,7 +189,7 @@ def toggle_favorite(candidate_id: int, db: Session = Depends(database.get_db)):
 
 @router.patch("/{candidate_id}/blacklist")
 def toggle_blacklist(candidate_id: int, reason: str = Body(None, embed=True), db: Session = Depends(database.get_db)):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c: raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.is_blacklisted = not c.is_blacklisted
     c.blacklist_reason = reason if c.is_blacklisted else None
@@ -195,19 +198,52 @@ def toggle_blacklist(candidate_id: int, reason: str = Body(None, embed=True), db
 
 @router.delete("/{candidate_id}")
 def delete_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    from datetime import datetime
+    c.is_deleted = True
+    c.deleted_at = datetime.utcnow()
+    c.deleted_by = "admin"
+    db.commit()
+    return {"ok": True}
+
+@router.put("/{candidate_id}/restore")
+def restore_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c.is_deleted = False
+    c.deleted_at = None
+    c.deleted_by = None
+    db.commit()
+    return {"ok": True, "message": "Aday başarıyla geri yüklendi"}
+
+@router.delete("/{candidate_id}/hard-delete")
+def hard_delete_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
+    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+        
+    # Delete related match_scores
+    db.query(models.MatchScore).filter(models.MatchScore.candidate_id == candidate_id).delete()
+    
+    # Delete onboarding tasks for candidate's applications
+    app_ids = [a.id for a in c.applications]
+    if app_ids:
+        db.query(models.OnboardingTask).filter(models.OnboardingTask.application_id.in_(app_ids)).delete(synchronize_session=False)
+        
+    # Cascade delete (applications, interviews, offers) is handled via relationship cascade
     db.delete(c)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "message": "Aday ve tüm ilişkili veriler kalıcı olarak silindi"}
 
 @router.post("/compare", response_model=schemas.CandidateComparisonResponse)
 def compare_candidates(request: schemas.CandidateComparisonRequest, db: Session = Depends(database.get_db)):
     if len(request.candidate_ids) != 2:
         raise HTTPException(status_code=400, detail="Tam 2 aday ID gerekli")
-    c1 = db.query(models.Candidate).filter(models.Candidate.id == request.candidate_ids[0]).first()
-    c2 = db.query(models.Candidate).filter(models.Candidate.id == request.candidate_ids[1]).first()
+    c1 = db.query(models.Candidate).filter(models.Candidate.id == request.candidate_ids[0], models.Candidate.is_deleted == False).first()
+    c2 = db.query(models.Candidate).filter(models.Candidate.id == request.candidate_ids[1], models.Candidate.is_deleted == False).first()
     if not c1 or not c2:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     position = None
@@ -220,10 +256,9 @@ def compare_candidates(request: schemas.CandidateComparisonRequest, db: Session 
     cand2 = {"name": c2.name, "summary": c2.summary or "", "skills": safe(c2.skills), "experience": safe(c2.experience)}
     return ai_analyzer.compare_candidates(cand1, cand2, position)
 
-
 @router.get("/{candidate_id}/best-position")
 def get_candidate_best_position(candidate_id: int, db: Session = Depends(database.get_db)):
-    candidate = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
+    candidate = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
         

@@ -31,6 +31,9 @@ class CandidateSimple(CandidateBase):
     is_blacklisted: bool = False
     blacklist_reason: Optional[str] = None
     ai_profile_summary: Optional[str] = None
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
     created_at: datetime
     class Config:
         from_attributes = True
@@ -45,6 +48,9 @@ class Candidate(CandidateBase):
     is_blacklisted: bool = False
     blacklist_reason: Optional[str] = None
     ai_profile_summary: Optional[str] = None
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
     created_at: datetime
     class Config:
         from_attributes = True

@@ -135,7 +135,7 @@ def translate_with_gemini(data: dict) -> dict:
         logger.warning("No Gemini API key configured for translation.")
         return data
 
-    model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+    model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
     
     prompt = f"""
     Sen uzman bir İK çevirmenisin. Aşağıda verilen adayın İngilizce İK bilgilerini Türkçe'ye çevir.

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timezone, timedelta
 import json, os
 import models, schemas, database
+from config import settings
 
 router = APIRouter()
 
@@ -74,7 +75,7 @@ def generate_letter(offer_id: int, db: Session = Depends(database.get_db)):
     try:
         import google.generativeai as genai
         genai.configure(api_key=key)
-        model = genai.GenerativeModel('gemini-flash-latest', generation_config={"response_mime_type": "application/json"})
+        model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
         prompt = f"""
 Profesyonel, sıcak ve kurumsal bir iş teklifi mektubu yaz (Türkçe).
 

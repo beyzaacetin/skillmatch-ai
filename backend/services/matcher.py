@@ -9,7 +9,7 @@ class MatcherService:
         if not position:
             return []
 
-        candidates = db.query(models.Candidate).all()
+        candidates = db.query(models.Candidate).filter(models.Candidate.is_deleted == False).all()
         matches = []
 
         from services.llm_matcher import llm_matcher_service

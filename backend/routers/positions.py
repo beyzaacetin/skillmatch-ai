@@ -37,7 +37,7 @@ def receive_feedback(feedback: schemas.FeedbackCreate, db: Session = Depends(dat
     from services.semantic_matcher import semantic_matcher
     
     # Verify existence (optional but accurate)
-    candidate = db.query(models.Candidate).filter(models.Candidate.id == feedback.candidate_id).first()
+    candidate = db.query(models.Candidate).filter(models.Candidate.id == feedback.candidate_id, models.Candidate.is_deleted == False).first()
     position = db.query(models.Position).filter(models.Position.id == feedback.position_id).first()
     
     if not candidate or not position:
@@ -102,7 +102,7 @@ def deep_analyze_candidates(position_id: int, payload: dict = Body(...), db: Ses
     if not position:
         raise HTTPException(status_code=404, detail="Position not found")
         
-    candidates = db.query(models.Candidate).filter(models.Candidate.id.in_(candidate_ids)).all()
+    candidates = db.query(models.Candidate).filter(models.Candidate.id.in_(candidate_ids), models.Candidate.is_deleted == False).all()
     if not candidates:
         raise HTTPException(status_code=404, detail="Candidates not found")
         
