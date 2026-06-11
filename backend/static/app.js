@@ -946,6 +946,40 @@ createApp({
       return bestScore > 20 ? { title: bestPos.title, score: Math.round(bestScore) } : null;
     }
 
+    function getHeatmapCount(skill, level) {
+      if (!candidates.value) return 0;
+      const lvlMap = {
+        'Giriş Seviyesi': ['giriş seviyesi', 'junior', 'entry', 'giriş'],
+        'Orta Seviye': ['orta seviye', 'mid', 'middle', 'orta'],
+        'Kıdemli': ['kıdemli', 'senior', 'lead', 'principal', 'uzman']
+      };
+      const validLvls = lvlMap[level] || [level.toLowerCase()];
+      return candidates.value.filter(c => {
+        if (c.is_deleted) return false;
+        const cSen = (c.seniority_level || '').toLowerCase();
+        const hasSkill = (c.skills || []).some(s => s.toLowerCase() === skill.toLowerCase());
+        const hasLevel = validLvls.some(vl => cSen.includes(vl));
+        return hasSkill && hasLevel;
+      }).length;
+    }
+
+    function getHeatmapColor(skill, level) {
+      const count = getHeatmapCount(skill, level);
+      if (count === 0) return 'rgba(11, 74, 58, 0.03)';
+      if (count === 1) return 'rgba(11, 74, 58, 0.15)';
+      if (count === 2) return 'rgba(11, 74, 58, 0.4)';
+      if (count === 3) return 'rgba(11, 74, 58, 0.65)';
+      return 'rgba(11, 74, 58, 0.9)';
+    }
+
+    function openCandidateByName(name) {
+      if (!candidates.value) return;
+      const cand = candidates.value.find(c => c.name === name);
+      if (cand) {
+        openCandidate(cand);
+      }
+    }
+
     // ─── INIT ─────────────────────────────────────────────────────────
     onMounted(async () => {
       await loadInitialData();
@@ -997,7 +1031,7 @@ createApp({
       handleFileSelect, handleFileDrop,
       sendChat,
       stageColor, scoreClass, stageIndex, ivTypeLabel, formatDate, calculateBestMatch,
-      showToast, viewMatchDetails,
+      showToast, viewMatchDetails, getHeatmapCount, getHeatmapColor, openCandidateByName,
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
       allUsers, loadUsers, updateUserRole, deleteUser,

@@ -1,18 +1,18 @@
-/* SkillMatch AI v4 — Light Design (HRpanda inspired) */
+/* SkillMatch AI v4 — Premium Design */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --primary:#7C3AED;--primary-light:#EDE9FE;--primary-hover:#6D28D9;
+  --primary:#0B4A3A;--primary-light:#E6F0ED;--primary-hover:#063126;
   --sidebar-w:240px;--header-h:60px;
-  --g50:#F9FAFB;--g100:#F3F4F6;--g200:#E5E7EB;--g300:#D1D5DB;
-  --g400:#9CA3AF;--g500:#6B7280;--g600:#4B5563;--g700:#374151;--g900:#111827;
-  --green:#059669;--green-bg:#D1FAE5;
+  --g50:#FAFAFA;--g100:#F4F4F5;--g200:#E4E4E7;--g300:#D4D4D8;
+  --g400:#A1A1AA;--g500:#71717A;--g600:#52525B;--g700:#3F3F46;--g900:#09090B;
+  --green:#0B4A3A;--green-bg:#E6F0ED;
   --blue:#2563EB;--blue-bg:#DBEAFE;
   --amber:#D97706;--amber-bg:#FEF3C7;
   --red:#DC2626;--red-bg:#FEE2E2;
   --r:8px;--rl:12px;
-  --sh:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
-  --sh-md:0 4px 6px -1px rgba(0,0,0,.1);
-  --sh-lg:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+  --sh:0 1px 3px rgba(0,0,0,.05),0 1px 2px rgba(0,0,0,.03);
+  --sh-md:0 4px 6px -1px rgba(0,0,0,.05);
+  --sh-lg:0 10px 15px -3px rgba(0,0,0,.05),0 4px 6px -2px rgba(0,0,0,.03);
 }
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--g50);color:var(--g900);font-size:14px;line-height:1.5}
 .app{display:flex;min-height:100vh}
@@ -228,5 +228,312 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 @keyframes toastSlideIn {
   from { transform: translateX(120%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
+}
+
+/* --- PREMIUM REDESIGN STYLES --- */
+.logo-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.logo-icon-svg {
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logo-text-container {
+  display: flex;
+  flex-direction: column;
+}
+.logo-main-text {
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.15;
+}
+.logo-sub-text {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--g500);
+  margin-top: 1px;
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(228, 228, 231, 0.6) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(11, 74, 58, 0.3) !important;
+  box-shadow: 0 10px 30px rgba(11, 74, 58, 0.05) !important;
+}
+
+/* AI Recruitment Intelligence Glow Panel */
+.glass-glow-panel {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(230, 240, 237, 0.4)) !important;
+  border: 1px solid rgba(11, 74, 58, 0.15) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.glass-glow-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 100% 0%, rgba(11, 74, 58, 0.08) 0%, transparent 60%);
+}
+.glass-glow-panel:hover {
+  transform: translateY(-2px);
+  border-color: rgba(11, 74, 58, 0.4) !important;
+  box-shadow: 0 12px 40px rgba(11, 74, 58, 0.08) !important;
+}
+
+/* Mini Sparkline */
+.sparkline-container {
+  width: 100%;
+  height: 24px;
+  margin-top: 12px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+.stat-card:hover .sparkline-container {
+  opacity: 1;
+}
+
+/* Decision Engine Flow */
+.decision-engine-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 30px 10px;
+  background: #ffffff;
+  border: 1px solid var(--g200);
+  border-radius: var(--rl);
+  position: relative;
+  overflow: hidden;
+}
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 2;
+  width: 130px;
+  transition: transform 0.2s;
+}
+.flow-node:hover {
+  transform: scale(1.05);
+}
+.node-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: bold;
+  box-shadow: inset 0 0 0 1px rgba(11, 74, 58, 0.1);
+  margin-bottom: 8px;
+}
+.node-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--g900);
+}
+.node-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--g500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+.flow-arrow {
+  flex: 1;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 10px;
+}
+.flow-arrow svg {
+  width: 100%;
+  height: 6px;
+  overflow: visible;
+}
+.flow-dash {
+  stroke-dasharray: 8, 6;
+  animation: flowDash 0.8s linear infinite;
+}
+@keyframes flowDash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+/* Circular Chart */
+.circular-chart {
+  display: block;
+  max-width: 44px;
+  max-height: 44px;
+  transition: transform 0.3s;
+}
+.circular-score-wrapper:hover .circular-chart {
+  transform: rotate(5deg) scale(1.05);
+}
+.circular-chart .circle {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.3s ease;
+}
+.circular-chart .circle-bg {
+  stroke: var(--primary-light);
+}
+
+/* Premium Candidate Cards */
+.premium-candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+.premium-cand-card {
+  background: #ffffff;
+  border: 1px solid var(--g200);
+  border-radius: var(--rl);
+  padding: 16px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.premium-cand-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+  box-shadow: 0 8px 20px rgba(11, 74, 58, 0.04);
+}
+.cand-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--g900);
+}
+.cand-position {
+  font-size: 12px;
+  color: var(--g500);
+  margin-top: 2px;
+}
+.cand-details-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--g100);
+}
+.cand-metric {
+  font-size: 11.5px;
+  color: var(--g600);
+}
+
+/* AI Talent Map Heatmap */
+.talent-map-container {
+  background: #ffffff;
+  border: 1px solid var(--g200);
+  border-radius: var(--rl);
+  padding: 24px;
+}
+.talent-map-grid {
+  display: grid;
+  grid-template-columns: 140px repeat(3, 1fr);
+  gap: 8px;
+}
+.heatmap-header-cell {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--g500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 12px;
+  text-align: center;
+}
+.heatmap-header-cell:first-child {
+  text-align: left;
+}
+.heatmap-label-cell {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--g800);
+  padding: 12px 0;
+  display: flex;
+  align-items: center;
+}
+.heatmap-cell {
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: help;
+}
+.heatmap-cell:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 10px rgba(11, 74, 58, 0.08);
+}
+.heatmap-cell-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* Forecast Cards */
+.forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.forecast-card {
+  background: #ffffff;
+  border: 1px solid var(--g200);
+  border-radius: var(--rl);
+  padding: 20px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.forecast-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+  box-shadow: 0 8px 24px rgba(11, 74, 58, 0.03);
+}
+.forecast-val {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--g900);
+}
+.forecast-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--g500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.forecast-desc {
+  font-size: 12px;
+  color: var(--g400);
+  margin-top: 6px;
+  line-height: 1.4;
 }
 
