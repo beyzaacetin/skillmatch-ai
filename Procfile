@@ -1,2 +1,3 @@
-web: python run_prod.py
+web: python3 run_prod.py
+
  
