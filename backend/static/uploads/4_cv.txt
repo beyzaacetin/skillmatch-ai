@@ -1,0 +1,39 @@
+SKILLMATCH AI - ADAY ÖZGEÇMİŞ RAPORU
+
+ADAY: Büşra Karabaş
+E-POSTA: busrakarabaas@outlook.com
+TELEFON: +90 505 929 29 96
+
+PROFESYONEL ÖZET:
+Highly motivated Electrical and Electronics Engineering graduate specializing in embedded systems. Experienced in R&D projects both in Turkey and abroad, with a strong foundation in embedded system design, development, and optimization. Skilled in various communication protocols and microcontrollers.
+
+YETKİNLİKLER:
+C/C++, Python, Linux, STM32CubeIDE, Visual Studio, Keil uVision, Matlab, ARDUINO, LTspice, PyCharm, Microsoft Office, CAN, UART/USART, MODBUS, RS-232, I2C, I2S, SPI, Altium Designer, STM32, EFM8, Raspberry Pi, English (Fluent), Polish (Beginner)
+
+İŞ DENEYİMİ:
+- Proje Mühendisi @ PNP Elektrik Enstruman Otomasyon Tic.Ltd.Şti. (Ekim 2024 - Şubat 2025)
+  Managed project proposals, budgeting, resource planning, and risk management. Coordinated with international customers and suppliers across different time zones.
+- Junior Gömülü Sistem Mühendisi @ Cyfrowy Polsat S.A / Polonya (Mayıs 2023 - Mayıs 2024)
+  Worked on embedded software projects for various microcontrollers (EFM8/STM32). Successfully implemented UART and I2C protocols.
+- İşe Alım Uzmanı @ Royal Work Sp. z o o Sp. k. / Polonya (Mayıs 2022 - Mayıs 2023)
+  Ensured new employees reached full productivity in their roles. Improved incident response reports and strengthened communication between employees and managers.
+- Intern @ Gempa Electro Mechanical Engineering Ltd. Sti. (Şubat 2021 - Mayıs 2021)
+  Worked on embedded software for military devices. Contributed to position and orientation detection by enabling communication between Raspberry Pi and gravity sensing components.
+- Intern @ Lapis Aviation Inc. (Eylül 2020 - Ocak 2021)
+  Participated in drone production for military operations, focusing on PCB design (Altium Designer) and embedded systems (STM32).
+- Intern @ Istanbul Metro Line (June 2016 - August 2016)
+  Worked on low voltage (LV) and high voltage (HV) lines and diagrams within the electrical department.
+
+EĞİTİM:
+- Elektrik Elektronik Mühendisliği - Süleyman Demirel Üniversitesi (Mezun)
+
+GÜÇLÜ YÖNLER:
+- Strong knowledge of communication protocols (UART, I2C, SPI, CAN)
+- International work experience in Poland
+- Diverse project portfolio covering robotics, sensing, and web scraping
+- Multilingual (Turkish, English, Polish)
+
+GELİŞİM ALANLARI:
+- Limited long-term professional engineering tenure
+- Career path includes a transition from Recruitment back to Engineering
+- Polish language proficiency is at a beginner level

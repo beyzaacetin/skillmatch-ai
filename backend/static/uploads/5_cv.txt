@@ -1,0 +1,33 @@
+SKILLMATCH AI - ADAY ÖZGEÇMİŞ RAPORU
+
+ADAY: Elif Arslan
+E-POSTA: elif.arslan@email.com
+TELEFON: +90 543 211 0987
+
+PROFESYONEL ÖZET:
+Junior Data Scientist and Computer Engineering graduate with High Honors. Strong academic and practical background in machine learning and deep learning, specifically NLP. Developed a sentiment analysis model with 91.4% accuracy for a graduation project. Proficient in Python, SQL, and major ML frameworks with a top 15% ranking in Kaggle competitions.
+
+YETKİNLİKLER:
+Python, SQL, Pandas, NumPy, Scikit-learn, TensorFlow, Keras, XGBoost, Matplotlib, Seaborn, Plotly, Power BI, NLP (NLTK, spaCy), Feature Engineering, Model Tuning, A/B Testing, Git / GitHub, Jupyter Notebook, Google Colab, Docker (Basic)
+
+İŞ DENEYİMİ:
+- Data Science Intern @ Getir (2024-2024)
+  Developed a gradient boosting model for customer churn prediction achieving 78% precision/recall balance. Optimized ETL pipelines reducing processing time by 40%. Designed weekly product performance dashboards and analyzed A/B test results for conversion rate optimization.
+- Research Assistant — AI Lab @ ITU AI Lab (2024-2024)
+  Performed BERT-based model fine-tuning for Turkish text classification. Managed literature review and data cleaning for academic datasets. Contributed to the lab's GitHub repository.
+- Software Developer Intern @ Softtech (2023-2023)
+  Developed fintech data integration modules using Python and REST APIs. Improved code quality and increased test coverage to 67% through unit testing.
+
+EĞİTİM:
+- B.Sc. Computer Engineering (3.74/4.00 — High Honors) - Istanbul Technical University (ITU) (2024)
+
+GÜÇLÜ YÖNLER:
+- High academic achievement from a top-tier technical university
+- Hands-on internship experience at reputable tech companies (Getir, Softtech)
+- Specialized knowledge in NLP and Deep Learning
+- Proven proficiency with industry-standard certifications (TensorFlow, IBM)
+
+GELİŞİM ALANLARI:
+- Transition from internship to full-time professional experience
+- Advanced containerization and orchestration (Docker/Kubernetes)
+- Exposure to cloud-native data tools (AWS/GCP/Azure)

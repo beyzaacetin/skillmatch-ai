@@ -1,0 +1,32 @@
+SKILLMATCH AI - ADAY ÖZGEÇMİŞ RAPORU
+
+ADAY: Zeynep Kaya
+E-POSTA: zeynep.kaya@email.com
+TELEFON: +90 505 334 2211
+
+PROFESYONEL ÖZET:
+Revenue Management Specialist with 4 years of experience across aviation and hospitality sectors. Expert in data-driven pricing strategies, capacity optimization, and analytical reporting using tools like IDeaS, STR Reports, and OTA Insight. Proven track record in RevPAR growth and channel mix optimization.
+
+YETKİNLİKLER:
+STR Reports, IDeaS G3 RMS, OTA Insight, RateGain, SQL (Intermediate), Excel (Advanced), Power BI, Tableau, Booking.com Extranet, Expedia Partner Central, Channel Manager, PMS Integration, Pricing Strategy, Demand Forecasting, Segmentation Analysis, Group Pricing, MICE Analysis, ADR / RevPAR Optimization, Profit Analysis, Reporting
+
+İŞ DENEYİMİ:
+- Revenue Management Specialist @ Marriott International — Türkiye Regional Office (2023-Present)
+  Managed central revenue for 3 hotels with 850+ rooms. Maintained RevPAR growth 12% above market average using IDeaS G3 RMS. Increased direct booking rate by 8% and improved MICE conversion by 23%.
+- Revenue Analyst @ Corendon Airlines (2021-2022)
+  Developed data models for dynamic flight pricing across 150+ routes. Created a competitor price tracking dashboard reducing response time by 35%. Optimized load factors through seasonal demand forecasting.
+- Revenue Management Intern @ Rixos Hotels (2020-2021)
+  Monitored market penetration index via STR Reports and managed OTA price parity controls.
+
+EĞİTİM:
+- Bachelor of Business Administration (English) - Boğaziçi University (2020)
+
+GÜÇLÜ YÖNLER:
+- Advanced analytical tools proficiency (IDeaS, SQL, Power BI)
+- Cross-industry experience (Aviation and Hospitality)
+- Strong educational background from a top-tier university
+- Demonstrable KPI improvements (RevPAR, Direct Bookings)
+
+GELİŞİM ALANLARI:
+- Could transition into regional leadership or senior management roles
+- Further development in advanced data science (Python/R) for revenue modeling

@@ -15,6 +15,8 @@ class CandidateBase(BaseModel):
     seniority_score: Optional[float] = None
     strengths: List[str] = []
     areas_for_improvement: List[str] = []
+    cv_file_path: Optional[str] = None
+    cv_file_data: Optional[str] = None
 
 class CandidateCreate(CandidateBase):
     original_filename: str

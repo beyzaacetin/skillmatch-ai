@@ -57,6 +57,28 @@ async def upload_cv(file: UploadFile = File(...), db: Session = Depends(database
     db.commit()
     db.refresh(db_candidate)
     
+    # Save CV file to static/uploads
+    try:
+        import os, re
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        safe_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename)
+        dest_filename = f"{db_candidate.id}_{safe_filename}"
+        file_path = os.path.join(upload_dir, dest_filename)
+        
+        with open(file_path, "wb") as f:
+            f.write(content)
+            
+        import base64
+        db_candidate.cv_file_data = base64.b64encode(content).decode('utf-8')
+        db_candidate.cv_file_path = f"/static/uploads/{dest_filename}"
+        db.commit()
+        db.refresh(db_candidate)
+    except Exception as save_err:
+        print(f"[Upload] Failed to save CV file to disk: {save_err}")
+    
     _log(db, "candidate_added", "candidate", db_candidate.id, {"name": db_candidate.name})
     
     return db_candidate
@@ -106,11 +128,26 @@ def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
             "name": cand.name,
             "email": cand.email,
             "phone": cand.phone,
+            "summary": cand.summary,
             "skills": cand.skills or [],
+            "experience": cand.experience or [],
+            "education": cand.education or [],
+            "certifications": cand.certifications or [],
+            "projects": cand.projects or [],
             "seniority_level": cand.seniority_level,
+            "seniority_score": cand.seniority_score,
+            "strengths": cand.strengths or [],
+            "areas_for_improvement": cand.areas_for_improvement or [],
+            "original_filename": cand.original_filename,
+            "upload_status": cand.upload_status,
             "rating": cand.rating,
+            "notes": cand.notes,
             "is_favorite": cand.is_favorite,
             "is_blacklisted": cand.is_blacklisted,
+            "blacklist_reason": cand.blacklist_reason,
+            "ai_profile_summary": cand.ai_profile_summary,
+            "cv_file_path": cand.cv_file_path,
+            "created_at": cand.created_at.isoformat() if cand.created_at else None,
             "best_position": {
                 "id": best_pos.id if best_pos else None,
                 "title": best_pos.title if best_pos else "Eşleşme Yok",

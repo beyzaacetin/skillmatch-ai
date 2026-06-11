@@ -31,6 +31,8 @@ class Candidate(Base):
     is_blacklisted = Column(Boolean, default=False)
     blacklist_reason = Column(Text, nullable=True)
     ai_profile_summary = Column(Text, nullable=True)
+    cv_file_path = Column(String, nullable=True)
+    cv_file_data = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     applications = relationship("Application", back_populates="candidate", cascade="all, delete-orphan")
 

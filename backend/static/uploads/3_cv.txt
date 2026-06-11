@@ -1,0 +1,31 @@
+SKILLMATCH AI - ADAY ÖZGEÇMİŞ RAPORU
+
+ADAY: Erkut Oğuz
+E-POSTA: erkutoguz.eo@gmail.com
+TELEFON: +90 5528740303
+
+PROFESYONEL ÖZET:
+Computer Engineering student with a focus on low-level system programming, C development, and digital transformation. Proven ability to build complex systems from scratch including virtual machines, distributed databases, and process tracing tools. Experienced in IT support and strategic process optimization within the defense industry.
+
+YETKİNLİKLER:
+C Programming Language, System Programming (Linux/POSIX), Socket Programming, Manual Memory Management, Network Programming, POSIX System Calls & Signals, Reverse Engineering, Digital Transformation, Process Analysis, Network Infrastructure
+
+İŞ DENEYİMİ:
+- IT Asistanı @ Antalya Bilim Üniversitesi (2024-2025)
+  Diagnosis and solution of hardware and software failures in university network infrastructure. Management of technical support processes for system continuity and OS optimization.
+- Dijital Dönüşüm Asistanı @ Archevolve UK (2022-2024)
+  Developed digital transformation plans for 20+ departments in the defense industry. Achieved 30% improvement in project delivery times and 40% increase in workflow efficiency through process mapping and change management.
+
+EĞİTİM:
+- Bilgisayar Mühendisi (Computer Engineering) - Antalya Bilim Üniversitesi (2019-Present)
+
+GÜÇLÜ YÖNLER:
+- Deep understanding of low-level memory management and CPU architecture
+- Strong background in Linux system calls and POSIX standards
+- Demonstrated ability to improve business process efficiency through digital transformation
+- Proficiency in C and system-level performance optimization
+
+GELİŞİM ALANLARI:
+- Lack of professional experience in large-scale enterprise software development teams
+- Limited exposure to modern cloud-native stacks (AWS/Azure/GCP)
+- Needs more experience with high-level application frameworks beyond system programming

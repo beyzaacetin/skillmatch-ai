@@ -26,7 +26,9 @@ try:
             "ALTER TABLE interviews ADD COLUMN culture_fit_assessment TEXT",
             "ALTER TABLE interviews ADD COLUMN technical_assessment TEXT",
             "ALTER TABLE interviews ADD COLUMN ai_recommendation VARCHAR(255)",
-            "ALTER TABLE interviews ADD COLUMN next_step VARCHAR(255)"
+            "ALTER TABLE interviews ADD COLUMN next_step VARCHAR(255)",
+            "ALTER TABLE candidates ADD COLUMN cv_file_path TEXT",
+            "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT"
         ]
         for q in queries:
             try:
@@ -36,8 +38,25 @@ try:
                 print(f"Database migration: {q} executed.")
             except Exception:
                 pass
+                
+    # Run candidate translation on startup in a background thread
+    def run_translations_in_background():
+        from database import SessionLocal
+        from services.translator import translate_existing_candidates_to_turkish
+        db_session = SessionLocal()
+        try:
+            translate_existing_candidates_to_turkish(db_session)
+        except Exception as e:
+            print(f"Background translation error: {e}")
+        finally:
+            db_session.close()
+
+    import threading
+    t = threading.Thread(target=run_translations_in_background)
+    t.daemon = True
+    t.start()
 except Exception as migration_err:
-    print(f"Database migrations failed to run on startup: {migration_err}")
+    print(f"Database migrations / translations failed to run on startup: {migration_err}")
 
 
 app = FastAPI(title="SkillMatch AI v4", version="4.0.0", docs_url="/api/docs")
@@ -49,6 +68,7 @@ static_dir = os.path.join(BASE_DIR, "static")
 templates_dir = os.path.join(BASE_DIR, "templates")
 os.makedirs(static_dir, exist_ok=True)
 os.makedirs(templates_dir, exist_ok=True)
+os.makedirs(os.path.join(static_dir, "uploads"), exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)

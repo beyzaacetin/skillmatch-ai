@@ -23,7 +23,7 @@ def analyze_cv(text: str):
     
     prompt = f"""
     Sen uzman bir İK Yapay Zeka Asistanısın. Aşağıdaki CV metnini analiz et ve yapılandırılmış bilgileri çıkar.
-    Çıkarttığın tüm metinsel alanları, özetleri, güçlü yanları ve geliştirilmesi gereken yönleri TÜRKÇE olarak oluştur.
+    Çıkarttığın TÜM alanları (kişi adı hariç); profesyonel özet (summary), iş unvanları (title), iş tanımları (description), eğitim dereceleri ve bölümleri (degree), okul isimleri (school), sertifikalar, projeler, kıdem seviyesi, güçlü yanlar (strengths) ve geliştirilmesi gereken yönler (areas_for_improvement) dahil olmak üzere KESİNLİKLE TÜRKÇE'ye çevirerek Türkçe olarak oluştur.
     Kıdem seviyesini (seniority_level) "Giriş Seviyesi", "Orta Seviye", veya "Kıdemli" değerlerinden biri olarak ata.
 
     Çıktıyı kesinlikle aşağıdaki şemaya uygun bir JSON nesnesi olarak döndür:
@@ -112,47 +112,48 @@ def compare_candidates(candidate1: dict, candidate2: dict, position: dict = None
     position_context = ""
     if position:
         position_context = f"""
-        CONTEXT:
-        Compare these candidates specifically for the following position:
-        Title: {position['title']}
-        Department: {position['department']}
-        Description: {position['description']}
-        Required Skills: {', '.join(position['required_skills'])}
+        İŞ DETAYLARI:
+        Adayları özellikle şu pozisyon için karşılaştır:
+        Pozisyon Başlığı: {position['title']}
+        Departman: {position['department']}
+        Açıklama: {position['description']}
+        Gerekli Yetkinlikler: {', '.join(position['required_skills'])}
         
-        Focus on how well each candidate fits THIS specific role.
+        Her adayın BU pozisyona ne kadar uygun olduğuna odaklan.
         """
 
     prompt = f"""
-    You are an expert HR AI assistant. Compare the following two candidates.
+    Sen uzman bir İK Yapay Zeka Asistanısın. Aşağıdaki iki adayı karşılaştır.
+    TÜM YAZILI DEĞERLENDİRMELERİ, TAVSİYELERİ, ARTILARI/EKSİLERİ VE TABLO DEĞERLERİNİ KESİNLİKLE TÜRKÇE OLARAK DÖNDÜR.
     {position_context}
 
-    CANDIDATE 1:
-    Name: {candidate1['name']}
-    Summary: {candidate1['summary']}
-    Skills: {', '.join(candidate1['skills'])}
-    Experience: {json.dumps(candidate1['experience'])}
+    ADAY 1:
+    Adı: {candidate1['name']}
+    Özet: {candidate1['summary']}
+    Yetenekler: {', '.join(candidate1['skills'])}
+    Deneyim: {json.dumps(candidate1['experience'], ensure_ascii=False)}
 
-    CANDIDATE 2:
-    Name: {candidate2['name']}
-    Summary: {candidate2['summary']}
-    Skills: {', '.join(candidate2['skills'])}
-    Experience: {json.dumps(candidate2['experience'])}
+    ADAY 2:
+    Adı: {candidate2['name']}
+    Özet: {candidate2['summary']}
+    Yetenekler: {', '.join(candidate2['skills'])}
+    Deneyim: {json.dumps(candidate2['experience'], ensure_ascii=False)}
 
-    OUTPUT FORMAT (JSON):
+    ÇIKTI BİÇİMİ (Strict JSON):
     {{
-        "comparison": "Detailed comparison text...",
-        "recommendation": "Clear recommendation on who to hire and why...",
-        "candidate1_pros": ["Pro 1", "Pro 2"],
-        "candidate2_pros": ["Pro 1", "Pro 2"],
+        "comparison": "Detaylı Türkçe karşılaştırma metni...",
+        "recommendation": "Kimi, neden işe alacağınıza dair net Türkçe İK tavsiyesi...",
+        "candidate1_pros": ["Artı Yön 1", "Artı Yön 2"],
+        "candidate2_pros": ["Artı Yön 1", "Artı Yön 2"],
         "comparison_table": [
-            {{"criteria": "Technical Skills", "candidate1_val": "Strong Python...", "candidate2_val": "Expert Java..."}},
-            {{"criteria": "Experience", "candidate1_val": "5 years...", "candidate2_val": "3 years..."}},
-            {{"criteria": "Education", "candidate1_val": "...", "candidate2_val": "..."}},
-            {{"criteria": "Soft Skills", "candidate1_val": "...", "candidate2_val": "..."}},
-            {{"criteria": "Overall Fit", "candidate1_val": "High", "candidate2_val": "Medium"}}
+            {{"criteria": "Teknik Yetkinlikler", "candidate1_val": "Güçlü Python...", "candidate2_val": "Expert Java..."}},
+            {{"criteria": "Deneyim", "candidate1_val": "5 yıl...", "candidate2_val": "3 yıl..."}},
+            {{"criteria": "Eğitim", "candidate1_val": "...", "candidate2_val": "..."}},
+            {{"criteria": "Sosyal Beceriler", "candidate1_val": "...", "candidate2_val": "..."}},
+            {{"criteria": "Genel Uyum", "candidate1_val": "Yüksek", "candidate2_val": "Orta"}}
         ]
     }}
-    Ensure the JSON is valid.
+    JSON yapısının geçerli olduğundan emin ol.
     """
     
     try:
@@ -199,43 +200,44 @@ def deep_rank_candidates(position_dict: dict, candidates_list: list, all_positio
         alt_positions_str = f"Available alternative positions in the company: {json.dumps(alt_pos_short)}\n"
 
     prompt = f"""
-    You are an expert "Explainable AI for Recruitment Decision Support System".
-    Evaluate, rank, and deeply analyze the provided candidates against the job position.
+    Sen uzman bir "Açıklanabilir İşe Alım Karar Destek Yapay Zeka Sistemi" (Explainable AI for Recruitment) uygulamasısın.
+    Adayları, verilen iş pozisyonuna göre değerlendir, derecelendir ve derinlemesine analiz et.
+    TÜM YAZILI BİLGİLERİ, GÜÇLÜ/ZAYIF YÖNLERİ, RİSKLERİ VE AÇIKLAMALARI KESİNLİKLE TÜRKÇE OLARAK DÖNDÜR.
 
-    JOB POSITION:
-    Title: {position_dict.get('title')}
-    Department: {position_dict.get('department')}
-    Description: {position_dict.get('description')}
-    Required Skills: {', '.join(position_dict.get('required_skills', []))}
-    Seniority Level: {position_dict.get('seniority_level')}
+    İŞ POZİSYONU DETAYLARI:
+    Başlık: {position_dict.get('title')}
+    Departman: {position_dict.get('department')}
+    Açıklama: {position_dict.get('description')}
+    Gerekli Yetkinlikler: {', '.join(position_dict.get('required_skills', []))}
+    Kıdem Seviyesi: {position_dict.get('seniority_level')}
 
-    CANDIDATES:
+    ADAYLAR:
     {json.dumps(trimmed_candidates, ensure_ascii=False)}
 
     {alt_positions_str}
     
-    INSTRUCTIONS:
-    1. Analyze each candidate against the job position.
-    2. Rank them from best to worst based on their fit.
-    3. Generate a match score between 0 and 100 for each.
-    4. Provide Explainable AI reasoning: strengths, weaknesses, risks, skill gap analysis, and a natural language explanation of why they got this rank.
-    5. Provide a 'future_potential_score' (0-100) estimating how suitable they could become in 6 months.
-    6. Generate 3 specific interview questions tailored to the candidate's profile and the job position's requirements.
-    7. If a candidate is a poor fit for this job but might fit an alternative position provided, suggest the alternative position's title.
+    YÖNERGELER:
+    1. Her adayı iş pozisyonuna göre analiz et.
+    2. Adayları uygunluklarına göre en iyiden en kötüye doğru sırala.
+    3. Her biri için 0 ile 100 arasında bir eşleşme skoru (match_score) belirle.
+    4. Açıklanabilir Yapay Zeka gerekçeleri sağla: güçlü yönler (strengths), zayıf yönler (weaknesses), riskler (risks), yetenek açığı analizi (skill_gap) ve bu sırayı neden aldıklarına dair Türkçe bir açıklama (explanation).
+    5. Adayın 6 ay içinde ne kadar uygun hale gelebileceğini gösteren bir gelecek potansiyel skoru (future_potential_score) (0-100) ver.
+    6. Adayın profiline ve pozisyon gereksinimlerine özel olarak hazırlanmış 3 adet Türkçe mülakat sorusu (interview_questions) üret.
+    7. Aday bu iş için zayıf bir eşleşmeyse ancak önerilen alternatif bir pozisyona (all_positions_list) uygunsa, alternatif pozisyonun başlığını (alternative_position) öner.
 
-    OUTPUT FORMAT: Return a JSON array of objects strictly matching this schema:
+    ÇIKTI BİÇİMİ: KESİNLİKLE aşağıdaki şemaya tam uyan bir JSON dizisi döndür:
     [
       {{
         "candidate_id": 123,
         "rank": 1,
         "match_score": 95,
-        "strengths": ["Strong Python", "Leadership"],
-        "weaknesses": ["No AWS experience"],
-        "risks": ["Job hopping risk (3 jobs in 2 years)"],
-        "skill_gap": "Missing cloud deployment skills (AWS/GCP).",
-        "explanation": "Candidate is highly ranked because of their perfect match in backend tech stack, though they lack cloud experience.",
+        "strengths": ["Güçlü Python bilgisi", "Liderlik becerileri"],
+        "weaknesses": ["AWS deneyimi yok"],
+        "risks": ["Sık iş değiştirme riski (2 yılda 3 iş)"],
+        "skill_gap": "Bulut dağıtım becerileri eksik (AWS/GCP).",
+        "explanation": "Aday, bulut deneyimi eksik olmasına rağmen, backend teknoloji yığınındaki mükemmel eşleşmesi nedeniyle yüksek sırada yer almaktadır.",
         "future_potential_score": 98,
-        "interview_questions": ["How would you handle...", "Can you describe..."],
+        "interview_questions": ["FastAPI ile geliştirdiğiniz projede performansı nasıl artırdınız?", "AWS deneyimi olmamasına rağmen bulut teknolojilerine nasıl adapte olursunuz?"],
         "alternative_position": null
       }}
     ]

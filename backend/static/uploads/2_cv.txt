@@ -1,0 +1,35 @@
+SKILLMATCH AI - ADAY ÖZGEÇMİŞ RAPORU
+
+ADAY: Şule Sıray
+E-POSTA: sulesiray19@gmail.com
+TELEFON: +90 531 517 8170
+
+PROFESYONEL ÖZET:
+Financial Data Analyst with experience in data analytics, reporting, and AI-assisted systems. Skilled in Power BI, automation, Python, and data engineering tools. Currently contributing to AI transformation projects across Rixos Hotels and pursuing an M.Sc. in Electrical & Computer Engineering with a focus on Data Science and Machine Learning.
+
+YETKİNLİKLER:
+Power BI, DAX, Power Query (M), Python, SQL, Power Automate, Power Apps, Power Pages, Azure Data Lake, Dataverse, Machine Learning, Deep Learning, Data Preprocessing, Model Building, RPA, English, German
+
+İŞ DENEYİMİ:
+- Financial Data Analyst @ Rixos Hotels Headquarters (Aug 2024 - Present)
+  Designed and managed Power BI dashboards for HR, Payroll, Recruitment, and Cost Analysis. Built automated workflows and developed alert mechanisms for missing card movements. Supported generative AI initiatives.
+- Industrial Engineer Intern @ Ankutsan A.Ş (Jan 2024 - May 2024)
+  Developed an Energy Management Information System (MIS) using Power BI, SAP, and Excel. Created forecasting models to optimize seasonal energy usage.
+- Revenue Management Intern @ Corendon Airlines (Jul 2023 - Jan 2024)
+  Designed and implemented an RPA-based alert system for real-time flight revenue monitoring and automated pricing updates.
+- Undergraduate Assistant, Technology Transfer Office @ Antalya Bilim University (Aug 2022 - Feb 2023)
+  Supported digital transformation and R&D projects for ASELSAN, CW Energy, and the Turkish Coast Guard.
+
+EĞİTİM:
+- M.Sc. Electrical & Computer Engineering - Antalya Bilim University (2026)
+- B.Sc. Industrial Engineering - Antalya Bilim University (2024)
+
+GÜÇLÜ YÖNLER:
+- Expertise in Power Platform and Power BI automation
+- Strong technical foundation in Data Science and Machine Learning
+- Demonstrated leadership and community management skills
+- Multilingual (English and German)
+
+GELİŞİM ALANLARI:
+- Short full-time professional history (Early career stage)
+- Deepening specialized experience in enterprise-scale cloud architecture

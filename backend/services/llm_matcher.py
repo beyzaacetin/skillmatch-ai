@@ -24,27 +24,49 @@ class LLMMatcherService:
     def get_skill_overlap_ratio(self, candidate_skills, position_required_skills) -> float:
         if not position_required_skills:
             return 1.0
-        c_skills = set(s.lower() for s in (candidate_skills or []))
-        p_skills = set(s.lower() for s in (position_required_skills or []))
-        overlap = c_skills.intersection(p_skills)
-        return len(overlap) / len(p_skills)
+        c_skills = [s.lower().strip() for s in (candidate_skills or [])]
+        p_skills = [s.lower().strip() for s in (position_required_skills or [])]
+        
+        overlap_count = 0
+        for ps in p_skills:
+            matched = False
+            for cs in c_skills:
+                # Substring/partial match (e.g. "python" and "python (pandas)")
+                if ps in cs or cs in ps:
+                    matched = True
+                    break
+            if matched:
+                overlap_count += 1
+        return overlap_count / len(p_skills)
+
+    def normalize_seniority(self, sen: str) -> str:
+        if not sen:
+            return ""
+        s = sen.lower().strip()
+        if s in ["junior", "entry", "giriş seviyesi", "giriş"]:
+            return "junior"
+        if s in ["mid", "mid-level", "orta seviye", "orta"]:
+            return "mid"
+        if s in ["senior", "kıdemli", "uzman"]:
+            return "senior"
+        return s
 
     def get_experience_fit_ratio(self, candidate_seniority, position_seniority) -> float:
         if not position_seniority:
             return 1.0
         if not candidate_seniority:
             return 0.5
-        c_sen = candidate_seniority.lower()
-        p_sen = position_seniority.lower()
+        c_sen = self.normalize_seniority(candidate_seniority)
+        p_sen = self.normalize_seniority(position_seniority)
         if c_sen == p_sen:
             return 1.0
-        if p_sen in ["junior", "entry"] and c_sen in ["mid", "senior"]:
+        if p_sen == "junior" and c_sen in ["mid", "senior"]:
             return 0.75
         if p_sen == "mid" and c_sen == "senior":
             return 0.75
         return 0.25
 
-    def match_candidate_position(self, candidate_id: int, position_id: int, db: Session) -> models.MatchScore:
+    def match_candidate_position(self, candidate_id: int, position_id: int, db: Session, force_recalculate: bool = False) -> models.MatchScore:
         candidate = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
         position = db.query(models.Position).filter(models.Position.id == position_id).first()
         
@@ -57,11 +79,15 @@ class LLMMatcherService:
             models.MatchScore.position_id == position_id
         ).first()
 
+        if match_score and match_score.overall_score is not None and match_score.llm_model != "rule-fallback" and not force_recalculate:
+            return match_score
+
         # Calculate rule-based components
         skill_overlap_ratio = self.get_skill_overlap_ratio(candidate.skills, position.required_skills)
         experience_fit_ratio = self.get_experience_fit_ratio(candidate.seniority_level, position.seniority_level)
 
         llm_data = None
+        llm_success = False
         if API_KEY:
             try:
                 # Setup prompt
@@ -147,6 +173,7 @@ class LLMMatcherService:
                 response = model.generate_content(prompt)
                 clean_text = response.text.replace("```json", "").replace("```", "").strip()
                 llm_data = json.loads(clean_text)
+                llm_success = True
             except Exception as e:
                 logger.error(f"LLM Matcher failed, falling back to keyword/semantic matcher: {e}")
 
@@ -163,7 +190,11 @@ class LLMMatcherService:
                 exp_text = " ".join([f"{e.get('title','')} {e.get('description','')}" for e in (candidate.experience or [])])
                 cand_text = f"{candidate.name} {candidate.summary} {' '.join(candidate.skills or [])} {exp_text}"
                 pos_text = f"{position.title} {position.description} {' '.join(position.required_skills or [])}"
-                semantic_score_100 = semantic_matcher.calculate_semantic_score(cand_text, pos_text)
+                val = semantic_matcher.calculate_semantic_score(cand_text, pos_text)
+                if val > 0:
+                    semantic_score_100 = val
+                else:
+                    semantic_score_100 = max(50.0, keyword_score_100)
             except Exception as ml_err:
                 logger.error(f"Semantic fallback failed: {ml_err}")
 
@@ -202,11 +233,14 @@ class LLMMatcherService:
             }
 
         # Calculate final combined score
-        final_score = self.calculate_combined_score(
-            llm_overall=float(llm_data.get("overall_score", 0)),
-            skill_overlap_ratio=skill_overlap_ratio,
-            experience_fit_ratio=experience_fit_ratio
-        )
+        if llm_success:
+            final_score = float(llm_data.get("overall_score", 0))
+        else:
+            final_score = self.calculate_combined_score(
+                llm_overall=float(llm_data.get("overall_score", 0)),
+                skill_overlap_ratio=skill_overlap_ratio,
+                experience_fit_ratio=experience_fit_ratio
+            )
 
         if not match_score:
             match_score = models.MatchScore(
@@ -235,7 +269,7 @@ class LLMMatcherService:
         match_score.recommendation = llm_data.get("recommendation")
         match_score.interview_focus_areas = llm_data.get("interview_focus_areas", [])
         match_score.suggested_questions = llm_data.get("suggested_questions", [])
-        match_score.llm_model = "gemini-flash-latest" if API_KEY else "rule-fallback"
+        match_score.llm_model = "gemini-flash-latest" if llm_success else "rule-fallback"
         match_score.prompt_version = "v1.0"
         match_score.calculated_at = datetime.utcnow()
 

@@ -65,6 +65,8 @@ createApp({
     const talentFilter = ref({ seniority: '', sort: 'newest', showInactive: false });
     const logs = ref([]);
     const recommendedPositions = ref([]);
+    const analyticsPositionFilter = ref('');
+    const analyticsDateFilter = ref('30d');
 
     // Selected items
     const selectedCandidate = ref(null);
@@ -245,7 +247,7 @@ createApp({
     }
 
     async function loadCandidates() {
-      candidates.value = await api('GET', '/api/candidates/');
+      candidates.value = await api('GET', '/api/candidates/with-best-position');
     }
 
     async function loadPositions() {
@@ -254,8 +256,10 @@ createApp({
 
     async function loadAnalytics() {
       try {
+        const posFilter = analyticsPositionFilter.value ? `&position_id=${analyticsPositionFilter.value}` : '';
+        const dateFilter = analyticsDateFilter.value ? `&date_range=${analyticsDateFilter.value}` : '';
         const [data, logsData] = await Promise.all([
-          api('GET', '/api/analytics/stats'),
+          api('GET', `/api/analytics/stats?${posFilter}${dateFilter}`),
           api('GET', '/api/analytics/logs')
         ]);
         stats.value = data;
@@ -270,10 +274,10 @@ createApp({
         }
         // Build analyticsStats
         analyticsStats.value = {
-          candidates: { value: data.total_candidates, label: 'Toplam Aday' },
-          positions: { value: data.total_positions, label: 'Aktif Pozisyon' },
-          matchRate: { value: data.performance?.match_accuracy || '—', label: 'Eşleştirme Oranı' },
-          avgTime: { value: data.performance?.avg_process_time || '—', label: 'Ortalama İşlem Süresi' },
+          candidates: { value: data.kpis?.total_candidates ?? data.total_candidates, label: 'Toplam Aday' },
+          positions: { value: data.kpis?.total_positions ?? data.total_positions, label: 'Aktif Pozisyon' },
+          matchRate: { value: data.kpis?.avg_match_score ? `%${data.kpis.avg_match_score}` : (data.performance?.match_accuracy || '—'), label: 'Ortalama Uyum Skoru' },
+          avgTime: { value: data.kpis?.total_applications ?? '—', label: 'Toplam Başvuru' },
         };
       } catch (e) { console.error(e); }
     }
@@ -908,6 +912,9 @@ createApp({
     }
 
     function calculateBestMatch(c) {
+      if (c.best_position && c.best_position.title !== "Eşleşme Yok") {
+        return { title: c.best_position.title, score: Math.round(c.best_score) };
+      }
       if (!positions.value || !positions.value.length || c.is_blacklisted) return null;
       let bestPos = null;
       let bestScore = 0;
@@ -962,6 +969,7 @@ createApp({
       // state
       page, talentView, candidates, positions, stats, pipeline, pipelineLoading,
       pipelinePositionFilter, allInterviews, pipelineStats,
+      analyticsPositionFilter, analyticsDateFilter,
       candidateSearch, talentFilter, filteredCandidates,
       selectedCandidate, candidateTab, candidateNote, candidateApps,
       selectedPosition, posTab, positionApps, positionMatches, posMatchLoading, selectedMatchCandidates, posUploads,

@@ -699,35 +699,158 @@
 
     <!-- ANALYTICS -->
     <template v-if="page==='analytics'">
-      <div class="page-hdr">
-        <div class="page-hdr-title">Analitik</div>
+      <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
+        <div>
+          <div class="page-hdr-title">Analitik ve Performans Raporları</div>
+          <div class="page-hdr-sub">Eşleşme oranları, başvuru kanalları ve süreç verimliliği</div>
+        </div>
+        
+        <!-- Filters -->
+        <div style="display:flex;gap:12px;align-items:center">
+          <select v-model="analyticsPositionFilter" @change="loadAnalytics()" class="fselect" style="min-width:180px">
+            <option value="">Tüm Pozisyonlar</option>
+            <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.title }}</option>
+          </select>
+          <select v-model="analyticsDateFilter" @change="loadAnalytics()" class="fselect" style="min-width:140px">
+            <option value="7d">Son 7 Gün</option>
+            <option value="30d">Son 30 Gün</option>
+            <option value="all">Tüm Zamanlar</option>
+          </select>
+        </div>
       </div>
+
       <div class="page-body">
+        <!-- KPI Cards Grid -->
         <div class="grid-4" style="margin-bottom:24px">
-          <div class="stat-card" v-for="(val,key) in analyticsStats" :key="key">
-            <div class="stat-val">{{ val.value }}</div>
-            <div class="stat-lbl">{{ val.label }}</div>
+          <div class="stat-card" style="border-left: 4px solid var(--primary)">
+            <div class="stat-val">{{ stats.kpis?.total_candidates ?? 0 }}</div>
+            <div class="stat-lbl">Toplam Aday</div>
+          </div>
+          <div class="stat-card" style="border-left: 4px solid var(--blue)">
+            <div class="stat-val">{{ stats.kpis?.total_positions ?? 0 }}</div>
+            <div class="stat-lbl">Aktif Pozisyonlar</div>
+          </div>
+          <div class="stat-card" style="border-left: 4px solid var(--green)">
+            <div class="stat-val">{{ stats.kpis?.total_applications ?? 0 }}</div>
+            <div class="stat-lbl">Toplam Başvuru</div>
+          </div>
+          <div class="stat-card" style="border-left: 4px solid var(--amber)">
+            <div class="stat-val">{{ stats.kpis?.avg_match_score ? stats.kpis.avg_match_score + '%' : '0%' }}</div>
+            <div class="stat-lbl">Ortalama Uyum Skoru</div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-hdr"><span style="font-weight:700">Yetenek Dağılımı</span></div>
-          <div class="card-body">
-            <div v-for="(count, skill) in topSkills" :key="skill" style="margin-bottom:12px">
-              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-                <span style="font-weight:500">{{ skill }}</span><span style="color:var(--g500)">{{ count }}</span>
+
+        <div style="display:grid;grid-template-columns: 1.2fr 0.8fr;gap:24px;margin-bottom:24px">
+          <!-- Funnel Card -->
+          <div class="card">
+            <div class="card-hdr"><span style="font-weight:700">İşe Alım Hunisi (Hiring Funnel)</span></div>
+            <div class="card-body" style="padding:20px 24px">
+              <div v-if="stats.funnel">
+                <div v-for="(count, stage) in stats.funnel" :key="stage" style="margin-bottom:16px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                    <span style="font-weight:600;text-transform:capitalize">{{ stageLabelMap[stage] || stage }}</span>
+                    <span style="color:var(--g600);font-weight:700">{{ count }} Başvuru</span>
+                  </div>
+                  <div class="score-bar" style="height:12px">
+                    <div class="score-fill" :class="stage==='hired'?'sf-high':stage==='rejected'?'sf-low':'sf-mid'" :style="`width:${stats.kpis?.total_applications ? (count / stats.kpis.total_applications * 100) : 0}%`"></div>
+                  </div>
+                </div>
               </div>
-              <div class="score-bar"><div class="score-fill sf-high" :style="`width:${Math.min(100,count*20)}%`"></div></div>
+              <div v-else style="text-align:center;padding:40px;color:var(--g400)">Veri yüklenemedi.</div>
+            </div>
+          </div>
+
+          <!-- Source Channels Card -->
+          <div class="card">
+            <div class="card-hdr"><span style="font-weight:700">Başvuru Kaynakları</span></div>
+            <div class="card-body" style="padding:20px 24px">
+              <div v-if="stats.sources">
+                <div v-for="(lbl, idx) in stats.sources.labels" :key="lbl" style="margin-bottom:16px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                    <span style="font-weight:600">{{ lbl }}</span>
+                    <span style="color:var(--g600);font-weight:700">{{ stats.sources.data[idx] }} Aday</span>
+                  </div>
+                  <div class="score-bar" style="height:12px">
+                    <div class="score-fill sf-high" :style="`width:${stats.kpis?.total_applications ? (stats.sources.data[idx] / stats.kpis.total_applications * 100) : 0}%`"></div>
+                  </div>
+                </div>
+              </div>
+              <div v-else style="text-align:center;padding:40px;color:var(--g400)">Veri yüklenemedi.</div>
             </div>
           </div>
         </div>
 
+        <div style="display:grid;grid-template-columns: 1fr 1fr;gap:24px;margin-bottom:24px">
+          <!-- Trends Card -->
+          <div class="card">
+            <div class="card-hdr"><span style="font-weight:700">Başvuru Hızı ve Günlük Trendler</span></div>
+            <div class="card-body" style="padding:24px">
+              <div v-if="stats.trends" style="display:flex;align-items:flex-end;justify-content:space-between;height:180px;padding-top:10px">
+                <div v-for="(lbl, idx) in stats.trends.labels" :key="lbl" style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%">
+                  <div style="flex:1;display:flex;align-items:flex-end;width:100%;justify-content:center;margin-bottom:8px">
+                    <div style="background:var(--primary);width:14px;border-radius:4px 4px 0 0;transition:height 0.3s;" :style="`height:${Math.max(10, Math.min(100, (stats.trends.data[idx] * 20)))}%`" :title="`${stats.trends.data[idx]} Başvuru`"></div>
+                  </div>
+                  <div style="font-size:9px;color:var(--g500);white-space:nowrap;transform:rotate(-30deg)">{{ lbl }}</div>
+                </div>
+              </div>
+              <div v-else style="text-align:center;padding:40px;color:var(--g400)">Veri bulunamadı.</div>
+            </div>
+          </div>
+
+          <!-- AI Insights Card -->
+          <div class="card" style="border-left:4px solid var(--primary);background:linear-gradient(to right, var(--primary-light), transparent)">
+            <div class="card-hdr" style="color:var(--primary)"><span style="font-weight:700">Yapay Zeka (AI) Öngörü ve Tavsiyeleri</span></div>
+            <div class="card-body" style="padding:20px 24px">
+              <div v-if="stats.ai_insights && stats.ai_insights.length">
+                <div v-for="ins in stats.ai_insights" :key="ins" style="margin-bottom:12px;font-size:13px;color:var(--g800);line-height:1.6;display:flex;gap:8px">
+                  <span style="color:var(--primary)">⚡</span>
+                  <span v-html="ins"></span>
+                </div>
+              </div>
+              <div v-else style="font-size:13px;color:var(--g500)">Yapay Zeka değerlendirmesi için yeterli başvuru verisi bulunamadı.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Candidates -->
+        <div class="card" style="margin-bottom:24px">
+          <div class="card-hdr"><span style="font-weight:700">En Uyumlu Adaylar</span></div>
+          <div class="card-body" style="padding:0">
+            <table class="table" style="margin:0">
+              <thead>
+                <tr>
+                  <th>Aday Adı</th>
+                  <th>Başvurulan Pozisyon</th>
+                  <th>Uyum Skoru</th>
+                  <th>Süreç Durumu</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="cand in stats.top_candidates" :key="cand.candidate_name">
+                  <td style="font-weight:600">{{ cand.candidate_name }}</td>
+                  <td>{{ cand.position_title }}</td>
+                  <td>
+                    <span class="score-pill" :class="scoreClass(cand.score)">%{{ cand.score }}</span>
+                  </td>
+                  <td>
+                    <span class="badge" :class="'b-' + cand.status">{{ stageLabelMap[cand.status] || cand.status }}</span>
+                  </td>
+                </tr>
+                <tr v-if="!stats.top_candidates || !stats.top_candidates.length">
+                  <td colspan="4" style="text-align:center;padding:24px;color:var(--g400)">Veri bulunamadı.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Logs Section -->
-        <div class="card" style="margin-top:24px">
-           <div class="card-hdr"><span style="font-weight:700">İşlem Kayıtları (Logs)</span></div>
-           <div class="card-body">
-              <div v-for="log in logs.slice(0,20)" :key="log.id" style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--g50);font-size:12px;align-items:center">
+        <div class="card">
+           <div class="card-hdr"><span style="font-weight:700">Sistem İşlem Kayıtları (Logs)</span></div>
+           <div class="card-body" style="padding:0">
+              <div v-for="log in logs.slice(0,20)" :key="log.id" style="display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--g100);font-size:12px;align-items:center">
                  <span style="color:var(--g400);min-width:120px">{{ formatDate(log.created_at) }}</span>
-                 <span class="badge b-applied" style="min-width:100px;font-size:10px">{{ log.action }}</span>
+                 <span class="badge b-applied" style="min-width:100px;font-size:10px;text-align:center">{{ log.action }}</span>
                  <span style="flex:1;color:var(--g700)">{{ log.target_type }} #{{ log.target_id }} - {{ log.details }}</span>
               </div>
            </div>
@@ -995,10 +1118,17 @@
 
         <!-- CV TAB -->
         <div v-if="candidateTab==='cv'">
-          <div v-if="selectedCandidate.original_filename" style="text-align:center;padding:40px">
-            <div style="font-size:60px;margin-bottom:12px">📄</div>
-            <div style="font-weight:600;font-size:16px;margin-bottom:4px">{{ selectedCandidate.original_filename }}</div>
-            <div style="font-size:13px;color:var(--g500)">AI tarafından analiz edildi</div>
+          <div v-if="selectedCandidate.cv_file_path" style="text-align:center;padding:20px">
+            <div style="font-size:48px;margin-bottom:8px">📄</div>
+            <div style="font-weight:600;font-size:15px;margin-bottom:4px">{{ selectedCandidate.original_filename || 'Özgeçmiş Dosyası' }}</div>
+            <div style="font-size:12px;color:var(--g500);margin-bottom:16px">Sistem tarafından kalıcı olarak saklanmaktadır</div>
+            <div style="display:flex;gap:10px;justify-content:center;margin-bottom:16px">
+              <a :href="selectedCandidate.cv_file_path" target="_blank" class="btn btn-secondary btn-sm">Yeni Sekmede Aç</a>
+              <a :href="selectedCandidate.cv_file_path" download class="btn btn-primary btn-sm">Dosyayı İndir</a>
+            </div>
+            <div style="border:1px solid var(--g200);border-radius:8px;overflow:hidden;background:#fff">
+              <iframe :src="selectedCandidate.cv_file_path" style="width:100%;height:550px;border:none"></iframe>
+            </div>
           </div>
           <div v-else class="empty"><div class="empty-title">CV dosyası bulunamadı</div></div>
         </div>
