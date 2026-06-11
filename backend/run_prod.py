@@ -61,12 +61,11 @@ except Exception as e:
     print(tb)
     print("=" * 80)
     
-    # Try to write error log to the production database so we can fetch it via API
+    # Try logging to database
     try:
         from database import SessionLocal
         import models
         db = SessionLocal()
-        # Clean any aborted transactions if any
         db.rollback()
         log = models.Log(
             action="startup_crash",
@@ -77,8 +76,35 @@ except Exception as e:
         db.add(log)
         db.commit()
         db.close()
-        print("Successfully logged startup crash to the database.")
+        print("Logged crash to database.")
     except Exception as db_err:
         print("Failed to log crash to database:", db_err)
-    
-    sys.exit(1)
+        
+    # Start fallback server to expose the traceback on HTTP
+    try:
+        print("Starting fallback error server to expose traceback...")
+        from fastapi import FastAPI
+        from fastapi.responses import HTMLResponse
+        import uvicorn
+        
+        err_app = FastAPI()
+        
+        @err_app.get("/{rest_of_path:path}")
+        def read_err(rest_of_path: str):
+            html_content = f"""
+            <html>
+                <head><title>Startup Error Traceback</title></head>
+                <body style="font-family: monospace; padding: 20px; background: #fff5f5; color: #900; line-height: 1.5;">
+                    <h1 style="border-bottom: 2px solid #fcc; padding-bottom: 10px;">Critical Startup Error Traceback</h1>
+                    <pre style="background: #fff; border: 1px solid #ecc; padding: 15px; overflow-x: auto; border-radius: 4px;">{tb}</pre>
+                    <p style="margin-top: 20px; color: #666; font-size: 12px;">SkillMatch AI v4 - Fallback Diagnostic Server</p>
+                </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content, status_code=200)
+            
+        port = int(os.environ.get("PORT", 8000))
+        uvicorn.run(err_app, host="0.0.0.0", port=port)
+    except Exception as server_err:
+        print("Failed to start fallback server:", server_err)
+        sys.exit(1)
