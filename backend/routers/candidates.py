@@ -111,17 +111,7 @@ def get_candidates_with_best_position(db: Session = Depends(database.get_db)):
                     best_pos = pos
                     best_decision = ms.decision
         
-        # If not pre-calculated, evaluate
-        if best_score == -1.0 and positions:
-            for pos in positions:
-                try:
-                    ms = llm_matcher_service.match_candidate_position(cand.id, pos.id, db)
-                    if ms.overall_score > best_score:
-                        best_score = ms.overall_score
-                        best_pos = pos
-                        best_decision = ms.decision
-                except Exception:
-                    pass
+
                     
         results.append({
             "id": cand.id,
