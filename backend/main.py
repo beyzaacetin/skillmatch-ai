@@ -17,30 +17,28 @@ Base.metadata.create_all(bind=engine)
 # Auto-migrate database schema additions
 try:
     from sqlalchemy import text
-    with engine.connect() as conn:
-        queries = [
-            "ALTER TABLE candidates ADD COLUMN ai_profile_summary TEXT",
-            "ALTER TABLE interviews ADD COLUMN raw_notes TEXT",
-            "ALTER TABLE interviews ADD COLUMN cleaned_notes TEXT",
-            "ALTER TABLE interviews ADD COLUMN communication_assessment TEXT",
-            "ALTER TABLE interviews ADD COLUMN culture_fit_assessment TEXT",
-            "ALTER TABLE interviews ADD COLUMN technical_assessment TEXT",
-            "ALTER TABLE interviews ADD COLUMN ai_recommendation VARCHAR(255)",
-            "ALTER TABLE interviews ADD COLUMN next_step VARCHAR(255)",
-            "ALTER TABLE candidates ADD COLUMN cv_file_path TEXT",
-            "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT",
-            "ALTER TABLE candidates ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE candidates ADD COLUMN deleted_at TIMESTAMP",
-            "ALTER TABLE candidates ADD COLUMN deleted_by VARCHAR(255)"
-        ]
-        for q in queries:
-            try:
+    queries = [
+        "ALTER TABLE candidates ADD COLUMN ai_profile_summary TEXT",
+        "ALTER TABLE interviews ADD COLUMN raw_notes TEXT",
+        "ALTER TABLE interviews ADD COLUMN cleaned_notes TEXT",
+        "ALTER TABLE interviews ADD COLUMN communication_assessment TEXT",
+        "ALTER TABLE interviews ADD COLUMN culture_fit_assessment TEXT",
+        "ALTER TABLE interviews ADD COLUMN technical_assessment TEXT",
+        "ALTER TABLE interviews ADD COLUMN ai_recommendation VARCHAR(255)",
+        "ALTER TABLE interviews ADD COLUMN next_step VARCHAR(255)",
+        "ALTER TABLE candidates ADD COLUMN cv_file_path TEXT",
+        "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT",
+        "ALTER TABLE candidates ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE candidates ADD COLUMN deleted_at TIMESTAMP",
+        "ALTER TABLE candidates ADD COLUMN deleted_by VARCHAR(255)"
+    ]
+    for q in queries:
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(q))
-                if hasattr(conn, "commit"):
-                    conn.commit()
-                print(f"Database migration: {q} executed.")
-            except Exception:
-                pass
+            print(f"Database migration: {q} executed.")
+        except Exception:
+            pass
                 
     # Run candidate translation on startup in a background thread
     def run_translations_in_background():

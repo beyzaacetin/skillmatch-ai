@@ -3,10 +3,12 @@ import json
 import math
 import logging
 from typing import List, Dict, Any
-try:
-    from sentence_transformers import SentenceTransformer
-except Exception:
-    SentenceTransformer = None
+SentenceTransformer = None
+if os.environ.get("DISABLE_TORCH") != "1":
+    try:
+        from sentence_transformers import SentenceTransformer
+    except Exception:
+        SentenceTransformer = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
