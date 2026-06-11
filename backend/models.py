@@ -158,10 +158,12 @@ class OnboardingTask(Base):
 
 import enum
 class UserRole(enum.Enum):
-    ADMIN = "admin"
-    HR = "hr"
-    MANAGER = "manager"
-    CANDIDATE = "candidate" # Portal erişimi için
+    ADMIN = "ADMIN"
+    RECRUITER = "RECRUITER"
+    HR = "RECRUITER"  # backward compatibility alias
+    HIRING_MANAGER = "HIRING_MANAGER"
+    MANAGER = "HIRING_MANAGER"  # backward compatibility alias
+    VIEWER = "VIEWER"
 
 class User(Base):
     __tablename__ = "users"
@@ -169,11 +171,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     full_name = Column(String)
-    role = Column(JSON, default=UserRole.HR.value) # default role
-    # SQLAlchemy enum handling can be tricky, using JSON/String for simplicity in this project
-    # But auth.py expects .role to be an Enum-like or at least comparable.
-    # Let's use Column(String) and wrap with property or just use String.
-    role = Column(String, default=UserRole.HR.value)
+    role = Column(String, default=UserRole.RECRUITER.value)
     department = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -227,3 +225,44 @@ class MatchScore(Base):
     # Relations
     candidate = relationship("Candidate")
     position = relationship("Position")
+
+class CandidateActivity(Base):
+    __tablename__ = "candidate_activities"
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=False)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
+    activity_type = Column(String)  # candidate_created, stage_changed, etc.
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    note = Column(Text, nullable=True)
+    created_by = Column(String, default="System")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    metadata_json = Column(JSON, default={})
+
+class EmailTemplate(Base):
+    __tablename__ = "email_templates"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    subject = Column(String)
+    body = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class EmailLog(Base):
+    __tablename__ = "email_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=False)
+    subject = Column(String)
+    body = Column(Text)
+    sent_by = Column(String)
+    sent_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class RecruitmentTask(Base):
+    __tablename__ = "recruitment_tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default="todo") # todo | in_progress | done
+    assigned_to = Column(String, nullable=True)
+    due_date = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+

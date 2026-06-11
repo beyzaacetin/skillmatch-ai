@@ -351,4 +351,31 @@ class InterviewQuestionsRequest(BaseModel):
 class InterviewQuestionsResponse(BaseModel):
     questions: List[str]
 
+class UserAdminUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    department: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class RecruitmentTaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    status: Optional[str] = "todo"
+    assigned_to: Optional[str] = None
+    due_date: Optional[str] = None
+
+class RecruitmentTaskOut(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    status: str
+    assigned_to: Optional[str] = None
+    due_date: Optional[str] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
 

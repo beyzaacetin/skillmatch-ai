@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import json
 import logging
-import models, schemas, database
+import models, schemas, database, auth
 from services.matcher import matcher_service
 
 from services.llm_matcher import llm_matcher_service
@@ -84,6 +84,76 @@ def list_applications(position_id: Optional[int]=None, status: Optional[str]=Non
     if position_id: q = q.filter(models.Application.position_id == position_id)
     if status: q = q.filter(models.Application.status == status)
     return q.order_by(models.Application.applied_at.desc()).all()
+
+@router.post("/bulk-update")
+def bulk_update(data: dict, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    app_ids = data.get("application_ids", [])
+    action = data.get("action")
+    stage = data.get("stage")
+    note = data.get("note", "")
+    tag = data.get("tag")
+    
+    if not app_ids:
+        raise HTTPException(status_code=400, detail="Hiçbir başvuru seçilmedi.")
+        
+    apps = db.query(models.Application).filter(models.Application.id.in_(app_ids)).all()
+    for app in apps:
+        old_val = app.status
+        if action == "change_stage" and stage:
+            _push_history(app, stage, note)
+            activity = models.CandidateActivity(
+                candidate_id=app.candidate_id,
+                application_id=app.id,
+                activity_type="stage_changed",
+                old_value=old_val,
+                new_value=stage,
+                note=note or "Toplu işlem ile aşama güncellendi.",
+                created_by=current_user.full_name
+            )
+            db.add(activity)
+            
+        elif action == "reject":
+            _push_history(app, "rejected", note)
+            activity = models.CandidateActivity(
+                candidate_id=app.candidate_id,
+                application_id=app.id,
+                activity_type="rejected",
+                old_value=old_val,
+                new_value="rejected",
+                note=note or "Toplu işlem ile elendi.",
+                created_by=current_user.full_name
+            )
+            db.add(activity)
+            
+        elif action == "add_tag" and tag:
+            candidate = db.query(models.Candidate).filter(models.Candidate.id == app.candidate_id).first()
+            if candidate:
+                tags = candidate.tags or []
+                if tag not in tags:
+                    tags.append(tag)
+                    candidate.tags = tags
+                    activity = models.CandidateActivity(
+                        candidate_id=app.candidate_id,
+                        application_id=app.id,
+                        activity_type="note_added",
+                        note=f"Etiket eklendi: {tag}",
+                        created_by=current_user.full_name
+                    )
+                    db.add(activity)
+                    
+        elif action == "add_note" and note:
+            app.hr_notes = (app.hr_notes or "") + f"\n[{datetime.now(timezone.utc).strftime('%d %b %H:%M')} - {current_user.full_name}]: {note}"
+            activity = models.CandidateActivity(
+                candidate_id=app.candidate_id,
+                application_id=app.id,
+                activity_type="note_added",
+                note=note,
+                created_by=current_user.full_name
+            )
+            db.add(activity)
+            
+    db.commit()
+    return {"message": "Toplu işlem başarıyla tamamlandı.", "updated_count": len(apps)}
 
 @router.get("/pipeline")
 def get_pipeline(position_id: Optional[int]=None, db: Session = Depends(database.get_db)):

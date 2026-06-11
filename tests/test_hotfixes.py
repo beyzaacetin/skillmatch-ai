@@ -1,3 +1,7 @@
+import sys
+from unittest.mock import MagicMock
+sys.modules['sentence_transformers'] = MagicMock()
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

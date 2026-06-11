@@ -41,7 +41,8 @@ try:
             "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT",
             "ALTER TABLE candidates ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE candidates ADD COLUMN deleted_at TIMESTAMP",
-            "ALTER TABLE candidates ADD COLUMN deleted_by VARCHAR(255)"
+            "ALTER TABLE candidates ADD COLUMN deleted_by VARCHAR(255)",
+            "UPDATE applications SET status = 'hr_interview' WHERE status = 'interview'"
         ]
         for q in queries:
             try:
@@ -90,8 +91,9 @@ try:
     templates = Jinja2Templates(directory=templates_dir)
 
     # Routers
-    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth
+    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+    app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
     app.include_router(positions.router, prefix="/api/positions", tags=["positions"])
     app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
@@ -99,6 +101,8 @@ try:
     app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
     app.include_router(offers.router, prefix="/api/offers", tags=["offers"])
     app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"])
+    app.include_router(ai_recruitment.router, prefix="/api/ai", tags=["ai"])
+    app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
 
     from services.chatbot import chatbot_service
     @app.post("/api/chat")

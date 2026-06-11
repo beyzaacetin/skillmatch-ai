@@ -110,6 +110,28 @@ createApp({
     const registerData = ref({ full_name: '', email: '', password: '', department: '' });
     const allUsers = ref([]);
 
+    // AI Search, Tasks, Bulk, Timeline, Users CRUD State
+    const aiSearchQuery = ref('');
+    const aiSearchResults = ref([]);
+    const aiSearchLoading = ref(false);
+    const aiSearchSearched = ref(false);
+    const aiSearchStats = ref('');
+    const recruitmentTasks = ref([]);
+    const selectedTask = ref(null);
+    const showTaskModal = ref(false);
+    const newTask = ref({ title: '', description: '', status: 'todo', assigned_to: '', due_date: '' });
+    const selectedApplicationIds = ref([]);
+    const showBulkActionModal = ref(false);
+    const bulkActionType = ref('');
+    const bulkActionValue = ref('');
+    const candidateTimeline = ref([]);
+    const showNewUserModal = ref(false);
+    const showEditUserModal = ref(false);
+    const showPasswordResetModal = ref(false);
+    const newUser = ref({ full_name: '', email: '', password: '', department: '', role: 'RECRUITER', is_active: true });
+    const editingUser = ref(null);
+    const passwordResetData = ref({ userId: null, password: '', confirmPassword: '' });
+
     // Interview feedback
     const feedbackIv = ref(null);
     const ivFeedback = ref({ overall_score: null, technical_score: null, cultural_score: null, notes: '', recommendation: '', strengths_str: '', concerns_str: '' });
@@ -317,25 +339,190 @@ createApp({
       } catch (e) { console.error(e); }
     }
 
+    // ─── USER MANAGEMENT (YETKİ ALANI) ────────────────────────────────
     async function loadUsers() {
       try {
-        allUsers.value = await api('GET', '/api/auth/users');
+        allUsers.value = await api('GET', '/api/users/');
       } catch (e) { console.error(e); }
     }
 
-    async function updateUserRole(user) {
+    function openNewUserModal() {
+      newUser.value = { full_name: '', email: '', password: '', department: '', role: 'RECRUITER', is_active: true };
+      showNewUserModal.value = true;
+    }
+
+    async function saveNewUser() {
       try {
-        await api('PATCH', `/api/auth/users/${user.id}/role`, { role: user.role });
-        alert('Kullanıcı yetkisi güncellendi.');
+        const res = await api('POST', '/api/users/', newUser.value);
+        allUsers.value.push(res);
+        showNewUserModal.value = false;
+        alert('Kullanıcı başarıyla oluşturuldu.');
+      } catch (e) { alert('Kullanıcı eklenemedi: ' + e.message); }
+    }
+
+    async function toggleUserStatus(user, active) {
+      try {
+        const endpoint = active ? `/api/users/${user.id}/activate` : `/api/users/${user.id}/deactivate`;
+        const res = await api('PUT', endpoint);
+        user.is_active = res.is_active;
+        alert(active ? 'Kullanıcı başarıyla aktifleştirildi.' : 'Kullanıcı başarıyla pasifleştirildi.');
       } catch (e) { alert('Hata: ' + e.message); }
     }
 
-    async function deleteUser(user) {
-      if (!confirm(`${user.full_name} kullanıcısını silmek istediğinize emin misiniz?`)) return;
+    function editUser(user) {
+      editingUser.value = { ...user, password: '' };
+      showEditUserModal.value = true;
+    }
+
+    async function updateUser() {
       try {
-        await api('DELETE', `/api/auth/users/${user.id}`);
-        allUsers.value = allUsers.value.filter(u => u.id !== user.id);
+        const payload = { ...editingUser.value };
+        if (!payload.password || payload.password.trim() === '') {
+          delete payload.password;
+        }
+        const res = await api('PUT', `/api/users/${editingUser.value.id}`, payload);
+        const idx = allUsers.value.findIndex(u => u.id === res.id);
+        if (idx >= 0) allUsers.value[idx] = res;
+        showEditUserModal.value = false;
+        alert('Kullanıcı başarıyla güncellendi.');
       } catch (e) { alert('Hata: ' + e.message); }
+    }
+
+    function openPasswordReset(user) {
+      passwordResetData.value = { userId: user.id, password: '', confirmPassword: '' };
+      showPasswordResetModal.value = true;
+    }
+
+    async function submitPasswordReset() {
+      if (passwordResetData.value.password !== passwordResetData.value.confirmPassword) {
+        alert('Şifreler eşleşmiyor!');
+        return;
+      }
+      try {
+        await api('PUT', `/api/users/${passwordResetData.value.userId}/reset-password`, { password: passwordResetData.value.password });
+        showPasswordResetModal.value = false;
+        alert('Kullanıcı şifresi başarıyla yenilendi.');
+      } catch (e) { alert('Hata: ' + e.message); }
+    }
+
+    // ─── AI TALENT SEARCH ─────────────────────────────────────────────
+    async function runAiTalentSearch() {
+      if (!aiSearchQuery.value.trim()) return;
+      aiSearchLoading.value = true;
+      aiSearchResults.value = [];
+      aiSearchSearched.value = true;
+      aiSearchStats.value = 'Arama yapılıyor...';
+      try {
+        const res = await api('POST', '/api/ai/talent-search', { query: aiSearchQuery.value });
+        aiSearchResults.value = res.results || [];
+        aiSearchStats.value = `Filtreler uygulandı: ${res.query_understanding || 'Yapay Zeka Araması'}. ${res.results?.length || 0} aday bulundu.`;
+      } catch (e) {
+        alert('Arama başarısız: ' + e.message);
+        aiSearchStats.value = 'Hata oluştu.';
+      }
+      aiSearchLoading.value = false;
+    }
+
+    async function viewCandidateById(id) {
+      try {
+        const cand = await api('GET', `/api/candidates/${id}`);
+        openCandidate(cand);
+        page.value = 'talent';
+      } catch (e) {
+        alert('Aday detayı yüklenemedi: ' + e.message);
+      }
+    }
+
+    // ─── RECRUITMENT TASKS & CALENDAR (KANBAN) ────────────────────────
+    async function loadRecruitmentTasks() {
+      try {
+        recruitmentTasks.value = await api('GET', '/api/tasks/');
+      } catch (e) { console.error(e); }
+    }
+
+    function openNewTaskModal() {
+      selectedTask.value = null;
+      newTask.value = { title: '', description: '', status: 'todo', assigned_to: '', due_date: '' };
+      showTaskModal.value = true;
+    }
+
+    async function saveRecruitmentTask() {
+      try {
+        if (selectedTask.value) {
+          const res = await api('PUT', `/api/tasks/${selectedTask.value.id}`, newTask.value);
+          const idx = recruitmentTasks.value.findIndex(t => t.id === res.id);
+          if (idx >= 0) recruitmentTasks.value[idx] = res;
+        } else {
+          const res = await api('POST', '/api/tasks/', newTask.value);
+          recruitmentTasks.value.push(res);
+        }
+        showTaskModal.value = false;
+        alert('Görev başarıyla kaydedildi.');
+      } catch (e) { alert('Hata: ' + e.message); }
+    }
+
+    function editRecruitmentTask(task) {
+      selectedTask.value = task;
+      newTask.value = { ...task };
+      showTaskModal.value = true;
+    }
+
+    async function deleteRecruitmentTask() {
+      if (!selectedTask.value) return;
+      if (!confirm('Bu görevi silmek istediğinize emin misiniz?')) return;
+      try {
+        await api('DELETE', `/api/tasks/${selectedTask.value.id}`);
+        recruitmentTasks.value = recruitmentTasks.value.filter(t => t.id !== selectedTask.value.id);
+        showTaskModal.value = false;
+        alert('Görev silindi.');
+      } catch (e) { alert('Hata: ' + e.message); }
+    }
+
+    // ─── CANDIDATE TIMELINE ───────────────────────────────────────────
+    async function loadCandidateTimeline(candidateId) {
+      try {
+        candidateTimeline.value = await api('GET', `/api/candidates/${candidateId}/activities`);
+      } catch (e) {
+        candidateTimeline.value = [];
+      }
+    }
+
+    // ─── BULK PIPELINE ACTIONS ────────────────────────────────────────
+    async function submitBulkAction(action, value = '') {
+      let appIds = [];
+      if (page.value === 'talent') {
+        const apps = await api('GET', '/api/applications/');
+        const candIds = selectedCandidateIds.value;
+        appIds = apps.filter(a => candIds.includes(a.candidate_id)).map(a => a.id);
+      } else if (page.value === 'pipeline') {
+        appIds = [...selectedApplicationIds.value];
+      }
+
+      if (!appIds.length) {
+        alert('Lütfen işlem yapmak istediğiniz adayları/başvuruları seçin.');
+        return;
+      }
+
+      const note = prompt('İşlem için not ekleyin (isteğe bağlı):', 'Toplu işlem gerçekleştirildi.');
+      if (note === null) return; // cancelled
+
+      try {
+        const payload = {
+          application_ids: appIds,
+          action: action,
+          stage: action === 'change_stage' ? value : undefined,
+          tag: action === 'add_tag' ? value : undefined,
+          note: note
+        };
+        await api('POST', '/api/applications/bulk-update', payload);
+        alert('Toplu işlem başarıyla tamamlandı.');
+        selectedCandidateIds.value = [];
+        selectedApplicationIds.value = [];
+        loadInitialData();
+        if (page.value === 'pipeline') loadPipeline();
+      } catch (e) {
+        alert('Toplu işlem hatası: ' + e.message);
+      }
     }
 
     // ─── CANDIDATES ───────────────────────────────────────────────────
@@ -344,6 +531,7 @@ createApp({
       candidateTab.value = 'overview';
       candidateNote.value = c.notes || '';
       loadRecommendedPositions(c);
+      loadCandidateTimeline(c.id);
     }
 
     async function loadRecommendedPositions(c) {
@@ -1016,6 +1204,14 @@ createApp({
       analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis,
+      
+      // New v2 states
+      aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
+      recruitmentTasks, selectedTask, showTaskModal, newTask,
+      selectedApplicationIds, selectedCandidateIds, showBulkActionModal, bulkActionType, bulkActionValue,
+      candidateTimeline, showNewUserModal, showEditUserModal, showPasswordResetModal,
+      newUser, editingUser, passwordResetData,
+
       // methods
       loadPipeline, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
       loadCandidateApps, openMatchModal, runMatch, matchModal,
@@ -1032,6 +1228,13 @@ createApp({
       sendChat,
       stageColor, scoreClass, stageIndex, ivTypeLabel, formatDate, calculateBestMatch,
       showToast, viewMatchDetails, getHeatmapCount, getHeatmapColor, openCandidateByName,
+      
+      // New v2 methods
+      openNewUserModal, saveNewUser, toggleUserStatus, editUser, updateUser,
+      openPasswordReset, submitPasswordReset, runAiTalentSearch, viewCandidateById,
+      loadRecruitmentTasks, openNewTaskModal, saveRecruitmentTask, editRecruitmentTask, deleteRecruitmentTask,
+      loadCandidateTimeline, submitBulkAction,
+
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
       allUsers, loadUsers, updateUserRole, deleteUser,

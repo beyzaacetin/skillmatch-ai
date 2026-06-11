@@ -28,29 +28,31 @@ def register(
     user_data: schemas.UserCreate,
     db: Session = Depends(get_db),
 ):
-    """Yeni kullanıcı kaydı. İlk kullanıcı otomatik ADMIN olur."""
+    """Yeni kullanıcı kaydı. Yalnızca sistemde hiç kullanıcı yoksa ilk Admin oluşturma için izin verilir."""
     from sqlalchemy.exc import SQLAlchemyError
     
+    user_count = db.query(models.User).count()
+    if user_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Kayıt sistemi dışarıya kapatılmıştır. Lütfen sistem yöneticinizle iletişime geçin."
+        )
+        
     try:
         # E-posta kontrolü
         existing = db.query(models.User).filter(models.User.email == user_data.email).first()
         if existing:
             raise HTTPException(status_code=400, detail="Bu e-posta adresi zaten kayıtlı")
     
-        # İlk kullanıcıyı admin yap
-        user_count = db.query(models.User).count()
-        # Ensure role is a string value
-        role_val = models.UserRole.ADMIN.value if user_count == 0 else user_data.role
-    
         user = models.User(
             email=user_data.email,
             hashed_password=get_password_hash(user_data.password),
             full_name=user_data.full_name,
-            role=role_val,
+            role=models.UserRole.ADMIN.value,
             department=user_data.department,
             phone=user_data.phone,
             is_active=True,
-            is_verified=True,  # Şimdilik e-posta doğrulaması olmadan aktif
+            is_verified=True,
         )
         db.add(user)
         db.commit()

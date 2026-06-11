@@ -44,7 +44,10 @@ def get_stats(position_id: Optional[int] = None, date_range: Optional[str] = "30
     stages = ["applied", "screening", "interview", "offer", "hired", "rejected"]
     funnel = {}
     for stage in stages:
-        funnel[stage] = app_query.filter(models.Application.status == stage).count()
+        if stage == "interview":
+            funnel[stage] = app_query.filter(models.Application.status.in_(["hr_interview", "tech_interview", "manager_interview"])).count()
+        else:
+            funnel[stage] = app_query.filter(models.Application.status == stage).count()
         
     # 3. Source Analysis (Real stats)
     sources_data = {}

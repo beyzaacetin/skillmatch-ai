@@ -304,3 +304,45 @@ def get_candidate_best_position(candidate_id: int, db: Session = Depends(databas
         }
     return {"best_position": None, "score": 0, "decision": "not_match"}
 
+@router.get("/{candidate_id}/activities")
+def get_candidate_activities(candidate_id: int, db: Session = Depends(database.get_db)):
+    """Fetch chronological timeline activities for candidate."""
+    cand = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
+    if not cand:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+        
+    activities = db.query(models.CandidateActivity).filter(models.CandidateActivity.candidate_id == candidate_id).order_by(models.CandidateActivity.created_at.desc()).all()
+    
+    # Format and return
+    res = []
+    for a in activities:
+        res.append({
+            "id": a.id,
+            "activity_type": a.activity_type,
+            "old_value": a.old_value,
+            "new_value": a.new_value,
+            "note": a.note,
+            "created_by": a.created_by,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+            "metadata": a.metadata_json or {}
+        })
+        
+    # Inject application status changes if no logs exist
+    if not res:
+        for app in cand.applications:
+            for h in (app.status_history or []):
+                res.append({
+                    "id": 0,
+                    "activity_type": "stage_changed",
+                    "old_value": "",
+                    "new_value": h.get("status"),
+                    "note": h.get("note", "Aşama güncellendi"),
+                    "created_by": "System",
+                    "created_at": h.get("date"),
+                    "metadata": {}
+                })
+        res.sort(key=lambda x: x["created_at"] or "", reverse=True)
+        
+    return res
+
+
