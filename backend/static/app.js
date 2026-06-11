@@ -3,7 +3,18 @@ const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
 createApp({
   setup() {
     // ─── STATE ───────────────────────────────────────────────────────
-    const page = ref('dashboard');
+    const pathMap = {
+      '/': 'dashboard',
+      '/candidates': 'talent',
+      '/pipeline': 'pipeline',
+      '/analytics': 'analytics',
+      '/positions': 'jobs',
+      '/interviews': 'interviews',
+      '/tasks': 'tasks',
+      '/ai_search': 'ai_search',
+      '/users': 'users'
+    };
+    const page = ref(pathMap[window.location.pathname] || 'dashboard');
     const currentUser = ref(JSON.parse(localStorage.getItem('user') || 'null'));
     const token = ref(localStorage.getItem('token') || '');
     const talentView = ref('list');
@@ -1177,6 +1188,31 @@ createApp({
       if (p === 'pipeline') loadPipeline();
       if (p === 'analytics' || p === 'tracking') loadAnalytics();
       if (p === 'interviews') loadAllInterviews();
+
+      // Synchronize browser URL history with current page state
+      const reversePathMap = {
+        dashboard: '/',
+        talent: '/candidates',
+        pipeline: '/pipeline',
+        analytics: '/analytics',
+        jobs: '/positions',
+        interviews: '/interviews',
+        tasks: '/tasks',
+        ai_search: '/ai_search',
+        users: '/users'
+      };
+      const targetPath = reversePathMap[p] || '/';
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
+    });
+
+    // Handle browser back and forward button navigation
+    window.addEventListener('popstate', () => {
+      const matchedPage = pathMap[window.location.pathname] || 'dashboard';
+      if (page.value !== matchedPage) {
+        page.value = matchedPage;
+      }
     });
 
     const trackingData = computed(() => {

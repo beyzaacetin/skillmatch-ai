@@ -125,6 +125,12 @@ try:
     def read_root(request: Request):
         return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
 
+    @app.get("/{catchall:path}", response_class=HTMLResponse)
+    def catchall_route(request: Request, catchall: str):
+        if catchall.startswith("api") or catchall.startswith("static"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
+
 except Exception as startup_err:
     tb = traceback.format_exc()
     print("=" * 80)
