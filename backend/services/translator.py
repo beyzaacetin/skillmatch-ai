@@ -290,6 +290,8 @@ def translate_existing_candidates_to_turkish(db: Session):
             skills_str = ", ".join(candidate.skills or [])
             strengths_str = "\n".join([f"- {s}" for s in (candidate.strengths or [])])
             improvements_str = "\n".join([f"- {i}" for i in (candidate.areas_for_improvement or [])])
+            exp_str = "\n".join(exp_lines) if exp_lines else 'Belirtilmemiş'
+            edu_str = "\n".join(edu_lines) if edu_lines else 'Belirtilmemiş'
             
             cv_text = f"""SKILLMATCH AI - ADAY ÖZGEÇMİŞ RAPORU
  
@@ -304,10 +306,10 @@ YETKİNLİKLER:
 {skills_str or 'Belirtilmemiş'}
  
 İŞ DENEYİMİ:
-{"\n".join(exp_lines) if exp_lines else 'Belirtilmemiş'}
+{exp_str}
  
 EĞİTİM:
-{"\n".join(edu_lines) if edu_lines else 'Belirtilmemiş'}
+{edu_str}
  
 GÜÇLÜ YÖNLER:
 {strengths_str or 'Belirtilmemiş'}
