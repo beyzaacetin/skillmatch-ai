@@ -41,6 +41,11 @@ try:
         for q in queries:
             try:
                 with engine.begin() as conn:
+                    # Set short lock timeout (3 seconds) to prevent hanging on PostgreSQL locks
+                    try:
+                        conn.execute(text("SET lock_timeout = 3000"))
+                    except Exception:
+                        pass
                     conn.execute(text(q))
                 print(f"Database migration: {q} executed.")
             except Exception:
