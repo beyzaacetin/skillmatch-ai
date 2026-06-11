@@ -323,9 +323,9 @@ class MatchScoreOut(BaseModel):
     suggested_questions: List[str] = []
     llm_model: Optional[str] = None
     prompt_version: Optional[str] = None
-    calculated_at: datetime
-    created_at: datetime
-    updated_at: datetime
+    calculated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -377,5 +377,28 @@ class RecruitmentTaskOut(BaseModel):
     class Config:
         from_attributes = True
 
+class WhatsAppDraftRequest(BaseModel):
+    candidate_id: int
+    position_id: Optional[int] = None
+    message_type: str  # first_contact, interview_invitation, rejection, talent_pool, onboarding, etc.
+    tone: str  # professional, warm, short
 
+class WhatsAppDraftResponse(BaseModel):
+    message: str
 
+class EmailDraftRequest(BaseModel):
+    candidate_id: int
+    position_id: Optional[int] = None
+    email_type: str  # application_received, first_contact, interview_invitation, rejection, offer, etc.
+    tone: str  # professional, warm, formal
+
+class EmailDraftResponse(BaseModel):
+    subject: str
+    body: str
+
+class CandidateActivityCreate(BaseModel):
+    activity_type: str
+    note: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    metadata_json: Optional[dict] = None

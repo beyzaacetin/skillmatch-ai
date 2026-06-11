@@ -132,54 +132,210 @@ def talent_search(data: dict, db: Session = Depends(database.get_db), current_us
         "results": results
     }
 
-@router.post("/email-draft")
-def generate_email_draft(data: dict, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    candidate_id = data.get("candidate_id")
-    position_id = data.get("position_id")
-    email_type = data.get("email_type") # interview_invitation, rejection, talent_pool, offer
-    tone = data.get("tone", "professional")
-    
-    cand = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
-    pos = db.query(models.Position).filter(models.Position.id == position_id).first()
-    
-    if not cand or not pos:
-        raise HTTPException(status_code=404, detail="Aday veya pozisyon bulunamadı.")
+@router.post("/whatsapp-draft", response_model=schemas.WhatsAppDraftResponse)
+def generate_whatsapp_draft(
+    req: schemas.WhatsAppDraftRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    user_role_upper = current_user.role.upper() if current_user.role else ""
+    if user_role_upper == "VIEWER":
+        raise HTTPException(status_code=403, detail="İzleyici (Viewer) rolü aday iletişim özelliklerini kullanamaz.")
         
-    model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
-    prompt = f"""
-    Aday '{cand.name}' için '{pos.title}' pozisyonu mülakat süreci ile ilgili bir Türkçe e-posta taslağı hazırla.
-    E-posta Türü: {email_type}
-    Ton: {tone}
+    candidate = db.query(models.Candidate).filter(
+        models.Candidate.id == req.candidate_id,
+        models.Candidate.is_deleted == False
+    ).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı.")
+        
+    position_title = None
+    if req.position_id:
+        position = db.query(models.Position).filter(models.Position.id == req.position_id).first()
+        if position:
+            position_title = position.title
+
+    tone_str = "profesyonel ve kibar"
+    if req.tone == "warm":
+        tone_str = "samimi, sıcak ve cana yakın"
+    elif req.tone == "short":
+        tone_str = "oldukça kısa, net ve doğrudan konuya giren"
+        
+    msg_type_desc = {
+        "first_contact": "ilk temas ve tanışma mesajı",
+        "interview_invitation": "mülakat davet mesajı",
+        "interview_reminder": "mülakat saati/tarihi hatırlatma mesajı",
+        "document_request": "belge veya evrak talep mesajı",
+        "rejection": "olumsuz dönüş / red mesajı",
+        "talent_pool": "aday havuzunda tutulacağını bildiren mesaj",
+        "onboarding": "işe başlama / oryantasyon tebrik mesajı"
+    }.get(req.message_type, "iletişim mesajı")
+
+    system_instruction = (
+        "Sen SkillMatch AI platformunun akıllı işe alım asistanısın. "
+        "Görevin, verilen aday ve pozisyon bilgilerine göre Türkçe bir WhatsApp mesajı taslağı oluşturmaktır."
+    )
+
+    user_prompt = f"""
+    Aşağıdaki bilgilere göre bir WhatsApp mesaj taslağı oluştur:
+    Aday Adı: {candidate.name}
+    {f"Pozisyon Adı: {position_title}" if position_title else "Pozisyon: Belirtilmemiş"}
+    Şirket Adı: SkillMatch AI
+    Mesaj Tipi: {msg_type_desc}
+    Mesaj Tonu: {tone_str}
     
-    Yanıtı kesinlikle aşağıdaki JSON şemasına uygun döndür:
-    {{
-        "subject": "E-posta Konusu",
-        "body": "E-posta gövdesi (profesyonel İK diliyle, imzada SkillMatch AI Recruitment Ekibi yazacak şekilde)"
-    }}
+    WhatsApp Mesaj Kuralları:
+    - Dil tamamen Türkçe olmalı.
+    - WhatsApp mesajları kısa, doğal ve akıcı olmalıdır. Çok resmi veya uzun e-posta dili kullanılmamalıdır.
+    - Emoji çok az ve yerinde kullanılabilir, abartılmamalıdır.
+    - Taslakta değişken isimleri yerine direkt yukarıdaki dinamik değerleri kullan.
     """
-    
+
+    message = ""
     try:
-        response = model.generate_content(prompt)
-        text_clean = response.text.replace("```json", "").replace("```", "").strip()
-        result = json.loads(text_clean)
-        
-        # Log the activity
+        if settings.GEMINI_API_KEY:
+            model = genai.GenerativeModel(settings.GEMINI_MODEL)
+            prompt = f"{system_instruction}\n\n{user_prompt}"
+            response = model.generate_content(prompt)
+            message = response.text.strip()
+        else:
+            raise ValueError("No API Key")
+    except Exception as e:
+        logger.error(f"[AI WhatsApp Draft Fallback] {e}")
+        if position_title:
+            message = f"Merhaba {candidate.name}, SkillMatch AI olarak başvurmuş olduğunuz {position_title} pozisyonu hakkında görüşmek istiyoruz. Uygun zamanınızı iletebilir misiniz?"
+        else:
+            message = f"Merhaba {candidate.name}, SkillMatch AI ekibi olarak başvuru sürecinizle ilgili sizinle iletişime geçmek istiyoruz. Uygun zamanınızı iletebilir misiniz?"
+
+    # Log the activity
+    try:
         activity = models.CandidateActivity(
-            candidate_id=cand.id,
-            activity_type="email_sent",
-            note=f"E-posta taslağı oluşturuldu: {result['subject']}",
-            created_by=current_user.full_name
+            candidate_id=candidate.id,
+            activity_type="whatsapp_draft_created",
+            note=f"AI WhatsApp Taslağı Oluşturuldu",
+            created_by=current_user.full_name,
+            metadata_json={"channel": "whatsapp", "message_preview": message[:100]}
         )
         db.add(activity)
         db.commit()
+    except Exception as log_err:
+        logger.error(f"Failed to log activity: {log_err}")
+
+    return schemas.WhatsAppDraftResponse(message=message)
+
+
+@router.post("/email-draft", response_model=schemas.EmailDraftResponse)
+def generate_email_draft(
+    req: schemas.EmailDraftRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    user_role_upper = current_user.role.upper() if current_user.role else ""
+    if user_role_upper == "VIEWER":
+        raise HTTPException(status_code=403, detail="İzleyici (Viewer) rolü aday iletişim özelliklerini kullanamaz.")
         
-        return result
+    candidate = db.query(models.Candidate).filter(
+        models.Candidate.id == req.candidate_id,
+        models.Candidate.is_deleted == False
+    ).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı.")
+        
+    position_title = None
+    if req.position_id:
+        position = db.query(models.Position).filter(models.Position.id == req.position_id).first()
+        if position:
+            position_title = position.title
+
+    tone_str = "profesyonel, kurumsal ve kibar"
+    if req.tone == "warm":
+        tone_str = "samimi, sıcak ve cana yakın"
+    elif req.tone == "formal":
+        tone_str = "resmi, saygın ve kurumsal"
+        
+    email_type_desc = {
+        "application_received": "başvurunun alındığına dair bilgilendirme",
+        "first_contact": "ilk iletişim ve tanışma e-postası",
+        "interview_invitation": "mülakat daveti",
+        "interview_reminder": "mülakat saati ve tarihi hatırlatması",
+        "technical_test": "teknik değerlendirme testi gönderimi",
+        "rejection": "olumsuz dönüş / red bildirimi",
+        "offer": "iş teklifi gönderimi",
+        "onboarding": "işe alım kabulü ve ilk gün oryantasyon hazırlıkları",
+        "document_request": "gerekli evrak ve belgelerin talep edilmesi"
+    }.get(req.email_type, "iş başvurusu süreci bilgilendirmesi")
+
+    system_instruction = (
+        "Sen SkillMatch AI platformunun profesyonel işe alım asistanısın. "
+        "Görevin, aday ve pozisyon bilgilerine göre profesyonel Türkçe bir e-posta konusu (Subject) ve e-posta gövdesi (Body) taslağı oluşturmaktır. "
+        "Çıktıyı JSON formatında ver: {\"subject\": \"Konu başlığı buraya\", \"body\": \"E-posta içeriği buraya\"}"
+    )
+
+    user_prompt = f"""
+    Aşağıdaki bilgilere göre bir e-posta taslağı oluştur:
+    Aday Adı: {candidate.name}
+    {f"Pozisyon Adı: {position_title}" if position_title else "Pozisyon: Belirtilmemiş"}
+    Şirket Adı: SkillMatch AI
+    E-posta Tipi: {email_type_desc}
+    E-posta Tonu: {tone_str}
+    
+    E-posta Kuralları:
+    - Dil tamamen Türkçe olmalı.
+    - E-posta profesyonel, net ve imla kurallarına uygun olmalıdır.
+    - Taslakta değişken isimleri yerine yukarıdaki değerleri kullan.
+    - Çıktı SADECE geçerli bir JSON objesi olmalıdır: {{"subject": "...", "body": "..."}}
+    """
+
+    subject = ""
+    body = ""
+
+    try:
+        if settings.GEMINI_API_KEY:
+            model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
+            prompt = f"{system_instruction}\n\n{user_prompt}"
+            response = model.generate_content(prompt)
+            raw_text = response.text.strip()
+            
+            # Clean markdown JSON block formatting if present
+            if raw_text.startswith("```"):
+                lines = raw_text.split("\n")
+                if lines[0].startswith("```json") or lines[0].startswith("```"):
+                    raw_text = "\n".join(lines[1:-1]).strip()
+            
+            try:
+                data = json.loads(raw_text)
+                subject = data.get("subject", "").strip()
+                body = data.get("body", "").strip()
+            except Exception:
+                subject = f"{position_title if position_title else 'İş Başvurunuz'} Hakkında"
+                body = raw_text
+        else:
+            raise ValueError("No API Key")
     except Exception as e:
-        logger.error(f"Failed to generate email draft: {e}")
-        return {
-            "subject": f"{pos.title} Başvurunuz Hakkında - SkillMatch AI",
-            "body": f"Sayın {cand.name},\n\n{pos.title} pozisyonuna yapmış olduğunuz başvuru değerlendirilmiştir. Sürecinizle ilgili bilgilendirme İK ekibimiz tarafından en kısa sürede yapılacaktır.\n\nSaygılarımızla,\nSkillMatch AI Ekibi"
-        }
+        logger.error(f"[AI Email Draft Fallback] {e}")
+        subject = f"{position_title if position_title else 'İş Başvurunuz'} Hakkında"
+        body = f"Merhaba {candidate.name},\n\n{position_title if position_title else 'İş'} başvurunuz süreci ile ilgili sizinle iletişime geçmek istiyoruz. Uygun olduğunuzda dönüş yapmanızı rica ederiz.\n\nİyi günler,\nSkillMatch AI Ekibi"
+
+    if not subject:
+        subject = f"{position_title if position_title else 'İş Başvurunuz'} Hakkında"
+    if not body:
+        body = f"Merhaba {candidate.name},\n\nBaşvuru süreciniz hakkında sizinle iletişime geçmek isteriz."
+
+    # Log the activity
+    try:
+        activity = models.CandidateActivity(
+            candidate_id=candidate.id,
+            activity_type="email_draft_created",
+            note=f"AI E-posta Taslağı Oluşturuldu: {subject}",
+            created_by=current_user.full_name,
+            metadata_json={"channel": "email", "subject": subject, "message_preview": body[:100]}
+        )
+        db.add(activity)
+        db.commit()
+    except Exception as log_err:
+        logger.error(f"Failed to log activity: {log_err}")
+
+    return schemas.EmailDraftResponse(subject=subject, body=body)
 
 @router.post("/manager-summary")
 def generate_manager_summary(data: dict, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):

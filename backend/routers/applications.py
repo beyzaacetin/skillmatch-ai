@@ -4,7 +4,8 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import json
 import logging
-import models, schemas, database, auth
+import models, schemas, database
+import auth
 from services.matcher import matcher_service
 
 from services.llm_matcher import llm_matcher_service

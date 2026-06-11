@@ -540,6 +540,155 @@ createApp({
       }
     }
 
+    // ─── CANDIDATE COMMUNICATION MODULE ────────────────────────────────
+    const showCommModal = ref(false);
+    const commCandidate = ref(null);
+    const commChannel = ref('whatsapp'); // 'whatsapp' or 'email'
+    const commMsgType = ref('first_contact');
+    const commTone = ref('professional');
+    const commText = ref('');
+    const commSubject = ref('');
+    const commLoading = ref(false);
+    const commPositionId = ref('');
+
+    const isViewer = computed(() => currentUser.value?.role?.toUpperCase() === 'VIEWER');
+
+    function normalizePhoneForWhatsApp(phone) {
+      if (!phone) return null;
+      let cleaned = phone.replace(/[\s\(\)\-\+]/g, '');
+      if (!cleaned) return null;
+      if (cleaned.startsWith('0')) {
+        cleaned = '90' + cleaned.substring(1);
+      } else if (cleaned.length === 10) {
+        cleaned = '90' + cleaned;
+      }
+      return cleaned;
+    }
+
+    function openCommunication(candidate, channel = 'whatsapp') {
+      const userRole = currentUser.value?.role?.toUpperCase();
+      if (userRole === 'VIEWER') {
+        showToast('İzleyici (Viewer) rolü aday iletişim özelliklerini kullanamaz.', 'error');
+        return;
+      }
+      commCandidate.value = candidate;
+      commChannel.value = channel;
+      commMsgType.value = channel === 'whatsapp' ? 'first_contact' : 'application_received';
+      commTone.value = channel === 'whatsapp' ? 'professional' : 'professional';
+      commText.value = '';
+      commSubject.value = '';
+      commPositionId.value = '';
+      showCommModal.value = true;
+    }
+
+    async function generateAiDraft() {
+      if (!commCandidate.value) return;
+      commLoading.value = true;
+      try {
+        if (commChannel.value === 'whatsapp') {
+          const payload = {
+            candidate_id: commCandidate.value.id,
+            position_id: commPositionId.value ? parseInt(commPositionId.value) : null,
+            message_type: commMsgType.value,
+            tone: commTone.value
+          };
+          const res = await api('POST', '/api/ai/whatsapp-draft', payload);
+          commText.value = res.message;
+        } else {
+          const payload = {
+            candidate_id: commCandidate.value.id,
+            position_id: commPositionId.value ? parseInt(commPositionId.value) : null,
+            email_type: commMsgType.value,
+            tone: commTone.value
+          };
+          const res = await api('POST', '/api/ai/email-draft', payload);
+          commSubject.value = res.subject;
+          commText.value = res.body;
+        }
+      } catch (e) {
+        showToast('Taslak oluşturulamadı: ' + e.message, 'error');
+      } finally {
+        commLoading.value = false;
+      }
+    }
+
+    async function logCommActivity(activityType, note) {
+      if (!commCandidate.value) return;
+      try {
+        await api('POST', `/api/candidates/${commCandidate.value.id}/activity`, {
+          activity_type: activityType,
+          note: note,
+          metadata_json: { channel: commChannel.value }
+        });
+        loadCandidateTimeline(commCandidate.value.id);
+      } catch (e) {
+        console.error('Failed to log activity:', e);
+      }
+    }
+
+    async function openInExternalChannel() {
+      if (!commCandidate.value) return;
+      if (commChannel.value === 'whatsapp') {
+        const phone = normalizePhoneForWhatsApp(commCandidate.value.phone);
+        if (!phone) {
+          alert('Geçerli bir telefon numarası bulunamadı.');
+          return;
+        }
+        let url = `https://wa.me/${phone}`;
+        if (commText.value) {
+          url += `?text=${encodeURIComponent(commText.value)}`;
+        }
+        window.open(url, '_blank');
+        await logCommActivity('whatsapp_opened', 'Aday ile WhatsApp üzerinden iletişim başlatıldı.');
+      } else {
+        const email = commCandidate.value.email;
+        if (!email) {
+          alert('E-posta adresi bulunamadı.');
+          return;
+        }
+        let mailto = `mailto:${email}`;
+        let params = [];
+        if (commSubject.value) params.push(`subject=${encodeURIComponent(commSubject.value)}`);
+        if (commText.value) params.push(`body=${encodeURIComponent(commText.value)}`);
+        if (params.length) mailto += `?${params.join('&')}`;
+        window.open(mailto, '_self');
+        await logCommActivity('email_opened', `Adaya e-posta taslağı açıldı: ${commSubject.value || 'Konu Yok'}`);
+      }
+    }
+
+    async function copyCommText() {
+      try {
+        let textToCopy = commText.value;
+        if (commChannel.value === 'email' && commSubject.value) {
+          textToCopy = `Konu: ${commSubject.value}\n\n${commText.value}`;
+        }
+        await navigator.clipboard.writeText(textToCopy);
+        showToast('Metin panoya kopyalandı.', 'success');
+        await logCommActivity('message_copied', `Taslak metin panoya kopyalandı (${commChannel.value}).`);
+      } catch (err) {
+        showToast('Kopyalama başarısız oldu.', 'error');
+      }
+    }
+
+    function getDaysSinceLastActivity(candidate, timeline) {
+      if (!candidate) return 0;
+      let lastDate = null;
+      if (timeline && timeline.length > 0) {
+        const latest = timeline[0];
+        if (latest.created_at) {
+          lastDate = new Date(latest.created_at);
+        }
+      }
+      if (!lastDate && candidate.created_at) {
+        lastDate = new Date(candidate.created_at);
+      }
+      if (!lastDate) return 0;
+      const diffTime = Math.abs(new Date() - lastDate);
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    }
+
+
     // ─── CANDIDATES ───────────────────────────────────────────────────
     function openCandidate(c) {
       selectedCandidate.value = c;
@@ -1251,6 +1400,7 @@ createApp({
       selectedApplicationIds, selectedCandidateIds, selectedCandidates, showBulkActionModal, bulkActionType, bulkActionValue,
       candidateTimeline, showNewUserModal, showEditUserModal, showPasswordResetModal,
       newUser, editingUser, passwordResetData,
+      showCommModal, commCandidate, commChannel, commMsgType, commTone, commText, commSubject, commLoading, commPositionId, isViewer,
 
       // methods
       loadPipeline, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
@@ -1274,6 +1424,9 @@ createApp({
       openPasswordReset, submitPasswordReset, runAiTalentSearch, viewCandidateById,
       loadRecruitmentTasks, openNewTaskModal, saveRecruitmentTask, editRecruitmentTask, deleteRecruitmentTask,
       loadCandidateTimeline, submitBulkAction,
+
+      // Candidate communication methods
+      normalizePhoneForWhatsApp, openCommunication, generateAiDraft, openInExternalChannel, copyCommText, getDaysSinceLastActivity,
 
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,

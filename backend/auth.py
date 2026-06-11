@@ -94,8 +94,18 @@ def require_roles(*roles: models.UserRole):
     Kullanım: Depends(require_roles(UserRole.HR, UserRole.ADMIN))
     """
     def checker(current_user: models.User = Depends(get_current_user)):
-        allowed = [r.value if hasattr(r, 'value') else r for r in roles]
-        if current_user.role not in allowed:
+        allowed = [r.value.upper() if hasattr(r, 'value') else str(r).upper() for r in roles]
+        user_role_upper = current_user.role.upper() if current_user.role else ""
+        
+        # Map aliases and support case-insensitive database values
+        if "RECRUITER" in allowed:
+            allowed.extend(["HR", "RECRUITER"])
+        if "HIRING_MANAGER" in allowed:
+            allowed.extend(["MANAGER", "HIRING_MANAGER"])
+        if "ADMIN" in allowed:
+            allowed.extend(["ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN"])
+            
+        if user_role_upper not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Bu işlem için yetkiniz yok. Gerekli rol: {allowed}"
@@ -106,14 +116,16 @@ def require_roles(*roles: models.UserRole):
 
 def require_hr_or_admin(current_user: models.User = Depends(get_current_user)):
     """İK veya Admin rolü gerektirir."""
-    if current_user.role not in [models.UserRole.HR.value, models.UserRole.ADMIN.value]:
+    user_role_upper = current_user.role.upper() if current_user.role else ""
+    if user_role_upper not in ["HR", "RECRUITER", "ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN"]:
         raise HTTPException(status_code=403, detail="Bu işlem için İK veya Admin yetkisi gerekli")
     return current_user
 
 
 def require_manager_or_above(current_user: models.User = Depends(get_current_user)):
     """Yönetici, İK veya Admin rolü gerektirir."""
-    if current_user.role not in [models.UserRole.MANAGER.value, models.UserRole.HR.value, models.UserRole.ADMIN.value]:
+    user_role_upper = current_user.role.upper() if current_user.role else ""
+    if user_role_upper not in ["MANAGER", "HIRING_MANAGER", "HR", "RECRUITER", "ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN"]:
         raise HTTPException(status_code=403, detail="Bu işlem için Yönetici veya üzeri yetki gerekli")
     return current_user
 

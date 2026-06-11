@@ -371,6 +371,12 @@
                 <td @click.stop>
                   <div style="display:flex;gap:6px">
                     <button class="btn btn-secondary btn-sm" @click="openMatchModal(c)">Eşleştir</button>
+                    <button class="btn btn-outline btn-sm" style="padding: 2px 8px; display:flex; align-items:center; gap:4px" :disabled="!c.phone || isViewer" @click="openCommunication(c, 'whatsapp')" :title="c.phone ? 'WhatsApp Taslağı' : 'Telefon numarası bulunamadı.'">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    </button>
+                    <button class="btn btn-outline btn-sm" style="padding: 2px 8px; display:flex; align-items:center; gap:4px" :disabled="!c.email || isViewer" @click="openCommunication(c, 'email')" :title="c.email ? 'E-posta Taslağı' : 'E-posta adresi bulunamadı.'">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </button>
                     <button class="btn btn-ghost btn-icon" @click="deleteCandidate(c.id)" title="Sil">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                     </button>
@@ -432,6 +438,18 @@
                   <svg v-for="i in 5" :key="i" class="star" :class="{on:i<=(c.rating||0)}" viewBox="0 0 24 24" fill="currentColor" @click.stop="rateCandidate(c,i)" style="width:12px;height:12px"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 </div>
                 <span v-if="c.seniority_level" class="badge b-interview" style="font-size:10px">{{ c.seniority_level }}</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px" @click.stop>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-outline btn-sm" style="padding: 2px 6px; font-size:11px; display:flex; align-items:center; gap:2px" :disabled="!c.phone || isViewer" @click="openCommunication(c, 'whatsapp')" :title="c.phone ? 'WhatsApp Taslağı' : 'Telefon numarası bulunamadı.'">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    WhatsApp
+                  </button>
+                  <button class="btn btn-outline btn-sm" style="padding: 2px 6px; font-size:11px; display:flex; align-items:center; gap:2px" :disabled="!c.email || isViewer" @click="openCommunication(c, 'email')" :title="c.email ? 'E-posta Taslağı' : 'E-posta adresi bulunamadı.'">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    E-posta
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -508,7 +526,15 @@
                 <div class="stars">
                   <svg v-for="i in 5" :key="i" class="star" :class="{on:i<=(app.candidate?.rating||0)}" viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 </div>
-                <span v-if="app.source" style="font-size:10px;color:var(--g400)">{{ app.source }}</span>
+                <div style="display:flex;gap:4px;align-items:center" @click.stop>
+                  <button class="btn btn-ghost btn-sm btn-icon" style="padding:1px; width:18px; height:18px" :disabled="!app.candidate?.phone || isViewer" @click="openCommunication(app.candidate, 'whatsapp')" :title="app.candidate?.phone ? 'WhatsApp Taslağı' : 'Telefon numarası bulunamadı.'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                  </button>
+                  <button class="btn btn-ghost btn-sm btn-icon" style="padding:1px; width:18px; height:18px" :disabled="!app.candidate?.email || isViewer" @click="openCommunication(app.candidate, 'email')" :title="app.candidate?.email ? 'E-posta Taslağı' : 'E-posta adresi bulunamadı.'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  </button>
+                  <span v-if="app.source" style="font-size:10px;color:var(--g400)">{{ app.source }}</span>
+                </div>
               </div>
             </div>
             <button class="kb-add-btn" @click="openNewAppForStage(col.status)">+ Ekle</button>
@@ -1343,6 +1369,14 @@
       <div class="modal-body">
         <!-- OVERVIEW TAB -->
         <div v-if="candidateTab==='overview'">
+          <!-- SLA Alert Banner -->
+          <div v-if="getDaysSinceLastActivity(selectedCandidate, candidateTimeline) >= 7" 
+               style="background:#fef2f2; border:1px solid #fee2e2; border-radius:8px; padding:12px; margin-bottom:16px; display:flex; align-items:center; gap:8px; color:#991b1b">
+            <span style="font-size:16px">⚠</span>
+            <div style="font-size:13px; font-weight:600">
+              Aday {{ getDaysSinceLastActivity(selectedCandidate, candidateTimeline) }} gündür işlem görmedi.
+            </div>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 280px;gap:20px">
             <div>
               <div v-if="selectedCandidate.summary" style="background:var(--g50);border-radius:8px;padding:16px;margin-bottom:20px">
@@ -1401,6 +1435,24 @@
                   <div v-if="selectedCandidate.email" style="display:flex;align-items:center;gap:8px"><span>✉</span> {{ selectedCandidate.email }}</div>
                   <div v-if="selectedCandidate.phone" style="display:flex;align-items:center;gap:8px"><span>📞</span> {{ selectedCandidate.phone }}</div>
                   <div v-if="selectedCandidate.seniority_level" style="display:flex;align-items:center;gap:8px"><span>⭐</span> {{ selectedCandidate.seniority_level }} Seviye</div>
+                </div>
+              </div>
+
+              <div style="background:var(--g50);border-radius:10px;padding:16px;margin-bottom:16px">
+                <div style="font-size:12px;font-weight:600;color:var(--g500);margin-bottom:12px">Aday İletişimi</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <button class="btn btn-outline btn-sm w-full" style="display:flex;align-items:center;justify-content:center;gap:6px" :disabled="!selectedCandidate.phone || isViewer" @click="openCommunication(selectedCandidate, 'whatsapp')">
+                    WhatsApp’tan Yaz
+                  </button>
+                  <button class="btn btn-outline btn-sm w-full" style="display:flex;align-items:center;justify-content:center;gap:6px" :disabled="!selectedCandidate.email || isViewer" @click="openCommunication(selectedCandidate, 'email')">
+                    Mail At
+                  </button>
+                  <button class="btn btn-primary btn-sm w-full" style="display:flex;align-items:center;justify-content:center;gap:6px" :disabled="!selectedCandidate.phone || isViewer" @click="openCommunication(selectedCandidate, 'whatsapp')">
+                    AI WhatsApp Mesajı Hazırla
+                  </button>
+                  <button class="btn btn-primary btn-sm w-full" style="display:flex;align-items:center;justify-content:center;gap:6px" :disabled="!selectedCandidate.email || isViewer" @click="openCommunication(selectedCandidate, 'email')">
+                    AI Mail Taslağı Hazırla
+                  </button>
                 </div>
               </div>
 
@@ -1506,6 +1558,176 @@
                 <div style="font-size:11px;color:var(--g400);margin-top:6px;text-align:right">
                   İşlemi Yapan: {{ t.created_by || 'Sistem' }}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMUNICATION MODAL -->
+  <div v-if="showCommModal && commCandidate" class="overlay" @click.self="showCommModal=false">
+    <div class="modal modal-lg" style="max-width: 650px;">
+      <div class="modal-hdr">
+        <div style="display:flex; align-items:center; gap:8px">
+          <div class="cand-av" style="width:36px;height:36px;font-size:14px">{{ (commCandidate.name||'?')[0].toUpperCase() }}</div>
+          <div>
+            <div class="modal-title" style="font-size:16px">Aday İletişimi: {{ commCandidate.name }}</div>
+            <div class="modal-sub">{{ commCandidate.email || 'E-posta yok' }} · {{ commCandidate.phone || 'Telefon yok' }}</div>
+          </div>
+        </div>
+        <button class="modal-x" @click="showCommModal=false">×</button>
+      </div>
+      <div class="modal-tabs">
+        <div class="modal-tab" :class="{active: commChannel==='whatsapp'}" @click="commChannel='whatsapp'; commMsgType='first_contact'; commText=''">WhatsApp</div>
+        <div class="modal-tab" :class="{active: commChannel==='email'}" @click="commChannel='email'; commMsgType='application_received'; commText=''">E-posta</div>
+      </div>
+      
+      <div class="modal-body" style="padding: 20px;">
+        <!-- WHATSAPP TAB -->
+        <div v-if="commChannel==='whatsapp'">
+          <div v-if="!commCandidate.phone" class="empty" style="padding: 20px;">
+            <p style="color:var(--red); font-weight:600">⚠ Telefon numarası bulunamadı.</p>
+          </div>
+          <div v-else>
+            <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center">
+              <button class="btn btn-primary btn-sm" @click="openInExternalChannel()">
+                WhatsApp'tan Yaz (Doğrudan)
+              </button>
+              <span style="font-size:12px; color:var(--g500)">Adayın numarası normalize edilerek yeni sekmede WhatsApp Web açılacaktır.</span>
+            </div>
+            
+            <div style="background:var(--g50); border:1.5px solid var(--g200); border-radius:10px; padding:16px; margin-bottom:16px">
+              <div style="font-weight:700; font-size:13.5px; color:#0B4A3A; margin-bottom:12px; display:flex; align-items:center; gap:6px">
+                <span>✨</span> AI WhatsApp Mesaj Taslağı Hazırla
+              </div>
+              
+              <div class="grid-2" style="gap:12px; margin-bottom:12px">
+                <div>
+                  <label class="fl">İletişim Nedeni</label>
+                  <select v-model="commMsgType" class="fs">
+                    <option value="first_contact">İlk İletişim / Tanışma</option>
+                    <option value="interview_invitation">Mülakat Daveti</option>
+                    <option value="rejection">Red Bildirimi (Olumsuz Sonuç)</option>
+                    <option value="talent_pool">Yetenek Havuzu Güncellemesi</option>
+                    <option value="onboarding">İşe Başlama Hazırlıkları</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="fl">Mesaj Tonu</label>
+                  <select v-model="commTone" class="fs">
+                    <option value="professional">Profesyonel / Kurumsal</option>
+                    <option value="warm">Samimi / Sıcak</option>
+                    <option value="short">Kısa ve Net</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="fg">
+                <label class="fl">İlgili Pozisyon (Opsiyonel)</label>
+                <select v-model="commPositionId" class="fs">
+                  <option value="">Pozisyon Seçilmedi</option>
+                  <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.title }}</option>
+                </select>
+              </div>
+
+              <button class="btn btn-outline btn-sm" @click="generateAiDraft()" :disabled="commLoading" style="border-color:#0B4A3A; color:#0B4A3A">
+                <span v-if="commLoading" class="loading-spin" style="width:12px; height:12px; border-top-color:#0B4A3A; margin-right:6px"></span>
+                AI WhatsApp Mesajı Hazırla
+              </button>
+            </div>
+            
+            <div v-if="commText" class="fg">
+              <label class="fl">Mesaj Metni Taslağı (Düzenleyebilirsiniz)</label>
+              <textarea v-model="commText" class="fta" rows="6"></textarea>
+              
+              <div style="display:flex; gap:10px; margin-top:10px">
+                <button class="btn btn-primary btn-sm" @click="openInExternalChannel()">
+                  WhatsApp'ta Aç
+                </button>
+                <button class="btn btn-secondary btn-sm" @click="copyCommText()">
+                  Kopyala
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- E-POSTA TAB -->
+        <div v-if="commChannel==='email'">
+          <div v-if="!commCandidate.email" class="empty" style="padding: 20px;">
+            <p style="color:var(--red); font-weight:600">⚠ E-posta adresi bulunamadı.</p>
+          </div>
+          <div v-else>
+            <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center">
+              <button class="btn btn-primary btn-sm" @click="openInExternalChannel()">
+                Mail At (Doğrudan)
+              </button>
+              <span style="font-size:12px; color:var(--g500)">Varsayılan e-posta istemciniz üzerinden taslaksız boş mail açılacaktır.</span>
+            </div>
+            
+            <div style="background:var(--g50); border:1.5px solid var(--g200); border-radius:10px; padding:16px; margin-bottom:16px">
+              <div style="font-weight:700; font-size:13.5px; color:#0B4A3A; margin-bottom:12px; display:flex; align-items:center; gap:6px">
+                <span>✨</span> AI E-posta Taslağı Hazırla
+              </div>
+              
+              <div class="grid-2" style="gap:12px; margin-bottom:12px">
+                <div>
+                  <label class="fl">E-posta Tipi</label>
+                  <select v-model="commMsgType" class="fs">
+                    <option value="application_received">Başvuru Alındı Bilgilendirmesi</option>
+                    <option value="first_contact">İlk İletişim / Tanışma</option>
+                    <option value="interview_invitation">Mülakat Daveti</option>
+                    <option value="interview_reminder">Mülakat Hatırlatması</option>
+                    <option value="technical_test">Teknik Değerlendirme Testi</option>
+                    <option value="rejection">Red / Olumsuz Sonuç Bildirimi</option>
+                    <option value="offer">İş Teklifi Gönderimi</option>
+                    <option value="onboarding">Kabul ve Oryantasyon Hazırlığı</option>
+                    <option value="document_request">Evrak/Belge Talebi</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="fl">E-posta Tonu</label>
+                  <select v-model="commTone" class="fs">
+                    <option value="professional">Profesyonel / Kibar</option>
+                    <option value="warm">Samimi / Sıcak</option>
+                    <option value="formal">Resmi / Kurumsal</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="fg">
+                <label class="fl">Pozisyon Seçimi (Opsiyonel)</label>
+                <select v-model="commPositionId" class="fs">
+                  <option value="">Pozisyon Seçilmedi</option>
+                  <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.title }}</option>
+                </select>
+              </div>
+
+              <button class="btn btn-outline btn-sm" @click="generateAiDraft()" :disabled="commLoading" style="border-color:#0B4A3A; color:#0B4A3A">
+                <span v-if="commLoading" class="loading-spin" style="width:12px; height:12px; border-top-color:#0B4A3A; margin-right:6px"></span>
+                AI Mail Taslağı Hazırla
+              </button>
+            </div>
+            
+            <div v-if="commText" class="fg">
+              <div class="fg" style="margin-bottom:12px">
+                <label class="fl">E-posta Konusu (Subject)</label>
+                <input type="text" v-model="commSubject" class="fi">
+              </div>
+              <div class="fg">
+                <label class="fl">E-posta İçeriği (Düzenleyebilirsiniz)</label>
+                <textarea v-model="commText" class="fta" rows="8"></textarea>
+              </div>
+              
+              <div style="display:flex; gap:10px; margin-top:10px">
+                <button class="btn btn-primary btn-sm" @click="openInExternalChannel()">
+                  E-posta Gönder (Mailto)
+                </button>
+                <button class="btn btn-secondary btn-sm" @click="copyCommText()">
+                  Kopyala
+                </button>
               </div>
             </div>
           </div>

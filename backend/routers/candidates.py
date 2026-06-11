@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List
 import json
-import models, schemas, database
+import models, schemas, database, auth
 from services import pdf_parser, ai_analyzer
 
 router = APIRouter()
@@ -345,4 +345,31 @@ def get_candidate_activities(candidate_id: int, db: Session = Depends(database.g
         
     return res
 
-
+@router.post("/{candidate_id}/activity")
+def create_candidate_activity(
+    candidate_id: int,
+    req: schemas.CandidateActivityCreate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    user_role_upper = current_user.role.upper() if current_user.role else ""
+    if user_role_upper == "VIEWER":
+        raise HTTPException(status_code=403, detail="İzleyici (Viewer) rolü aday iletişim aksiyonu ekleyemez.")
+        
+    cand = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
+    if not cand:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+        
+    activity = models.CandidateActivity(
+        candidate_id=candidate_id,
+        activity_type=req.activity_type,
+        note=req.note,
+        old_value=req.old_value,
+        new_value=req.new_value,
+        created_by=current_user.full_name,
+        metadata_json=req.metadata_json or {}
+    )
+    db.add(activity)
+    db.commit()
+    db.refresh(activity)
+    return activity
