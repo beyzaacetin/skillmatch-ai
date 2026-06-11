@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 app = None
-COMMIT_HASH = "8672a72"
+COMMIT_HASH = "664eb57"
 try:
     import subprocess
     git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
