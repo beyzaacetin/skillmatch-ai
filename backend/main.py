@@ -17,8 +17,13 @@ app = None
 try:
     from database import engine, Base, get_db
     import models
-
-    Base.metadata.create_all(bind=engine)
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        try:
+            conn.execute(text("SET lock_timeout = 3000"))
+        except Exception:
+            pass
+        Base.metadata.create_all(bind=conn)
 
     # Auto-migrate database schema additions
     try:
