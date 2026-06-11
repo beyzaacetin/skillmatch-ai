@@ -13,6 +13,14 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 app = None
+COMMIT_HASH = "8672a72"
+try:
+    import subprocess
+    git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
+    if git_hash:
+        COMMIT_HASH = git_hash
+except Exception:
+    pass
 
 try:
     from database import engine, Base, get_db
@@ -80,6 +88,15 @@ try:
 
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+    @app.middleware("http")
+    async def add_cache_control_header(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     static_dir = os.path.join(BASE_DIR, "static")
     templates_dir = os.path.join(BASE_DIR, "templates")
@@ -110,7 +127,13 @@ try:
         return {"response": chatbot_service.chat(message, db)}
 
     @app.get("/health")
-    def health(): return {"status": "ok", "version": "4.0.0"}
+    def health():
+        return {
+            "status": "ok",
+            "version": "4.0.0",
+            "commit": COMMIT_HASH,
+            "features": ["candidate_communication_module"]
+        }
 
     @app.get("/health/db")
     def health_db(db: Session = Depends(get_db)):
@@ -123,13 +146,13 @@ try:
 
     @app.get("/", response_class=HTMLResponse)
     def read_root(request: Request):
-        return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "commit_hash": COMMIT_HASH})
 
     @app.get("/{catchall:path}", response_class=HTMLResponse)
     def catchall_route(request: Request, catchall: str):
         if catchall.startswith("api") or catchall.startswith("static"):
             return JSONResponse(status_code=404, content={"detail": "Not Found"})
-        return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
+        return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "commit_hash": COMMIT_HASH})
 
 except Exception as startup_err:
     tb = traceback.format_exc()

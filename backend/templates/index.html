@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SkillMatch AI</title>
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/style.css?v={% endraw %}{{ commit_hash }}{% raw %}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -56,7 +56,7 @@
         </form>
       </div>
       <div class="login-footer">
-        © 2026 SkillMatch AI — v4.0.0
+        © 2026 SkillMatch AI — v4.0.0 (commit: {% endraw %}{{ commit_hash }}{% raw %})
       </div>
     </div>
   </div>
@@ -137,6 +137,9 @@
           <div class="user-role">{{ currentUser.role }}</div>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--g400)"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+      <div style="font-size:10px; color:var(--g400); text-align:center; padding-top:8px; border-top:1px solid var(--g200); margin-top:8px">
+        v4.0.0 (commit: {% endraw %}{{ commit_hash }}{% raw %})
       </div>
     </div>
   </aside>
@@ -2653,7 +2656,7 @@
 
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v={% endraw %}{{ commit_hash }}{% raw %}"></script>
 </body>
 </html>
 {% endraw %}
