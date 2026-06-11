@@ -132,6 +132,10 @@ createApp({
     const showTaskModal = ref(false);
     const newTask = ref({ title: '', description: '', status: 'todo', assigned_to: '', due_date: '' });
     const selectedApplicationIds = ref([]);
+    const selectedCandidateIds = ref([]);
+    const selectedCandidates = computed(() =>
+      candidates.value.filter(c => selectedCandidateIds.value.includes(c.id))
+    );
     const showBulkActionModal = ref(false);
     const bulkActionType = ref('');
     const bulkActionValue = ref('');
@@ -1244,7 +1248,7 @@ createApp({
       // New v2 states
       aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
       recruitmentTasks, selectedTask, showTaskModal, newTask,
-      selectedApplicationIds, selectedCandidateIds, showBulkActionModal, bulkActionType, bulkActionValue,
+      selectedApplicationIds, selectedCandidateIds, selectedCandidates, showBulkActionModal, bulkActionType, bulkActionValue,
       candidateTimeline, showNewUserModal, showEditUserModal, showPasswordResetModal,
       newUser, editingUser, passwordResetData,
 
