@@ -26,7 +26,7 @@ def create_application(data: schemas.ApplicationCreate, db: Session = Depends(da
     ).first()
     if exists:
         raise HTTPException(status_code=400, detail="Bu aday bu pozisyona zaten eklenmiş.")
-    candidate = db.query(models.Candidate).filter(models.Candidate.id == data.candidate_id).first()
+    candidate = db.query(models.Candidate).filter(models.Candidate.id == data.candidate_id, models.Candidate.is_deleted == False).first()
     position = db.query(models.Position).filter(models.Position.id == data.position_id).first()
     if not candidate or not position:
         raise HTTPException(status_code=404, detail="Aday veya pozisyon bulunamadı")
