@@ -210,7 +210,10 @@ def translate_existing_candidates_to_turkish(db: Session):
             # Also check experience descriptions for English
             if not is_english and candidate.experience:
                 for exp in candidate.experience:
-                    exp_desc = (exp.get("description", "") or "").lower()
+                    if isinstance(exp, dict):
+                        exp_desc = (exp.get("description", "") or "").lower()
+                    else:
+                        exp_desc = ""
                     if any(kw in exp_desc for kw in english_keywords):
                         is_english = True
                         break
@@ -278,14 +281,19 @@ def translate_existing_candidates_to_turkish(db: Session):
             cv_relative_path = f"/static/uploads/{filename}"
             full_path = os.path.join(upload_dir, filename)
             
-            # Format text content
             exp_lines = []
             for exp in (candidate.experience or []):
-                exp_lines.append(f"- {exp.get('title', 'Pozisyon')} @ {exp.get('company', 'Şirket')} ({exp.get('years', '')})\n  {exp.get('description', '')}")
+                if isinstance(exp, dict):
+                    exp_lines.append(f"- {exp.get('title', 'Pozisyon')} @ {exp.get('company', 'Şirket')} ({exp.get('years', '')})\n  {exp.get('description', '')}")
+                else:
+                    exp_lines.append(f"- {exp}")
             
             edu_lines = []
             for edu in (candidate.education or []):
-                edu_lines.append(f"- {edu.get('degree', 'Bölüm')} - {edu.get('school', 'Okul')} ({edu.get('year', '')})")
+                if isinstance(edu, dict):
+                    edu_lines.append(f"- {edu.get('degree', 'Bölüm')} - {edu.get('school', 'Okul')} ({edu.get('year', '')})")
+                else:
+                    edu_lines.append(f"- {edu}")
                 
             skills_str = ", ".join(candidate.skills or [])
             strengths_str = "\n".join([f"- {s}" for s in (candidate.strengths or [])])

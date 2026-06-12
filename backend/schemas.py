@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Any
 from datetime import datetime
 
@@ -7,61 +7,137 @@ class CandidateBase(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     summary: Optional[str] = None
-    skills: List[str] = []
-    experience: List[Any] = []
-    education: List[Any] = []
-    certifications: List[str] = []
+    skills: Optional[List[str]] = []
+    experience: Optional[Any] = []
+    education: Optional[Any] = []
+    certifications: Optional[List[str]] = []
     seniority_level: Optional[str] = None
     seniority_score: Optional[float] = None
-    strengths: List[str] = []
-    areas_for_improvement: List[str] = []
+    strengths: Optional[List[str]] = []
+    areas_for_improvement: Optional[List[str]] = []
     cv_file_path: Optional[str] = None
     cv_file_data: Optional[str] = None
+
+    @field_validator('skills', 'experience', 'education', 'certifications', 'strengths', 'areas_for_improvement', mode='before')
+    @classmethod
+    def convert_null_or_string_to_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return v
 
 class CandidateCreate(CandidateBase):
     original_filename: str
 
 class CandidateSimple(CandidateBase):
     id: int
-    upload_status: str
+    upload_status: Optional[str] = "Pending"
     rating: Optional[float] = None
     notes: Optional[str] = None
-    tags: List[str] = []
-    is_favorite: bool = False
-    is_blacklisted: bool = False
+    tags: Optional[List[str]] = []
+    is_favorite: Optional[bool] = False
+    is_blacklisted: Optional[bool] = False
     blacklist_reason: Optional[str] = None
     ai_profile_summary: Optional[str] = None
-    is_deleted: bool = False
+    is_deleted: Optional[bool] = False
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
+    @field_validator('tags', mode='before')
+    @classmethod
+    def convert_tags(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return v
+
+    @field_validator('upload_status', mode='before')
+    @classmethod
+    def convert_upload_status(cls, v):
+        if v is None:
+            return "Pending"
+        return v
+
+    @field_validator('is_favorite', 'is_blacklisted', 'is_deleted', mode='before')
+    @classmethod
+    def convert_bools(cls, v):
+        if v is None:
+            return False
+        return v
+
 class Candidate(CandidateBase):
     id: int
-    upload_status: str
+    upload_status: Optional[str] = "Pending"
     rating: Optional[float] = None
     notes: Optional[str] = None
-    tags: List[str] = []
-    is_favorite: bool = False
-    is_blacklisted: bool = False
+    tags: Optional[List[str]] = []
+    is_favorite: Optional[bool] = False
+    is_blacklisted: Optional[bool] = False
     blacklist_reason: Optional[str] = None
     ai_profile_summary: Optional[str] = None
-    is_deleted: bool = False
+    is_deleted: Optional[bool] = False
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
+
+    @field_validator('tags', mode='before')
+    @classmethod
+    def convert_tags(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return v
+
+    @field_validator('upload_status', mode='before')
+    @classmethod
+    def convert_upload_status(cls, v):
+        if v is None:
+            return "Pending"
+        return v
+
+    @field_validator('is_favorite', 'is_blacklisted', 'is_deleted', mode='before')
+    @classmethod
+    def convert_bools(cls, v):
+        if v is None:
+            return False
+        return v
 
 
 class PositionBase(BaseModel):
     title: str
     department: Optional[str] = None
     description: str
-    required_skills: List[str] = []
-    preferred_skills: List[str] = []
+    required_skills: Optional[List[str]] = []
+    preferred_skills: Optional[List[str]] = []
     min_experience_years: Optional[int] = 0
     seniority_level: Optional[str] = None
     salary_min: Optional[int] = None
@@ -70,6 +146,22 @@ class PositionBase(BaseModel):
     is_active: Optional[bool] = True
     location: Optional[str] = None
     headcount: Optional[int] = 1
+
+    @field_validator('required_skills', 'preferred_skills', mode='before')
+    @classmethod
+    def convert_null_or_string_to_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return v
 
 class PositionCreate(PositionBase):
     pass
@@ -95,11 +187,11 @@ class ApplicationOut(BaseModel):
     candidate_id: int
     position_id: int
     status: str
-    status_history: List[Any] = []
+    status_history: Optional[List[Any]] = []
     match_score: Optional[float] = None
     semantic_score: Optional[float] = None
     keyword_score: Optional[float] = None
-    matching_skills: List[str] = []
+    matching_skills: Optional[List[str]] = []
     hr_notes: Optional[str] = None
     cover_letter: Optional[str] = None
     source: Optional[str] = None
@@ -109,6 +201,22 @@ class ApplicationOut(BaseModel):
     position: Optional[Position] = None
     class Config:
         from_attributes = True
+
+    @field_validator('status_history', 'matching_skills', mode='before')
+    @classmethod
+    def convert_null_or_string_to_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return v
 
 class InterviewCreate(BaseModel):
     application_id: int
@@ -146,16 +254,32 @@ class InterviewOut(BaseModel):
     technical_score: Optional[float] = None
     cultural_score: Optional[float] = None
     notes: Optional[str] = None
-    strengths_noted: List[str] = []
-    concerns_noted: List[str] = []
+    strengths_noted: Optional[List[str]] = []
+    concerns_noted: Optional[List[str]] = []
     recommendation: Optional[str] = None
-    ai_questions: List[Any] = []
+    ai_questions: Optional[List[Any]] = []
     ai_summary: Optional[str] = None
     result: Optional[str] = None
     result_note: Optional[str] = None
     created_at: datetime
     class Config:
         from_attributes = True
+
+    @field_validator('strengths_noted', 'concerns_noted', 'ai_questions', mode='before')
+    @classmethod
+    def convert_null_or_string_to_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return v
 
 class OfferCreate(BaseModel):
     application_id: int
@@ -175,15 +299,31 @@ class OfferOut(BaseModel):
     currency: str
     start_date: Optional[datetime] = None
     position_title: Optional[str] = None
-    benefits: List[str] = []
+    benefits: Optional[List[str]] = []
     notes: Optional[str] = None
-    negotiation_history: List[Any] = []
+    negotiation_history: Optional[List[Any]] = []
     letter_content: Optional[str] = None
     sent_at: Optional[datetime] = None
     responded_at: Optional[datetime] = None
     created_at: datetime
     class Config:
         from_attributes = True
+
+    @field_validator('benefits', 'negotiation_history', mode='before')
+    @classmethod
+    def convert_null_or_string_to_list(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                import json
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return v
 
 class OnboardingTaskOut(BaseModel):
     id: int

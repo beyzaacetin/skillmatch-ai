@@ -4,6 +4,36 @@ from sqlalchemy.orm import relationship
 from database import Base
 from config import settings
 
+import json
+from sqlalchemy.types import TypeDecorator, TEXT
+
+class RobustJSON(TypeDecorator):
+    impl = TEXT
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
+                json.loads(value)
+                return value
+            except Exception:
+                pass
+        return json.dumps(value, ensure_ascii=False)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return json.loads(value)
+        except Exception:
+            return value
+
+# Override JSON type
+JSON = RobustJSON
+
+
 # ─── MEVCUT (v3) ─────────────────────────────────────────────────────────────
 
 class Candidate(Base):

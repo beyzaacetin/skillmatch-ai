@@ -145,6 +145,32 @@ try:
             except Exception:
                 pass
                     
+        # Normalize candidates experience and education if they are plain strings
+        try:
+            from database import SessionLocal
+            db_session = SessionLocal()
+            try:
+                candidates = db_session.query(models.Candidate).all()
+                for cand in candidates:
+                    modified = False
+                    if cand.experience and isinstance(cand.experience, str):
+                        cand.experience = [{"title": "Deneyim", "company": "Belirtilmemiş", "years": "", "description": cand.experience}]
+                        modified = True
+                    if cand.education and isinstance(cand.education, str):
+                        cand.education = [{"degree": "Eğitim", "school": cand.education, "year": ""}]
+                        modified = True
+                    if modified:
+                        db_session.add(cand)
+                db_session.commit()
+                print("[Startup] Candidate experience and education normalized.")
+            except Exception as norm_err:
+                db_session.rollback()
+                print(f"[Startup] Candidate normalization failed: {norm_err}")
+            finally:
+                db_session.close()
+        except Exception as norm_init_err:
+            print(f"[Startup] Candidate normalization initialization failed: {norm_init_err}")
+
         # Run candidate translation on startup in a background thread
         def run_translations_in_background():
             from database import SessionLocal

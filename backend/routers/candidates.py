@@ -251,7 +251,18 @@ def compare_candidates(request: schemas.CandidateComparisonRequest, db: Session 
         pos = db.query(models.Position).filter(models.Position.id == request.position_id).first()
         if pos:
             position = {"title": pos.title, "department": pos.department, "description": pos.description, "required_skills": pos.required_skills}
-    def safe(v): return v if isinstance(v, list) else (json.loads(v) if isinstance(v, str) else [])
+    def safe(v):
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [v]
+        return []
     cand1 = {"name": c1.name, "summary": c1.summary or "", "skills": safe(c1.skills), "experience": safe(c1.experience)}
     cand2 = {"name": c2.name, "summary": c2.summary or "", "skills": safe(c2.skills), "experience": safe(c2.experience)}
     return ai_analyzer.compare_candidates(cand1, cand2, position)
