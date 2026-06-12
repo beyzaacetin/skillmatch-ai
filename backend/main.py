@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 app = None
-COMMIT_HASH = "6e8dab7_updated_v3"
+COMMIT_HASH = "6e8dab7_updated_v4"
 try:
     import subprocess
     git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
@@ -145,7 +145,23 @@ try:
             "ALTER TABLE candidate_activities ALTER COLUMN tenant_id DROP NOT NULL",
             "ALTER TABLE email_templates ALTER COLUMN tenant_id DROP NOT NULL",
             "ALTER TABLE email_logs ALTER COLUMN tenant_id DROP NOT NULL",
-            "ALTER TABLE recruitment_tasks ALTER COLUMN tenant_id DROP NOT NULL"
+            "ALTER TABLE recruitment_tasks ALTER COLUMN tenant_id DROP NOT NULL",
+
+            # Drop NOT NULL constraints on other non-nullable columns that do not exist or are not required in the single-tenant model
+            "ALTER TABLE candidates ALTER COLUMN full_name DROP NOT NULL",
+            "ALTER TABLE candidates ALTER COLUMN position_id DROP NOT NULL",
+            "ALTER TABLE interviews ALTER COLUMN candidate_id DROP NOT NULL",
+            "ALTER TABLE interviews ALTER COLUMN interviewer_id DROP NOT NULL",
+            "ALTER TABLE interviews ALTER COLUMN position_id DROP NOT NULL",
+            "ALTER TABLE interviews ALTER COLUMN interview_date DROP NOT NULL",
+            "ALTER TABLE interviews ALTER COLUMN interview_time DROP NOT NULL",
+            "ALTER TABLE interviews ALTER COLUMN interview_type DROP NOT NULL",
+            "ALTER TABLE offers ALTER COLUMN candidate_id DROP NOT NULL",
+            "ALTER TABLE offers ALTER COLUMN position_id DROP NOT NULL",
+            "ALTER TABLE offers ALTER COLUMN recruiter_id DROP NOT NULL",
+            "ALTER TABLE offers ALTER COLUMN offer_date DROP NOT NULL",
+            "ALTER TABLE offers ALTER COLUMN offered_salary DROP NOT NULL",
+            "ALTER TABLE positions ALTER COLUMN department DROP NOT NULL"
         ]
         for q in queries:
             try:
