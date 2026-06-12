@@ -28,15 +28,11 @@ def register(
     user_data: schemas.UserCreate,
     db: Session = Depends(get_db),
 ):
-    """Yeni kullanıcı kaydı. Yalnızca sistemde hiç kullanıcı yoksa ilk Admin oluşturma için izin verilir."""
-    from sqlalchemy.exc import SQLAlchemyError
-    
-    user_count = db.query(models.User).count()
-    if user_count > 0:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Kayıt sistemi dışarıya kapatılmıştır. Lütfen sistem yöneticinizle iletişime geçin."
-        )
+    """Kayıt sistemi kapatılmıştır."""
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Kayıt sistemi kapatılmıştır. Lütfen sistem yöneticinizle iletişime geçin."
+    )
         
     try:
         # E-posta kontrolü

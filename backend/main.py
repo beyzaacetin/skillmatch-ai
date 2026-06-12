@@ -37,7 +37,78 @@ try:
     try:
         from sqlalchemy import text
         queries = [
+            # candidates table migration
+            "ALTER TABLE candidates ADD COLUMN name VARCHAR(255)",
+            "ALTER TABLE candidates ADD COLUMN summary TEXT",
+            "ALTER TABLE candidates ADD COLUMN skills JSON",
+            "ALTER TABLE candidates ADD COLUMN experience JSON",
+            "ALTER TABLE candidates ADD COLUMN education JSON",
+            "ALTER TABLE candidates ADD COLUMN certifications JSON",
+            "ALTER TABLE candidates ADD COLUMN projects JSON",
+            "ALTER TABLE candidates ADD COLUMN seniority_level VARCHAR(255)",
+            "ALTER TABLE candidates ADD COLUMN seniority_score FLOAT",
+            "ALTER TABLE candidates ADD COLUMN strengths JSON",
+            "ALTER TABLE candidates ADD COLUMN areas_for_improvement JSON",
+            "ALTER TABLE candidates ADD COLUMN original_filename VARCHAR(255)",
+            "ALTER TABLE candidates ADD COLUMN upload_status VARCHAR(255)",
+            "ALTER TABLE candidates ADD COLUMN rating FLOAT",
+            "ALTER TABLE candidates ADD COLUMN notes TEXT",
+            "ALTER TABLE candidates ADD COLUMN tags JSON",
+            "ALTER TABLE candidates ADD COLUMN is_favorite BOOLEAN",
+            "ALTER TABLE candidates ADD COLUMN is_blacklisted BOOLEAN",
+            "ALTER TABLE candidates ADD COLUMN blacklist_reason TEXT",
             "ALTER TABLE candidates ADD COLUMN ai_profile_summary TEXT",
+            "ALTER TABLE candidates ADD COLUMN cv_file_path TEXT",
+            "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT",
+            "ALTER TABLE candidates ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE candidates ADD COLUMN deleted_at TIMESTAMP",
+            "ALTER TABLE candidates ADD COLUMN deleted_by VARCHAR(255)",
+            "UPDATE candidates SET name = full_name WHERE name IS NULL AND full_name IS NOT NULL",
+            
+            # positions table migration
+            "ALTER TABLE positions ADD COLUMN title VARCHAR(255)",
+            "ALTER TABLE positions ADD COLUMN department VARCHAR(255)",
+            "ALTER TABLE positions ADD COLUMN description TEXT",
+            "ALTER TABLE positions ADD COLUMN required_skills JSON",
+            "ALTER TABLE positions ADD COLUMN preferred_skills JSON",
+            "ALTER TABLE positions ADD COLUMN min_experience_years INTEGER DEFAULT 0",
+            "ALTER TABLE positions ADD COLUMN seniority_level VARCHAR(255)",
+            "ALTER TABLE positions ADD COLUMN salary_min INTEGER",
+            "ALTER TABLE positions ADD COLUMN salary_max INTEGER",
+            "ALTER TABLE positions ADD COLUMN salary_currency VARCHAR(50) DEFAULT 'TRY'",
+            "ALTER TABLE positions ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE positions ADD COLUMN location VARCHAR(255)",
+            "ALTER TABLE positions ADD COLUMN headcount INTEGER DEFAULT 1",
+            
+            # users table migration
+            "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN hashed_password VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN full_name VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN role VARCHAR(255) DEFAULT 'RECRUITER'",
+            "ALTER TABLE users ADD COLUMN department VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN phone VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE users ADD COLUMN last_login TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN candidate_access_token VARCHAR(255)",
+            
+            # interviews table migration
+            "ALTER TABLE interviews ADD COLUMN application_id INTEGER",
+            "ALTER TABLE interviews ADD COLUMN round_number INTEGER DEFAULT 1",
+            "ALTER TABLE interviews ADD COLUMN scheduled_at TIMESTAMP",
+            "ALTER TABLE interviews ADD COLUMN duration_minutes INTEGER DEFAULT 60",
+            "ALTER TABLE interviews ADD COLUMN meeting_link VARCHAR(255)",
+            "ALTER TABLE interviews ADD COLUMN interviewer_name VARCHAR(255)",
+            "ALTER TABLE interviews ADD COLUMN overall_score FLOAT",
+            "ALTER TABLE interviews ADD COLUMN technical_score FLOAT",
+            "ALTER TABLE interviews ADD COLUMN cultural_score FLOAT",
+            "ALTER TABLE interviews ADD COLUMN strengths_noted JSON",
+            "ALTER TABLE interviews ADD COLUMN concerns_noted JSON",
+            "ALTER TABLE interviews ADD COLUMN recommendation VARCHAR(255)",
+            "ALTER TABLE interviews ADD COLUMN ai_questions JSON",
+            "ALTER TABLE interviews ADD COLUMN ai_summary TEXT",
+            "ALTER TABLE interviews ADD COLUMN result VARCHAR(255)",
+            "ALTER TABLE interviews ADD COLUMN result_note TEXT",
             "ALTER TABLE interviews ADD COLUMN raw_notes TEXT",
             "ALTER TABLE interviews ADD COLUMN cleaned_notes TEXT",
             "ALTER TABLE interviews ADD COLUMN communication_assessment TEXT",
@@ -45,11 +116,20 @@ try:
             "ALTER TABLE interviews ADD COLUMN technical_assessment TEXT",
             "ALTER TABLE interviews ADD COLUMN ai_recommendation VARCHAR(255)",
             "ALTER TABLE interviews ADD COLUMN next_step VARCHAR(255)",
-            "ALTER TABLE candidates ADD COLUMN cv_file_path TEXT",
-            "ALTER TABLE candidates ADD COLUMN cv_file_data TEXT",
-            "ALTER TABLE candidates ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE candidates ADD COLUMN deleted_at TIMESTAMP",
-            "ALTER TABLE candidates ADD COLUMN deleted_by VARCHAR(255)",
+            
+            # offers table migration
+            "ALTER TABLE offers ADD COLUMN application_id INTEGER",
+            "ALTER TABLE offers ADD COLUMN proposed_salary INTEGER",
+            "ALTER TABLE offers ADD COLUMN final_salary INTEGER",
+            "ALTER TABLE offers ADD COLUMN currency VARCHAR(50) DEFAULT 'TRY'",
+            "ALTER TABLE offers ADD COLUMN start_date TIMESTAMP",
+            "ALTER TABLE offers ADD COLUMN position_title VARCHAR(255)",
+            "ALTER TABLE offers ADD COLUMN benefits JSON",
+            "ALTER TABLE offers ADD COLUMN negotiation_history JSON",
+            "ALTER TABLE offers ADD COLUMN letter_content TEXT",
+            "ALTER TABLE offers ADD COLUMN sent_at TIMESTAMP",
+            "ALTER TABLE offers ADD COLUMN responded_at TIMESTAMP",
+            
             "UPDATE applications SET status = 'hr_interview' WHERE status = 'interview'"
         ]
         for q in queries:
@@ -83,6 +163,39 @@ try:
         t.start()
     except Exception as migration_err:
         print(f"Database migrations / translations failed to run on startup: {migration_err}")
+
+    # Ensure demo user exists
+    try:
+        from database import SessionLocal
+        from auth import get_password_hash
+        db_session = SessionLocal()
+        try:
+            demo_user = db_session.query(models.User).filter(models.User.email == "demo@skillmatch.ai").first()
+            if demo_user:
+                demo_user.hashed_password = get_password_hash("demo123")
+                demo_user.role = "ADMIN"
+                demo_user.is_active = True
+                demo_user.is_verified = True
+                print("[Startup] Demo user password reset to demo123.")
+            else:
+                demo_user = models.User(
+                    email="demo@skillmatch.ai",
+                    hashed_password=get_password_hash("demo123"),
+                    full_name="Demo Admin",
+                    role="ADMIN",
+                    is_active=True,
+                    is_verified=True
+                )
+                db_session.add(demo_user)
+                print("[Startup] Demo user created successfully.")
+            db_session.commit()
+        except Exception as db_err:
+            db_session.rollback()
+            print(f"[Startup] Demo user setup failed: {db_err}")
+        finally:
+            db_session.close()
+    except Exception as demo_err:
+        print(f"[Startup] Demo user setup package import failed: {demo_err}")
 
     app = FastAPI(title="SkillMatch AI v4", version="4.0.0", docs_url="/api/docs")
 
@@ -127,11 +240,30 @@ try:
         return {"response": chatbot_service.chat(message, db)}
 
     @app.get("/health")
-    def health():
+    def health(db: Session = Depends(get_db)):
+        db_connected = False
+        active_user_count = 0
+        candidates_count = 0
+        positions_count = 0
+        
+        try:
+            db.execute(text("SELECT 1"))
+            db_connected = True
+            
+            active_user_count = db.query(models.User).filter(models.User.is_active == True).count()
+            candidates_count = db.query(models.Candidate).filter(models.Candidate.is_deleted == False).count()
+            positions_count = db.query(models.Position).filter(models.Position.is_active == True).count()
+        except Exception as e:
+            print(f"[Health Check Error] Database status check failed: {e}")
+            
         return {
-            "status": "ok",
+            "status": "ok" if db_connected else "error",
             "version": "4.0.0",
             "commit": COMMIT_HASH,
+            "db_connected": db_connected,
+            "active_user_count": active_user_count,
+            "candidates_count": candidates_count,
+            "positions_count": positions_count,
             "features": ["candidate_communication_module"]
         }
 
