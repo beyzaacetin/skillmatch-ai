@@ -130,7 +130,22 @@ try:
             "ALTER TABLE offers ADD COLUMN sent_at TIMESTAMP",
             "ALTER TABLE offers ADD COLUMN responded_at TIMESTAMP",
             
-            "UPDATE applications SET status = 'hr_interview' WHERE status = 'interview'"
+            "UPDATE applications SET status = 'hr_interview' WHERE status = 'interview'",
+
+            # Drop NOT NULL constraints on tenant_id for compatibility with single-tenant model structure
+            "ALTER TABLE candidates ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE positions ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE applications ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE interviews ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE offers ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE onboarding_tasks ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE users ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE logs ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE match_scores ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE candidate_activities ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE email_templates ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE email_logs ALTER COLUMN tenant_id DROP NOT NULL",
+            "ALTER TABLE recruitment_tasks ALTER COLUMN tenant_id DROP NOT NULL"
         ]
         for q in queries:
             try:

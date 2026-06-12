@@ -1403,7 +1403,7 @@ createApp({
       showCommModal, commCandidate, commChannel, commMsgType, commTone, commText, commSubject, commLoading, commPositionId, isViewer,
 
       // methods
-      loadPipeline, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
+      loadPipeline, loadAnalytics, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
       loadCandidateApps, openMatchModal, runMatch, matchModal,
       aiGeneratePosition, savePosition, deletePosition, openMatchPosition, openPositionDetail, loadPositionApps, loadPositionMatches, bulkAddCandidatesToPosition,
       openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes,
