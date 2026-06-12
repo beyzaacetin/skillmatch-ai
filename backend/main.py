@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 app = None
-COMMIT_HASH = "6e8dab7_updated_v2"
+COMMIT_HASH = "6e8dab7_updated_v3"
 try:
     import subprocess
     git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
@@ -284,20 +284,25 @@ try:
     def debug_db(db: Session = Depends(get_db)):
         from sqlalchemy import text
         try:
-            columns_res = db.execute(text("SELECT column_name, is_nullable, data_type FROM information_schema.columns WHERE table_name = 'candidates'"))
-            columns = [dict(row) for row in columns_res.mappings()]
-            
-            constraints_res = db.execute(text("""
-                SELECT conname, pg_get_constraintdef(c.oid) 
-                FROM pg_constraint c 
-                JOIN pg_namespace n ON n.oid = c.connamespace 
-                WHERE conrelid = 'candidates'::regclass
+            non_nullable_res = db.execute(text("""
+                SELECT table_name, column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' AND is_nullable = 'NO'
+                ORDER BY table_name, column_name
             """))
-            constraints = [dict(row) for row in constraints_res.mappings()]
+            non_nullable = [dict(row) for row in non_nullable_res.mappings()]
+            
+            all_tables_res = db.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+            """))
+            all_tables = [row[0] for row in all_tables_res]
             
             return {
-                "columns": columns,
-                "constraints": constraints
+                "non_nullable_columns": non_nullable,
+                "all_tables": all_tables
             }
         except Exception as e:
             return {"error": str(e)}
