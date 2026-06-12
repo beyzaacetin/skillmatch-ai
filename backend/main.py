@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 app = None
-COMMIT_HASH = "6e8dab7_updated_v4"
+COMMIT_HASH = "6e8dab7_prod"
 try:
     import subprocess
     git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
@@ -295,33 +295,6 @@ try:
     @app.post("/api/chat")
     def chat_endpoint(message: str = Body(..., embed=True), db: Session = Depends(get_db)):
         return {"response": chatbot_service.chat(message, db)}
-
-    @app.get("/api/debug-db")
-    def debug_db(db: Session = Depends(get_db)):
-        from sqlalchemy import text
-        try:
-            non_nullable_res = db.execute(text("""
-                SELECT table_name, column_name, data_type 
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' AND is_nullable = 'NO'
-                ORDER BY table_name, column_name
-            """))
-            non_nullable = [dict(row) for row in non_nullable_res.mappings()]
-            
-            all_tables_res = db.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public'
-                ORDER BY table_name
-            """))
-            all_tables = [row[0] for row in all_tables_res]
-            
-            return {
-                "non_nullable_columns": non_nullable,
-                "all_tables": all_tables
-            }
-        except Exception as e:
-            return {"error": str(e)}
 
     @app.get("/health")
     def health(db: Session = Depends(get_db)):
