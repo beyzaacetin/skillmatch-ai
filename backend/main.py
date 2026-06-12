@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 app = None
-COMMIT_HASH = "6e8dab7_updated"
+COMMIT_HASH = "6e8dab7_updated_v2"
 try:
     import subprocess
     git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
@@ -279,6 +279,28 @@ try:
     @app.post("/api/chat")
     def chat_endpoint(message: str = Body(..., embed=True), db: Session = Depends(get_db)):
         return {"response": chatbot_service.chat(message, db)}
+
+    @app.get("/api/debug-db")
+    def debug_db(db: Session = Depends(get_db)):
+        from sqlalchemy import text
+        try:
+            columns_res = db.execute(text("SELECT column_name, is_nullable, data_type FROM information_schema.columns WHERE table_name = 'candidates'"))
+            columns = [dict(row) for row in columns_res.mappings()]
+            
+            constraints_res = db.execute(text("""
+                SELECT conname, pg_get_constraintdef(c.oid) 
+                FROM pg_constraint c 
+                JOIN pg_namespace n ON n.oid = c.connamespace 
+                WHERE conrelid = 'candidates'::regclass
+            """))
+            constraints = [dict(row) for row in constraints_res.mappings()]
+            
+            return {
+                "columns": columns,
+                "constraints": constraints
+            }
+        except Exception as e:
+            return {"error": str(e)}
 
     @app.get("/health")
     def health(db: Session = Depends(get_db)):
