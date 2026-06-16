@@ -164,7 +164,17 @@ try:
             "ALTER TABLE offers ALTER COLUMN recruiter_id DROP NOT NULL",
             "ALTER TABLE offers ALTER COLUMN offer_date DROP NOT NULL",
             "ALTER TABLE offers ALTER COLUMN offered_salary DROP NOT NULL",
-            "ALTER TABLE positions ALTER COLUMN department DROP NOT NULL"
+            "ALTER TABLE positions ALTER COLUMN department DROP NOT NULL",
+            
+            # interview_answers table migration for HR / Technical split
+            "ALTER TABLE interview_answers ADD COLUMN interview_type VARCHAR(50) DEFAULT 'HR'",
+            "ALTER TABLE interview_answers ADD COLUMN interviewer_notes TEXT",
+            "ALTER TABLE interview_answers ADD COLUMN red_flags TEXT",
+            "ALTER TABLE interview_answers ADD COLUMN ai_summary TEXT",
+            
+            # position_reports table migration for Candidate reports visibility
+            "ALTER TABLE position_reports ADD COLUMN candidate_id INTEGER",
+            "ALTER TABLE position_reports ADD COLUMN application_id INTEGER"
         ]
         for q in queries:
             try:
@@ -281,19 +291,21 @@ try:
     templates = Jinja2Templates(directory=templates_dir)
 
     # Routers
-    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks
+    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
     app.include_router(positions.router, prefix="/api/positions", tags=["positions"])
-    app.include_router(positions.reports_router)
+    app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
     app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
     app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
     app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
+    app.include_router(interviews.answers_router, prefix="/api/interview-answers", tags=["interview-answers"])
     app.include_router(offers.router, prefix="/api/offers", tags=["offers"])
     app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"])
     app.include_router(ai_recruitment.router, prefix="/api/ai", tags=["ai"])
     app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
+    app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 
     from services.chatbot import chatbot_service
     @app.post("/api/chat")

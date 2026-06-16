@@ -487,3 +487,123 @@ def recruiter_copilot(data: dict, db: Session = Depends(database.get_db), curren
     except Exception as e:
         logger.error(f"Copilot error: {e}")
         return {"response": "Şu an bu sorguyu yanıtlayamıyorum, lütfen veritabanı bağlantısını kontrol edin."}
+
+
+# Centralized call_gemini imports and helper endpoints
+from services.gemini_service import call_gemini
+from fastapi import Body
+
+@router.post("/position-suggestion")
+def position_suggestion(data: dict = Body(...), db: Session = Depends(database.get_db)):
+    title = data.get("title")
+    if not title:
+        raise HTTPException(status_code=400, detail="Pozisyon başlığı zorunludur.")
+        
+    prompt = f"""
+    Sen uzman bir İK danışmanısın. '{title}' pozisyonu için profesyonel bir iş ilanı açıklaması, gerekli temel yetkinlikler (liste halinde) ve Türkiye piyasası için ortalama minimum ve maksimum aylık net maaş tahminini (TRY bazında) içeren bir JSON döndür.
+    
+    JSON Formatı:
+    {{
+        "description": "Detaylı açıklama metni...",
+        "skills": ["yetenek1", "yetenek2", "yetenek3"],
+        "salary": {{
+            "min": 45000,
+            "max": 75000
+        }}
+    }}
+    """
+    res_text = call_gemini(db, prompt, json_mode=True)
+    return json.loads(res_text)
+
+
+@router.post("/interview-questions")
+def generate_questions_api(data: dict = Body(...), db: Session = Depends(database.get_db)):
+    candidate_id = data.get("candidate_id")
+    position_id = data.get("position_id")
+    iv_type = data.get("interview_type", "HR")
+    
+    cand = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
+    pos = db.query(models.Position).filter(models.Position.id == position_id).first()
+    if not cand or not pos:
+        raise HTTPException(status_code=404, detail="Aday veya pozisyon bulunamadı.")
+        
+    prompt = f"""
+    Sen uzman bir İK değerlendirme uzmanısın. Aday {cand.name} için '{pos.title}' rolüne yönelik '{iv_type}' mülakat soruları hazırlayacaksın.
+    Aday Özeti: {cand.summary or ''}
+    Aday Yetkinlikleri: {', '.join(cand.skills or [])}
+    
+    Lütfen her biri bir bölüm (section) altında 4 adet soru içeren bir JSON listesi döndür.
+    Bölümler:
+    1. Tanışma & Giriş
+    2. Yetkinlik & Deneyim
+    3. Kültürel Uyum
+    4. Kapanış
+    
+    Her nesne şu alanları içermelidir:
+    - section: Bölüm başlığı
+    - question: Soru metni
+    - expected_answer: Değerlendirme kılavuzu (beklenen ideal cevap)
+    - red_flag_warning: Adayın cevabında dikkat edilmesi gereken kırmızı bayrak uyarıları
+    
+    Format:
+    [
+        {{"section": "...", "question": "...", "expected_answer": "...", "red_flag_warning": "..."}}
+    ]
+    """
+    res_text = call_gemini(db, prompt, json_mode=True)
+    return json.loads(res_text)
+
+
+@router.post("/interview-summary")
+def generate_interview_summary_api(data: dict = Body(...), db: Session = Depends(database.get_db)):
+    notes = data.get("notes", "")
+    iv_type = data.get("interview_type", "HR")
+    if not notes:
+        raise HTTPException(status_code=400, detail="Mülakat notları boş olamaz.")
+        
+    prompt = f"""
+    Aşağıdaki '{iv_type}' mülakatı notlarını analiz et ve adayın performansı hakkında 3-4 cümlelik, son derece profesyonel bir İK değerlendirme özeti yaz (Türkçe):
+    Notlar: {notes}
+    """
+    res_text = call_gemini(db, prompt)
+    return {"summary": res_text.strip()}
+
+
+@router.post("/candidate-analysis")
+def generate_candidate_analysis_api(data: dict = Body(...), db: Session = Depends(database.get_db)):
+    candidate_id = data.get("candidate_id")
+    cand = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
+    if not cand:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı.")
+        
+    prompt = f"""
+    Aday {cand.name} için CV analizi yap (Türkçe).
+    Aday Özeti: {cand.summary or ''}
+    Aday Yetkinlikleri: {', '.join(cand.skills or [])}
+    Deneyim: {json.dumps(cand.experience or [])}
+    
+    Adayın en güçlü 3 yönünü, en çok dikkat edilmesi gereken 2 risk/gelişim alanını ve adaya en uygun pozisyon önerisini içeren bir JSON nesnesi döndür.
+    Format:
+    {{
+        "strengths": ["güçlü yön 1", "güçlü yön 2", "güçlü yön 3"],
+        "risks": ["risk 1", "risk 2"],
+        "suggested_position": "Pozisyon önerisi...",
+        "recommended_next_step": "Adayla teknik mülakat yapılması önerilir..."
+    }}
+    """
+    res_text = call_gemini(db, prompt, json_mode=True)
+    return json.loads(res_text)
+
+
+@router.post("/report-summary")
+def generate_report_summary_api(data: dict = Body(...), db: Session = Depends(database.get_db)):
+    report_content = data.get("report_content", "")
+    if not report_content:
+        raise HTTPException(status_code=400, detail="Rapor içeriği boş olamaz.")
+        
+    prompt = f"""
+    Aşağıdaki İşe Alım Değerlendirme Raporu içeriğini analiz et ve yöneticiye sunulacak 2 cümlelik son derece kısa ve vurucu bir özet çıkart (Türkçe):
+    {report_content}
+    """
+    res_text = call_gemini(db, prompt)
+    return {"summary": res_text.strip()}
