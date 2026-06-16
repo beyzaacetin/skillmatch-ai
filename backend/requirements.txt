@@ -17,4 +17,5 @@ pytest-asyncio
 httpx
 alembic
 email-validator
+reportlab
 
