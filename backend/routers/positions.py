@@ -105,6 +105,19 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
             models.MatchScore.position_id == position_id
         ).first()
         
+        # Get HR and TECHNICAL interview statuses
+        hr_iv = db.query(models.Interview).filter(
+            models.Interview.application_id == app.id,
+            models.Interview.interview_type == "HR"
+        ).first()
+        tech_iv = db.query(models.Interview).filter(
+            models.Interview.application_id == app.id,
+            models.Interview.interview_type == "TECHNICAL"
+        ).first()
+        
+        hr_status = hr_iv.status if hr_iv else "not_started"
+        tech_status = tech_iv.status if tech_iv else "not_started"
+        
         apps_data.append({
             "id": app.id,
             "candidate_id": cand.id,
@@ -125,7 +138,9 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
             "status": app.status,
             "match_score": app.match_score,
             "matching_skills": app.matching_skills,
-            "applied_at": app.applied_at
+            "applied_at": app.applied_at,
+            "hr_status": hr_status,
+            "tech_status": tech_status
         })
         
     # Get general insights
@@ -157,7 +172,14 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
             "created_at": position.created_at
         },
         "applications": apps_data,
-        "insights": insights,
+        "insights": {
+            "id": insights.id,
+            "summary": insights.summary,
+            "market_salary_benchmark": insights.market_salary_benchmark,
+            "talent_pool_scarcity": insights.talent_pool_scarcity,
+            "recruitment_velocity": insights.recruitment_velocity,
+            "actionable_recommendations": insights.actionable_recommendations
+        } if insights else None,
         "reports": reports_list
     }
 
@@ -480,6 +502,10 @@ def generate_interview_questions(position_id: int, payload: dict = Body(...), db
     if not application_id:
         raise HTTPException(status_code=400, detail="Application ID is required")
         
+    interview_type = payload.get("interview_type", "HR").upper()
+    if interview_type not in ("HR", "TECHNICAL"):
+        interview_type = "HR"
+        
     app = db.query(models.Application).filter(models.Application.id == application_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -494,8 +520,23 @@ def generate_interview_questions(position_id: int, payload: dict = Body(...), db
     prev_interviews = db.query(models.Interview).filter(models.Interview.application_id == application_id).all()
     prev_notes = "\n".join([iv.notes for iv in prev_interviews if iv.notes])
     
+    if interview_type == "TECHNICAL":
+        role_description = "expert technical interviewer"
+        focus_areas = "Generate structured coding, system architecture, tech stack knowledge, and technical problem-solving questions"
+        section_1 = "Kodlama & Algoritmalar"
+        section_2 = "Sistem Mimarisi & Tasarımı"
+        section_3 = "Problem Çözme & Teknoloji Bilgisi"
+        section_4 = "Teknik Deneyim & Kapanış"
+    else:
+        role_description = "expert HR interviewer"
+        focus_areas = "Generate structured candidate motivation, cultural fit, salary expectations, career goals, and communication questions"
+        section_1 = "Tanışma & Giriş"
+        section_2 = "Yetkinlik & Deneyim"
+        section_3 = "Kültürel Uyum & İletişim"
+        section_4 = "Kariyer Hedefleri & Kapanış"
+        
     prompt = f"""
-    You are an expert HR interviewer. Generate structured interview questions in Turkish.
+    You are an {role_description}. {focus_areas} in Turkish.
     
     Position Title: {position.title}
     Required Skills: {', '.join(position.required_skills or [])}
@@ -509,15 +550,15 @@ def generate_interview_questions(position_id: int, payload: dict = Body(...), db
     {prev_notes}
     
     Generate exactly 4 interview sections (1 question per section):
-    1. Tanışma & Giriş
-    2. Yetkinlik & Deneyim
-    3. Kültürel Uyum
-    4. Kapanış
+    1. {section_1}
+    2. {section_2}
+    3. {section_3}
+    4. {section_4}
     
     Return ONLY a JSON list of dictionaries with this structure:
     [
         {{
-            "section": "Tanışma & Giriş",
+            "section": "Section name here",
             "question": "Soru metni...",
             "expected_answer": "İdeal cevap değerlendirme rehberi...",
             "red_flag_warning": "Dikkat edilmesi gereken tehlike işaretleri (Red Flag)..."
@@ -528,8 +569,11 @@ def generate_interview_questions(position_id: int, payload: dict = Body(...), db
     res_text = call_gemini(db, prompt, json_mode=True)
     questions = json.loads(res_text)
     
-    # Delete old questions for this application
-    db.query(models.InterviewAnswer).filter(models.InterviewAnswer.application_id == application_id).delete()
+    # Delete old questions for this specific application and type
+    db.query(models.InterviewAnswer).filter(
+        models.InterviewAnswer.application_id == application_id,
+        models.InterviewAnswer.interview_type == interview_type
+    ).delete()
     
     # Save new questions
     for idx, q in enumerate(questions):
@@ -540,14 +584,18 @@ def generate_interview_questions(position_id: int, payload: dict = Body(...), db
             question=q.get("question", ""),
             expected_answer=q.get("expected_answer", ""),
             red_flag_warning=q.get("red_flag_warning", ""),
-            is_completed=False
+            is_completed=False,
+            interview_type=interview_type
         )
         db.add(answer_rec)
         
     db.commit()
     
     # Return questions
-    return db.query(models.InterviewAnswer).filter(models.InterviewAnswer.application_id == application_id).all()
+    return db.query(models.InterviewAnswer).filter(
+        models.InterviewAnswer.application_id == application_id,
+        models.InterviewAnswer.interview_type == interview_type
+    ).all()
 
 
 # GET INTERVIEW ANSWERS

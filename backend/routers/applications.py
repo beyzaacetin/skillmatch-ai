@@ -277,7 +277,7 @@ def update_application_stage(app_id: int, payload: dict = Body(...), db: Session
     return {"status": a.status}
 
 
-@router.get("/{app_id}/interviews")
+@router.get("/{app_id}/interviews", response_model=List[schemas.InterviewAnswerOut])
 def get_interview_answers(app_id: int, type: Optional[str] = "HR", db: Session = Depends(database.get_db)):
     q = db.query(models.InterviewAnswer).filter(models.InterviewAnswer.application_id == app_id)
     if type:
@@ -323,7 +323,7 @@ def get_interview_answers(app_id: int, type: Optional[str] = "HR", db: Session =
     return answers_sorted
 
 
-@router.post("/{app_id}/interview-answers")
+@router.post("/{app_id}/interview-answers", response_model=schemas.InterviewAnswerOut)
 def save_interview_answer(app_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
     question_index = payload.get("question_index")
     if question_index is None:
@@ -382,6 +382,9 @@ def save_interview_answer(app_id: int, payload: dict = Body(...), db: Session = 
                 status="completed"
             )
             db.add(iv)
+        else:
+            if len(completed) >= len(all_ans):
+                iv.status = "completed"
         
         iv.overall_score = float(avg_score)
         

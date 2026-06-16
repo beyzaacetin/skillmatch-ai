@@ -1030,7 +1030,7 @@
                   <div v-for="app in workspaceData.applications" :key="app.id" 
                        class="interview-section-item" :class="{active: activeInterviewApp?.id === app.id}" @click="selectInterviewApp(app)">
                     <span style="font-weight:600">{{ app.candidate?.name }}</span>
-                    <span style="font-size:10px; color:var(--g400)">{{ app.status === 'hired' ? 'Tamamlandı' : 'Sürüyor' }}</span>
+                    <span style="font-size:10px; color:var(--g400)">{{ getInterviewStatusText(app) }}</span>
                   </div>
                 </div>
                 <div v-else style="font-size:13px; color:var(--g400); text-align:center; padding-top:20px">Aday yok.</div>
@@ -1101,7 +1101,9 @@
                     </div>
 
                     <div style="display:flex; justify-content:flex-end">
-                      <button class="btn btn-primary" @click="saveInterviewQuestionAnswer" :disabled="!questionScore">Soruyu Tamamla & İlerle</button>
+                      <button class="btn btn-primary" @click="saveInterviewQuestionAnswer" :disabled="!questionScore">
+                        {{ activeQuestionIndex === interviewQuestions.length - 1 ? 'Mülakatı Tamamla' : 'Soruyu Tamamla & İlerle' }}
+                      </button>
                     </div>
                   </div>
                   <div class="empty" v-else>
@@ -1121,7 +1123,7 @@
                   <div v-for="q in interviewQuestions" :key="q.id" style="border-bottom:1px solid #F3F4F6; padding-bottom:8px">
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px">
                       <span class="text-bold">{{ q.section }}</span>
-                      <span class="text-bold" style="color:var(--primary)" v-if="q.score !== null">{{ q.score }} / 10</span>
+                      <span class="text-bold" style="color:var(--primary)" v-if="q.score !== null && q.score !== undefined && q.score !== '' && !isNaN(Number(q.score))">{{ q.score }} / 10</span>
                       <span style="color:var(--g400); font-style:italic" v-else>Puanlanmadı</span>
                     </div>
                     <div style="color:var(--g500); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" :title="q.notes">{{ q.notes || 'Not girilmemiş.' }}</div>
