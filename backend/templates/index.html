@@ -1039,7 +1039,17 @@
               <!-- Center pane selected question info -->
               <div class="interview-center-pane">
                 <div v-if="activeInterviewApp">
-                  <!-- Read-only HR feedback visible for Technical Interviewer -->
+                  <!-- AI analyzing overlay -->
+                  <div v-if="isAnalyzingCompletion" class="empty" style="padding: 40px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
+                    <div class="loader" style="margin-bottom: 20px; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <div style="font-weight: 700; font-size: 16px; color: var(--primary); margin-bottom: 8px">AI Değerlendirme Yapıyor...</div>
+                    <div style="font-size: 13px; color: var(--g600); max-width: 400px; line-height: 1.5">
+                      Adayın yanıtları analiz ediliyor, cevaplar daha profesyonel ve düzenli hale getiriliyor, yapıcı AI yorumları ekleniyor ve mülakat değerlendirme raporu oluşturuluyor. Lütfen bekleyin.
+                    </div>
+                  </div>
+
+                  <div v-else>
+                    <!-- Read-only HR feedback visible for Technical Interviewer -->
                   <div v-if="workspaceInterviewType === 'TECHNICAL' && hrInterviewAnswers && hrInterviewAnswers.length" 
                        style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:16px; margin-bottom:20px">
                     <div style="font-weight:700; font-size:13.5px; color:#166534; margin-bottom:8px; display:flex; justify-content:space-between">
@@ -1049,7 +1059,7 @@
                     <div style="font-size:12.5px; color:#14532d; line-height:1.5; display:flex; flex-direction:column; gap:6px">
                       <div v-for="ans in hrInterviewAnswers" :key="ans.id">
                         <b>{{ ans.section }}:</b> {{ ans.notes || 'Not girilmemiş.' }}
-                        <span v-if="ans.score !== null" style="font-weight:bold; color:var(--primary)"> (Puan: {{ ans.score }}/10)</span>
+                        <span v-if="ans.score !== null && ans.score !== undefined && ans.score !== '' && !isNaN(Number(ans.score))" style="font-weight:bold; color:var(--primary)"> (Puan: {{ ans.score }}/10)</span>
                       </div>
                     </div>
                   </div>
@@ -1111,6 +1121,7 @@
                     <button class="btn btn-primary btn-sm" style="margin-top:10px" @click="generateInterviewQuestionsForCandidate(activeInterviewApp.id)" :disabled="questionsGenerating">
                       Soruları AI ile Üret
                     </button>
+                  </div>
                   </div>
                 </div>
                 <div class="empty" v-else>Aday seçin.</div>
@@ -2250,7 +2261,7 @@
                     <div style="font-size:12.5px; color:var(--g700)">Soru: {{ ans.question }}</div>
                     <div style="font-size:12.5px; font-style:italic; color:var(--g600)">Cevap: {{ ans.candidate_answer }}</div>
                     <div style="font-size:12px; color:var(--g500)" v-if="ans.notes"><b>Not:</b> {{ ans.notes }}</div>
-                    <div style="font-size:12px; font-weight:bold; color:var(--primary)" v-if="ans.score !== null">Skor: {{ ans.score }} / 10</div>
+                    <div style="font-size:12px; font-weight:bold; color:var(--primary)" v-if="ans.score !== null && ans.score !== undefined && ans.score !== '' && !isNaN(Number(ans.score))">Skor: {{ ans.score }} / 10</div>
                   </div>
                 </div>
                 <div v-else style="font-size:13px; color:var(--g400)">Henüz İK mülakat verisi bulunmuyor.</div>
@@ -2267,7 +2278,7 @@
                     <div style="font-size:12.5px; color:var(--g700)">Soru: {{ ans.question }}</div>
                     <div style="font-size:12.5px; font-style:italic; color:var(--g600)">Cevap: {{ ans.candidate_answer }}</div>
                     <div style="font-size:12px; color:var(--g500)" v-if="ans.notes"><b>Not:</b> {{ ans.notes }}</div>
-                    <div style="font-size:12px; font-weight:bold; color:var(--primary)" v-if="ans.score !== null">Skor: {{ ans.score }} / 10</div>
+                    <div style="font-size:12px; font-weight:bold; color:var(--primary)" v-if="ans.score !== null && ans.score !== undefined && ans.score !== '' && !isNaN(Number(ans.score))">Skor: {{ ans.score }} / 10</div>
                   </div>
                 </div>
                 <div v-else style="font-size:13px; color:var(--g400)">Henüz teknik mülakat verisi bulunmuyor.</div>

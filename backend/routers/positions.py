@@ -522,18 +522,28 @@ def generate_interview_questions(position_id: int, payload: dict = Body(...), db
     
     if interview_type == "TECHNICAL":
         role_description = "expert technical interviewer"
-        focus_areas = "Generate structured coding, system architecture, tech stack knowledge, and technical problem-solving questions"
-        section_1 = "Kodlama & Algoritmalar"
-        section_2 = "Sistem Mimarisi & Tasarımı"
-        section_3 = "Problem Çözme & Teknoloji Bilgisi"
-        section_4 = "Teknik Deneyim & Kapanış"
+        focus_areas = "Generate structured questions assessing coding, algorithms, system architecture, position qualifications, past experiences, and debugging"
+        sections = [
+            "Algoritma & Veri Yapıları",
+            "Sistem Tasarımı & Ölçeklenebilirlik",
+            "Pozisyon Nitelikleri & Teknoloji Yetkinliği",
+            "Geçmiş Deneyim & Teknik Kararlar",
+            "Problem Çözme & Hata Ayıklama",
+            "Ekip Çalışması & Teknik Kapanış"
+        ]
     else:
         role_description = "expert HR interviewer"
-        focus_areas = "Generate structured candidate motivation, cultural fit, salary expectations, career goals, and communication questions"
-        section_1 = "Tanışma & Giriş"
-        section_2 = "Yetkinlik & Deneyim"
-        section_3 = "Kültürel Uyum & İletişim"
-        section_4 = "Kariyer Hedefleri & Kapanış"
+        focus_areas = "Generate structured questions assessing candidate qualifications, past experience, cultural fit, motivation, and career expectations"
+        sections = [
+            "Tanışma & Giriş",
+            "Pozisyon Nitelikleri & Yetkinlik Uyumu",
+            "Geçmiş Deneyim & Başarılar",
+            "Kültürel Uyum & İletişim Becerileri",
+            "Motivasyon & Beklentiler",
+            "Kariyer Hedefleri & Kapanış"
+        ]
+        
+    sections_text = "\n".join([f"{idx}. {sec}" for idx, sec in enumerate(sections, 1)])
         
     prompt = f"""
     You are an {role_description}. {focus_areas} in Turkish.
@@ -549,11 +559,8 @@ def generate_interview_questions(position_id: int, payload: dict = Body(...), db
     Previous Interview Notes:
     {prev_notes}
     
-    Generate exactly 4 interview sections (1 question per section):
-    1. {section_1}
-    2. {section_2}
-    3. {section_3}
-    4. {section_4}
+    Generate exactly 6 interview sections (exactly 1 question per section):
+    {sections_text}
     
     Return ONLY a JSON list of dictionaries with this structure:
     [

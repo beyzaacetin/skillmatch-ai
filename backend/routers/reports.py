@@ -60,11 +60,19 @@ def generate_report(payload: dict = Body(...), db: Session = Depends(database.ge
     if not cand or not pos:
         raise HTTPException(status_code=404, detail="Aday veya Pozisyon bulunamadı.")
         
+    # Map custom report types to HR / TECHNICAL / COMBINED
+    report_type_upper = report_type.upper()
+    resolved_type = "COMBINED"
+    if "HR" in report_type_upper or "İK" in report_type_upper or "IK" in report_type_upper:
+        resolved_type = "HR"
+    elif "TEKNİK" in report_type_upper or "TECHNICAL" in report_type_upper or "TECH" in report_type_upper:
+        resolved_type = "TECHNICAL"
+
     # Gather answers from DB
     answers_query = db.query(models.InterviewAnswer).filter(models.InterviewAnswer.application_id == app_id)
-    if report_type == "HR":
+    if resolved_type == "HR":
         answers_query = answers_query.filter(models.InterviewAnswer.interview_type == "HR")
-    elif report_type == "TECHNICAL":
+    elif resolved_type == "TECHNICAL":
         answers_query = answers_query.filter(models.InterviewAnswer.interview_type == "TECHNICAL")
         
     answers = answers_query.all()

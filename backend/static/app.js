@@ -1396,6 +1396,7 @@ createApp({
     const insightsLoading = ref(false);
     const questionsGenerating = ref(false);
     const reportsGenerating = ref(false);
+    const isAnalyzingCompletion = ref(false);
     const activeInterviewApp = ref(null);
     const interviewQuestions = ref([]);
     const activeQuestionIndex = ref(0);
@@ -1545,11 +1546,38 @@ createApp({
           activeQuestionIndex.value++;
           loadActiveQuestionFields(activeQuestionIndex.value);
         } else {
-          showToast('Mülakat başarıyla tamamlandı.', 'success');
-          // Reload workspace so that sidebar status badges update
+          showToast('Mülakat tamamlandı. AI değerlendirmesi ve raporu hazırlanıyor...', 'info');
+          isAnalyzingCompletion.value = true;
           if (selectedPosition.value) {
             await loadWorkspace(selectedPosition.value.id);
           }
+          // Poll for AI summary
+          let pollCount = 0;
+          const pollInterval = setInterval(async () => {
+            pollCount++;
+            if (pollCount > 8) { // Max 24 seconds
+              clearInterval(pollInterval);
+              isAnalyzingCompletion.value = false;
+              showToast('Mülakat tamamlandı.', 'success');
+              return;
+            }
+            try {
+              const interviews = await api('GET', `/api/interviews/application/${activeInterviewApp.value.id}`);
+              const activeType = workspaceInterviewType.value.toUpperCase();
+              const activeIv = interviews.find(iv => (iv.interview_type || '').toUpperCase() === activeType);
+              if (activeIv && activeIv.ai_summary) {
+                clearInterval(pollInterval);
+                isAnalyzingCompletion.value = false;
+                showToast('AI mülakat analizi ve değerlendirme raporu üretildi!', 'success');
+                if (selectedPosition.value) {
+                  await loadWorkspace(selectedPosition.value.id);
+                }
+                await loadInterviewAnswersForCandidate(activeInterviewApp.value.id, workspaceInterviewType.value);
+              }
+            } catch (pollErr) {
+              console.error(pollErr);
+            }
+          }, 3000);
         }
       } catch (e) {
         showToast('Puan kaydedilemedi: ' + e.message, 'error');
@@ -1608,7 +1636,7 @@ createApp({
       if (!selectedPosition.value || !activeReportApp.value) return;
       reportsGenerating.value = true;
       try {
-        await api('POST', `/api/reports/position/${selectedPosition.value.id}/generate`, {
+        await api('POST', `/api/reports/generate`, {
           application_id: activeReportApp.value.id,
           report_type: reportType
         });
@@ -2012,7 +2040,7 @@ createApp({
       analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis,
-      workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
+      workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
       posSearchQuery, selectedDepPill, filteredPositions,
       
       // New v2 states

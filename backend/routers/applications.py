@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -289,17 +289,21 @@ def get_interview_answers(app_id: int, type: Optional[str] = "HR", db: Session =
         default_qs = []
         if type == "HR":
             default_qs = [
-                ("Tanışma & Motivasyon", "Pozisyona ve şirketimize başvurma motivasyonunuz nedir? Kariyer hedeflerinizle nasıl uyuşuyor?"),
-                ("Ekip Çalışması & İletişim", "Geçmişte yaşadığınız bir ekip içi iletişimsizlik veya çatışma durumunu nasıl çözdünüz?"),
-                ("Kültür Uyumu", "Şirket kültürü ve çalışma ortamı beklentileriniz nelerdir? Sizi en çok ne motive eder?"),
-                ("Maaş ve Başlama Durumu", "Maaş beklentiniz nedir ve işe başlama (ihbar) süreniz ne kadar?")
+                ("Tanışma & Giriş", "Kısaca kendinizden bahseder misiniz? Özgeçmişinizdeki temel dönüm noktaları nelerdir?"),
+                ("Pozisyon Nitelikleri", "Başvurduğunuz pozisyonun gereksinimleri ile kendi becerilerinizi nasıl eşleştiriyorsunuz? Hangi yönlerinizin bu pozisyona değer katacağını düşünüyorsunuz?"),
+                ("Geçmiş Deneyimler", "Önceki rollerinizde üstlendiğiniz en önemli sorumluluk neydi? Karşılaştığınız en büyük zorluğu ve nasıl aştığınızı anlatır mısınız?"),
+                ("Kültürel Uyum & İletişim", "Çalışma ortamında nasıl bir kültür arıyorsunuz? Ekip içi fikir ayrılıklarında nasıl bir iletişim tarzı benimsersiniz?"),
+                ("Motivasyon & Beklentiler", "Bizimle çalışma konusundaki temel motivasyonunuz nedir? Bu rolden profesyonel beklentileriniz nelerdir?"),
+                ("Kariyer Hedefleri & Kapanış", "Önümüzdeki 2-3 yıl için kariyer hedefleriniz nelerdir? Son olarak, maaş beklentiniz ve işe başlama (ihbar) süreniz nedir?")
             ]
         else:
             default_qs = [
-                ("Teknik Yetkinlikler", "Pozisyon gereksinimleri olan teknolojilerdeki uzmanlık seviyeniz ve tecrübeleriniz nelerdir?"),
-                ("Problem Çözme", "Karşılaştığınız en zor teknik problemi ve bunu nasıl analiz edip çözdüğünüzü anlatır mısınız?"),
-                ("Araçlar & Kütüphaneler", "Projelerinizde hangi yazılım geliştirme araçlarını, kütüphaneleri ve metodolojileri aktif kullandınız?"),
-                ("Sistem Tasarımı", "Ölçeklenebilir ve güvenli bir sistem tasarlarken dikkat ettiğiniz ana mimari prensipler nelerdir?")
+                ("Algoritma & Veri Yapıları", "Projelerinizde karmaşık veri yapıları kullanmanız gereken bir senaryoyu ve performans etkilerini anlatabilir misiniz?"),
+                ("Sistem Tasarımı", "Yüksek trafik altında çalışan, ölçeklenebilir ve yedekli bir web uygulaması mimarisi tasarlarken hangi teknolojileri ve veri tabanı katmanlarını tercih edersiniz?"),
+                ("Pozisyon Nitelikleri & Dil Yetkinliği", "Bu pozisyonda kullanılan ana diller/framework'ler konusundaki uzmanlık düzeyinizi ve derinlemesine hakim olduğunuz özellikleri belirtir misiniz?"),
+                ("Geçmiş Deneyim & Teknik Kararlar", "Geçmiş bir projenizde verdiğiniz ve projenin gidişatını etkileyen en kritik teknik karar neydi? Sonuçları nasıl yönettiniz?"),
+                ("Problem Çözme & Hata Ayıklama", "Üretim (production) ortamında kritik bir çökme veya performans dar boğazı yaşandığında, sorunu izlemek ve çözmek için nasıl bir hata ayıklama ve loglama stratejisi izlersiniz?"),
+                ("Teknik Kapanış & Ekip Çalışması", "Teknik ekiplerle kod kalitesini (code review, test otomasyonu vb.) korumak için nasıl bir süreç yürütürsünüz?")
             ]
         
         for idx, (section, q_text) in enumerate(default_qs):
@@ -323,8 +327,113 @@ def get_interview_answers(app_id: int, type: Optional[str] = "HR", db: Session =
     return answers_sorted
 
 
+def generate_completed_interview_ai_analysis(db: Session, app_id: int, iv_type: str):
+    # Fetch application
+    app = db.query(models.Application).filter(models.Application.id == app_id).first()
+    if not app:
+        return
+        
+    cand = app.candidate
+    pos = app.position
+    if not cand or not pos:
+        return
+        
+    # Get all interview answers
+    answers = db.query(models.InterviewAnswer).filter(
+        models.InterviewAnswer.application_id == app_id,
+        models.InterviewAnswer.interview_type == iv_type
+    ).all()
+    
+    if not answers:
+        return
+        
+    # Build prompt to summarize and comment on answers in JSON format
+    answers_data = []
+    for a in answers:
+        answers_data.append({
+            "question_index": a.question_index,
+            "section": a.section,
+            "question": a.question,
+            "candidate_answer": a.candidate_answer or "Yanıtlanmadı",
+            "score": a.score,
+            "notes": a.notes or ""
+        })
+        
+    prompt = f"""
+    Sen SkillMatch AI mülakat değerlendirme asistanısın. Aday {cand.name} için yapılan '{iv_type}' mülakatının cevaplarını düzenle ve yorumlar ekle.
+    
+    Adayın ham mülakat cevapları aşağıdadır:
+    {json.dumps(answers_data, ensure_ascii=False, indent=2)}
+    
+    Adayın cevaplarını daha profesyonel ve düzenli bir Türkçe haline getir. Ayrıca her bir cevap için yapıcı bir AI yorumu (değerlendirme, güçlü yönler veya riskler içeren) ekle.
+    Son olarak tüm mülakatın genel bir özetini (overall_summary) çıkar.
+    
+    Lütfen aşağıdaki JSON şemasında yanıt dön. Başka hiçbir açıklama yazma:
+    {{
+        "answers": [
+            {{
+                "question_index": 0,
+                "ai_summary": "Temizlenmiş profesyonel cevap özeti ve eklenen yapıcı AI yorumu/analizi..."
+            }}
+        ],
+        "overall_summary": "Tüm mülakatın genel AI özeti..."
+    }}
+    """
+    
+    from services.gemini_service import call_gemini
+    try:
+        res_text = call_gemini(db, prompt, json_mode=True)
+        res_data = json.loads(res_text)
+        
+        # Update answers
+        for ans_update in res_data.get("answers", []):
+            q_idx = ans_update.get("question_index")
+            ai_sum = ans_update.get("ai_summary")
+            if q_idx is not None and ai_sum:
+                # Find matching answer record
+                ans_rec = db.query(models.InterviewAnswer).filter(
+                    models.InterviewAnswer.application_id == app_id,
+                    models.InterviewAnswer.question_index == q_idx,
+                    models.InterviewAnswer.interview_type == iv_type
+                ).first()
+                if ans_rec:
+                    ans_rec.ai_summary = ai_sum
+                    
+        # Update interview overall summary
+        iv = db.query(models.Interview).filter(
+            models.Interview.application_id == app_id,
+            models.Interview.interview_type == iv_type
+        ).first()
+        if not iv:
+            # try lowercase for compatibility
+            iv = db.query(models.Interview).filter(
+                models.Interview.application_id == app_id,
+                models.Interview.interview_type == iv_type.lower()
+            ).first()
+        if iv:
+            iv.ai_summary = res_data.get("overall_summary", "")
+            
+        db.commit()
+        
+        # Now automatically generate the overall report PDF and DB record
+        from routers.reports import generate_report
+        from unittest.mock import MagicMock
+        mock_user = MagicMock()
+        mock_user.full_name = "SkillMatch AI"
+        
+        report_type = "HR" if iv_type == "HR" else "TECHNICAL"
+        payload = {
+            "application_id": app_id,
+            "report_type": report_type
+        }
+        generate_report(payload, db, current_user=mock_user)
+        
+    except Exception as e:
+        logger.error(f"Failed to generate completion AI analysis/report: {e}")
+
+
 @router.post("/{app_id}/interview-answers", response_model=schemas.InterviewAnswerOut)
-def save_interview_answer(app_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+def save_interview_answer(app_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db), background_tasks: BackgroundTasks = BackgroundTasks()):
     question_index = payload.get("question_index")
     if question_index is None:
         raise HTTPException(status_code=400, detail="question_index is required")
@@ -385,6 +494,7 @@ def save_interview_answer(app_id: int, payload: dict = Body(...), db: Session = 
         else:
             if len(completed) >= len(all_ans):
                 iv.status = "completed"
+                background_tasks.add_task(generate_completed_interview_ai_analysis, db, app_id, iv_type)
         
         iv.overall_score = float(avg_score)
         
