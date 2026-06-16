@@ -15,6 +15,44 @@ createApp({
       '/users': 'users'
     };
     const page = ref(pathMap[window.location.pathname] || 'dashboard');
+    
+    // Custom Redesign Refs
+    const workspaceInterviewType = ref('HR');
+    const hrInterviewAnswers = ref([]);
+    
+    const candidateProfile = ref({});
+    const candidateProfileTab = ref('overview');
+    const candidateProfileNotes = ref([]);
+    const candidateProfileTimeline = ref([]);
+    const candidateProfileApps = ref([]);
+    const candidateProfileReports = ref([]);
+    const newProfileNoteText = ref('');
+    const candidateHRAnswers = ref([]);
+    const candidateTechAnswers = ref([]);
+    const candidateProfileAiAnalysis = ref(null);
+    const aiAnalysisLoading = ref(false);
+    
+    // Calendar & Tasks Refs
+    const calendarMonth = ref(new Date().getMonth());
+    const calendarYear = ref(new Date().getFullYear());
+    const calendarViewType = ref('month');
+    const calendarEvents = ref([]);
+    const todayDateString = new Date().toISOString().split('T')[0];
+    const turkishMonthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    
+    // User Management Refs
+    const userSubTab = ref('users');
+    const userSearchQuery = ref('');
+    const userRoleFilter = ref('');
+    const userStatusFilter = ref('');
+    
+    // SVG Analytics Refs
+    const departmentPerformanceData = ref([]);
+    const interviewerPerformanceData = ref([]);
+    const costByDepartmentData = ref([]);
+    const forecastProjectedHires = ref(0);
+    const forecastProjectedInterviews = ref(0);
+    const forecastConfidenceScore = ref(0.0);
     const currentUser = ref(JSON.parse(localStorage.getItem('user') || 'null'));
     const token = ref(localStorage.getItem('token') || '');
     const talentView = ref('list');
@@ -1266,7 +1304,271 @@ createApp({
 
     function calculateBestMatch(c) {
       if (c.best_position && c.best_position.title !== "Eşleşme Yok") {
-        return { title: c.best_position.title, score: Math.round(c.best_score) };
+        // --- 6 MODULES REDESIGN HELPER FUNCTIONS ---
+    
+    function setWorkspaceInterviewType(type) {
+      workspaceInterviewType.value = type;
+      if (activeInterviewApp.value) {
+        loadInterviewAnswersForCandidate(activeInterviewApp.value.id, type);
+      }
+    }
+    
+    async function selectInterviewApp(app) {
+      activeInterviewApp.value = app;
+      await loadInterviewAnswersForCandidate(app.id, workspaceInterviewType.value);
+    }
+    
+    function getAverageScoreText(questions) {
+      if (!questions || !questions.length) return 'Henüz puanlanmadı';
+      const completed = questions.filter(q => q.score !== null);
+      if (!completed.length) return 'Henüz puanlanmadı';
+      const avg = completed.reduce((sum, q) => sum + q.score, 0) / completed.length;
+      return `${avg.toFixed(1)} / 10`;
+    }
+    
+    async function loadFullCandidateProfile(candidateId) {
+      try {
+        const profile = await api('GET', `/api/candidates/${candidateId}/profile`);
+        candidateProfile.value = profile;
+        candidateProfileNotes.value = await api('GET', `/api/candidates/${candidateId}/notes`);
+        candidateProfileTimeline.value = await api('GET', `/api/candidates/${candidateId}/timeline`);
+        candidateProfileApps.value = await api('GET', `/api/candidates/${candidateId}/applications`);
+        candidateProfileReports.value = await api('GET', `/api/candidates/${candidateId}/reports`);
+        
+        // Split interview answers
+        const allHR = [];
+        const allTech = [];
+        for (const app of candidateProfileApps.value) {
+          try {
+            const hrAns = await api('GET', `/api/applications/${app.id}/interviews?type=HR`);
+            allHR.push(...hrAns);
+            const techAns = await api('GET', `/api/applications/${app.id}/interviews?type=TECHNICAL`);
+            allTech.push(...techAns);
+          } catch(e) {}
+        }
+        candidateHRAnswers.value = allHR;
+        candidateTechAnswers.value = allTech;
+      } catch (e) {
+        showToast('Aday detayları yüklenemedi: ' + e.message, 'error');
+      }
+    }
+    
+    function goBackToCandidates() {
+      history.pushState(null, '', '/positions');
+      page.value = 'talent';
+      loadCandidates();
+    }
+    
+    async function saveCandidateProfileNote() {
+      if (!newProfileNoteText.value.strip) {
+        if (!newProfileNoteText.value.trim()) return;
+      }
+      try {
+        await api('POST', `/api/candidates/${candidateProfile.value.id}/notes`, {
+          note_text: newProfileNoteText.value,
+          application_id: candidateProfileApps.value[0]?.id || null,
+          position_id: candidateProfileApps.value[0]?.position_id || null
+        });
+        showToast('Not kaydedildi.', 'success');
+        newProfileNoteText.value = '';
+        await loadFullCandidateProfile(candidateProfile.value.id);
+      } catch (e) {
+        showToast('Not kaydedilemedi: ' + e.message, 'error');
+      }
+    }
+    
+    async function runAiCandidateAnalysis(candidateId) {
+      aiAnalysisLoading.value = true;
+      try {
+        const res = await api('POST', '/api/ai/candidate-analysis', { candidate_id: candidateId });
+        candidateProfileAiAnalysis.value = res;
+        showToast('AI analizi başarıyla tamamlandı.', 'success');
+      } catch (e) {
+        showToast('AI Analizi hatası: ' + e.message, 'error');
+      } finally {
+        aiAnalysisLoading.value = false;
+      }
+    }
+    
+    async function generateProfileReport(reportType) {
+      if (!candidateProfileApps.value.length) {
+        showToast('Adayın aktif başvurusu bulunmuyor.', 'error');
+        return;
+      }
+      try {
+        await api('POST', '/api/reports/generate', {
+          application_id: candidateProfileApps.value[0].id,
+          report_type: reportType
+        });
+        showToast('Rapor başarıyla üretildi.', 'success');
+        await loadFullCandidateProfile(candidateProfile.value.id);
+      } catch (e) {
+        showToast('Rapor üretilemedi: ' + e.message, 'error');
+      }
+    }
+    
+    // Calendar helper functions
+    const calendarDays = computed(() => {
+      const year = calendarYear.value;
+      const month = calendarMonth.value;
+      
+      const firstDay = new Date(year, month, 1).getDay();
+      const startOffset = (firstDay + 6) % 7; // Align Monday
+      
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const prevDaysInMonth = new Date(year, month, 0).getDate();
+      
+      const days = [];
+      
+      for (let i = startOffset - 1; i >= 0; i--) {
+        const d = prevDaysInMonth - i;
+        days.push({
+          day: d,
+          isCurrentMonth: false,
+          dateString: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      for (let d = 1; d <= daysInMonth; d++) {
+        days.push({
+          day: d,
+          isCurrentMonth: true,
+          dateString: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      const totalCells = days.length > 35 ? 42 : 35;
+      const nextPadding = totalCells - days.length;
+      for (let d = 1; d <= nextPadding; d++) {
+        days.push({
+          day: d,
+          isCurrentMonth: false,
+          dateString: `${month === 11 ? year + 1 : year}-${String(month === 11 ? 1 : month + 2).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      return days;
+    });
+    
+    function getEventsForDate(dateString) {
+      return calendarEvents.value.filter(e => e.start_time.split('T')[0] === dateString);
+    }
+    
+    function navigateCalendarMonth(direction) {
+      calendarMonth.value += direction;
+      if (calendarMonth.value < 0) {
+        calendarMonth.value = 11;
+        calendarYear.value--;
+      } else if (calendarMonth.value > 11) {
+        calendarMonth.value = 0;
+        calendarYear.value++;
+      }
+    }
+    
+    async function loadCalendarEvents() {
+      try {
+        calendarEvents.value = await api('GET', '/api/calendar/');
+      } catch(e) {}
+    }
+    
+    async function openNewEventModal(dateString) {
+      const dt = dateString || todayDateString;
+      const title = prompt("Etkinlik Başlığı girin:");
+      if (!title) return;
+      const type = prompt("Etkinlik Tipi girin (interview, task, reminder, deadline):", "reminder");
+      if (!type) return;
+      
+      try {
+        await api('POST', '/api/calendar/', {
+          title: title,
+          description: "Takvimden oluşturuldu",
+          event_type: type,
+          start_time: dt + "T10:00:00",
+          end_time: dt + "T11:00:00",
+          application_id: workspaceData.value?.applications[0]?.id || null
+        });
+        showToast('Etkinlik planlandı.', 'success');
+        await loadCalendarEvents();
+      } catch (e) {
+        showToast('Etkinlik oluşturulamadı: ' + e.message, 'error');
+      }
+    }
+    
+    function viewEventDetails(evt) {
+      alert(`Etkinlik: ${evt.title}\nTipi: ${evt.event_type}\nAçıklama: ${evt.description || '—'}\nTarih: ${formatDate(evt.start_time)}`);
+    }
+    
+    async function deleteCalendarEvent(id) {
+      if (!confirm("Bu etkinliği silmek istiyor musunuz?")) return;
+      try {
+        await api('DELETE', `/api/calendar/${id}`);
+        showToast('Etkinlik silindi.', 'success');
+        await loadCalendarEvents();
+      } catch (e) {
+        showToast('Silinemedi: ' + e.message, 'error');
+      }
+    }
+    
+    async function toggleTaskStatus(task) {
+      const newStatus = task.status === 'done' ? 'todo' : 'done';
+      try {
+        await api('PATCH', `/api/tasks/${task.id}`, { status: newStatus });
+        task.status = newStatus;
+        showToast('Görev güncellendi.', 'success');
+      } catch (e) {
+        showToast('Güncellenemedi: ' + e.message, 'error');
+      }
+    }
+    
+    // User Filtering
+    const filteredUsers = computed(() => {
+      let ulist = allUsers.value || [];
+      if (userSearchQuery.value) {
+        const q = userSearchQuery.value.toLowerCase();
+        ulist = ulist.filter(u => u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+      }
+      if (userRoleFilter.value) {
+        ulist = ulist.filter(u => u.role === userRoleFilter.value);
+      }
+      if (userStatusFilter.value) {
+        const isAct = userStatusFilter.value === 'active';
+        ulist = ulist.filter(u => u.is_active === isAct);
+      }
+      return ulist;
+    });
+    
+    // Fetch SVGs real stats
+    async function loadRealAnalytics() {
+      try {
+        departmentPerformanceData.value = await api('GET', '/api/analytics/department-performance');
+        interviewerPerformanceData.value = await api('GET', '/api/analytics/interviewer-performance');
+        costByDepartmentData.value = await api('GET', '/api/analytics/cost-by-department');
+        
+        const forecast = await api('GET', '/api/analytics/hiring-forecast');
+        forecastProjectedHires.value = forecast.projected_hires;
+        forecastProjectedInterviews.value = forecast.projected_interviews;
+        forecastConfidenceScore.value = forecast.confidence_score;
+      } catch(e) {}
+    }
+    
+    // Hook load calendar & real analytics to page changes
+    watch(page, (p) => {
+      if (p === 'tasks') {
+        loadCalendarEvents();
+      } else if (p === 'analytics') {
+        loadRealAnalytics();
+      }
+    });
+
+    // SPA routing click handler for candidate profile
+    function viewCandidate(candId) {
+      history.pushState(null, '', `/candidates/${candId}`);
+      page.value = 'candidate_profile';
+      loadFullCandidateProfile(candId);
+    }
+    
+    
+    return { title: c.best_position.title, score: Math.round(c.best_score) };
       }
       if (!positions.value || !positions.value.length || c.is_blacklisted) return null;
       let bestPos = null;
@@ -1335,7 +1637,15 @@ createApp({
 
     // ─── INIT ─────────────────────────────────────────────────────────
     onMounted(async () => {
-      await loadInitialData();
+      // SPA route checking for candidate profile
+      const path = window.location.pathname;
+      const candMatch = path.match(/^\/candidates\/(\d+)/);
+      if (candMatch) {
+        page.value = 'candidate_profile';
+        await loadFullCandidateProfile(parseInt(candMatch[1]));
+      } else {
+        await loadInitialData();
+      }
     });
 
     watch(page, async (p) => {
@@ -1632,13 +1942,541 @@ createApp({
     });
 
     const trackingData = computed(() => {
-      return {
+      // --- 6 MODULES REDESIGN HELPER FUNCTIONS ---
+    
+    function setWorkspaceInterviewType(type) {
+      workspaceInterviewType.value = type;
+      if (activeInterviewApp.value) {
+        loadInterviewAnswersForCandidate(activeInterviewApp.value.id, type);
+      }
+    }
+    
+    async function selectInterviewApp(app) {
+      activeInterviewApp.value = app;
+      await loadInterviewAnswersForCandidate(app.id, workspaceInterviewType.value);
+    }
+    
+    function getAverageScoreText(questions) {
+      if (!questions || !questions.length) return 'Henüz puanlanmadı';
+      const completed = questions.filter(q => q.score !== null);
+      if (!completed.length) return 'Henüz puanlanmadı';
+      const avg = completed.reduce((sum, q) => sum + q.score, 0) / completed.length;
+      return `${avg.toFixed(1)} / 10`;
+    }
+    
+    async function loadFullCandidateProfile(candidateId) {
+      try {
+        const profile = await api('GET', `/api/candidates/${candidateId}/profile`);
+        candidateProfile.value = profile;
+        candidateProfileNotes.value = await api('GET', `/api/candidates/${candidateId}/notes`);
+        candidateProfileTimeline.value = await api('GET', `/api/candidates/${candidateId}/timeline`);
+        candidateProfileApps.value = await api('GET', `/api/candidates/${candidateId}/applications`);
+        candidateProfileReports.value = await api('GET', `/api/candidates/${candidateId}/reports`);
+        
+        // Split interview answers
+        const allHR = [];
+        const allTech = [];
+        for (const app of candidateProfileApps.value) {
+          try {
+            const hrAns = await api('GET', `/api/applications/${app.id}/interviews?type=HR`);
+            allHR.push(...hrAns);
+            const techAns = await api('GET', `/api/applications/${app.id}/interviews?type=TECHNICAL`);
+            allTech.push(...techAns);
+          } catch(e) {}
+        }
+        candidateHRAnswers.value = allHR;
+        candidateTechAnswers.value = allTech;
+      } catch (e) {
+        showToast('Aday detayları yüklenemedi: ' + e.message, 'error');
+      }
+    }
+    
+    function goBackToCandidates() {
+      history.pushState(null, '', '/positions');
+      page.value = 'talent';
+      loadCandidates();
+    }
+    
+    async function saveCandidateProfileNote() {
+      if (!newProfileNoteText.value.strip) {
+        if (!newProfileNoteText.value.trim()) return;
+      }
+      try {
+        await api('POST', `/api/candidates/${candidateProfile.value.id}/notes`, {
+          note_text: newProfileNoteText.value,
+          application_id: candidateProfileApps.value[0]?.id || null,
+          position_id: candidateProfileApps.value[0]?.position_id || null
+        });
+        showToast('Not kaydedildi.', 'success');
+        newProfileNoteText.value = '';
+        await loadFullCandidateProfile(candidateProfile.value.id);
+      } catch (e) {
+        showToast('Not kaydedilemedi: ' + e.message, 'error');
+      }
+    }
+    
+    async function runAiCandidateAnalysis(candidateId) {
+      aiAnalysisLoading.value = true;
+      try {
+        const res = await api('POST', '/api/ai/candidate-analysis', { candidate_id: candidateId });
+        candidateProfileAiAnalysis.value = res;
+        showToast('AI analizi başarıyla tamamlandı.', 'success');
+      } catch (e) {
+        showToast('AI Analizi hatası: ' + e.message, 'error');
+      } finally {
+        aiAnalysisLoading.value = false;
+      }
+    }
+    
+    async function generateProfileReport(reportType) {
+      if (!candidateProfileApps.value.length) {
+        showToast('Adayın aktif başvurusu bulunmuyor.', 'error');
+        return;
+      }
+      try {
+        await api('POST', '/api/reports/generate', {
+          application_id: candidateProfileApps.value[0].id,
+          report_type: reportType
+        });
+        showToast('Rapor başarıyla üretildi.', 'success');
+        await loadFullCandidateProfile(candidateProfile.value.id);
+      } catch (e) {
+        showToast('Rapor üretilemedi: ' + e.message, 'error');
+      }
+    }
+    
+    // Calendar helper functions
+    const calendarDays = computed(() => {
+      const year = calendarYear.value;
+      const month = calendarMonth.value;
+      
+      const firstDay = new Date(year, month, 1).getDay();
+      const startOffset = (firstDay + 6) % 7; // Align Monday
+      
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const prevDaysInMonth = new Date(year, month, 0).getDate();
+      
+      const days = [];
+      
+      for (let i = startOffset - 1; i >= 0; i--) {
+        const d = prevDaysInMonth - i;
+        days.push({
+          day: d,
+          isCurrentMonth: false,
+          dateString: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      for (let d = 1; d <= daysInMonth; d++) {
+        days.push({
+          day: d,
+          isCurrentMonth: true,
+          dateString: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      const totalCells = days.length > 35 ? 42 : 35;
+      const nextPadding = totalCells - days.length;
+      for (let d = 1; d <= nextPadding; d++) {
+        days.push({
+          day: d,
+          isCurrentMonth: false,
+          dateString: `${month === 11 ? year + 1 : year}-${String(month === 11 ? 1 : month + 2).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      return days;
+    });
+    
+    function getEventsForDate(dateString) {
+      return calendarEvents.value.filter(e => e.start_time.split('T')[0] === dateString);
+    }
+    
+    function navigateCalendarMonth(direction) {
+      calendarMonth.value += direction;
+      if (calendarMonth.value < 0) {
+        calendarMonth.value = 11;
+        calendarYear.value--;
+      } else if (calendarMonth.value > 11) {
+        calendarMonth.value = 0;
+        calendarYear.value++;
+      }
+    }
+    
+    async function loadCalendarEvents() {
+      try {
+        calendarEvents.value = await api('GET', '/api/calendar/');
+      } catch(e) {}
+    }
+    
+    async function openNewEventModal(dateString) {
+      const dt = dateString || todayDateString;
+      const title = prompt("Etkinlik Başlığı girin:");
+      if (!title) return;
+      const type = prompt("Etkinlik Tipi girin (interview, task, reminder, deadline):", "reminder");
+      if (!type) return;
+      
+      try {
+        await api('POST', '/api/calendar/', {
+          title: title,
+          description: "Takvimden oluşturuldu",
+          event_type: type,
+          start_time: dt + "T10:00:00",
+          end_time: dt + "T11:00:00",
+          application_id: workspaceData.value?.applications[0]?.id || null
+        });
+        showToast('Etkinlik planlandı.', 'success');
+        await loadCalendarEvents();
+      } catch (e) {
+        showToast('Etkinlik oluşturulamadı: ' + e.message, 'error');
+      }
+    }
+    
+    function viewEventDetails(evt) {
+      alert(`Etkinlik: ${evt.title}\nTipi: ${evt.event_type}\nAçıklama: ${evt.description || '—'}\nTarih: ${formatDate(evt.start_time)}`);
+    }
+    
+    async function deleteCalendarEvent(id) {
+      if (!confirm("Bu etkinliği silmek istiyor musunuz?")) return;
+      try {
+        await api('DELETE', `/api/calendar/${id}`);
+        showToast('Etkinlik silindi.', 'success');
+        await loadCalendarEvents();
+      } catch (e) {
+        showToast('Silinemedi: ' + e.message, 'error');
+      }
+    }
+    
+    async function toggleTaskStatus(task) {
+      const newStatus = task.status === 'done' ? 'todo' : 'done';
+      try {
+        await api('PATCH', `/api/tasks/${task.id}`, { status: newStatus });
+        task.status = newStatus;
+        showToast('Görev güncellendi.', 'success');
+      } catch (e) {
+        showToast('Güncellenemedi: ' + e.message, 'error');
+      }
+    }
+    
+    // User Filtering
+    const filteredUsers = computed(() => {
+      let ulist = allUsers.value || [];
+      if (userSearchQuery.value) {
+        const q = userSearchQuery.value.toLowerCase();
+        ulist = ulist.filter(u => u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+      }
+      if (userRoleFilter.value) {
+        ulist = ulist.filter(u => u.role === userRoleFilter.value);
+      }
+      if (userStatusFilter.value) {
+        const isAct = userStatusFilter.value === 'active';
+        ulist = ulist.filter(u => u.is_active === isAct);
+      }
+      return ulist;
+    });
+    
+    // Fetch SVGs real stats
+    async function loadRealAnalytics() {
+      try {
+        departmentPerformanceData.value = await api('GET', '/api/analytics/department-performance');
+        interviewerPerformanceData.value = await api('GET', '/api/analytics/interviewer-performance');
+        costByDepartmentData.value = await api('GET', '/api/analytics/cost-by-department');
+        
+        const forecast = await api('GET', '/api/analytics/hiring-forecast');
+        forecastProjectedHires.value = forecast.projected_hires;
+        forecastProjectedInterviews.value = forecast.projected_interviews;
+        forecastConfidenceScore.value = forecast.confidence_score;
+      } catch(e) {}
+    }
+    
+    // Hook load calendar & real analytics to page changes
+    watch(page, (p) => {
+      if (p === 'tasks') {
+        loadCalendarEvents();
+      } else if (p === 'analytics') {
+        loadRealAnalytics();
+      }
+    });
+
+    // SPA routing click handler for candidate profile
+    function viewCandidate(candId) {
+      history.pushState(null, '', `/candidates/${candId}`);
+      page.value = 'candidate_profile';
+      loadFullCandidateProfile(candId);
+    }
+    
+    
+    return {
         upcomingInterviews: allInterviews.value.filter(iv => iv.status === 'scheduled'),
         recentLogs: logs.value.slice(0, 10),
         pendingApps: pipeline.value.reduce((acc, col) => acc.concat(col.applications || []), []).filter(a => a.status === 'applied' || a.status === 'screening')
       };
     });
 
+    // --- 6 MODULES REDESIGN HELPER FUNCTIONS ---
+    
+    function setWorkspaceInterviewType(type) {
+      workspaceInterviewType.value = type;
+      if (activeInterviewApp.value) {
+        loadInterviewAnswersForCandidate(activeInterviewApp.value.id, type);
+      }
+    }
+    
+    async function selectInterviewApp(app) {
+      activeInterviewApp.value = app;
+      await loadInterviewAnswersForCandidate(app.id, workspaceInterviewType.value);
+    }
+    
+    function getAverageScoreText(questions) {
+      if (!questions || !questions.length) return 'Henüz puanlanmadı';
+      const completed = questions.filter(q => q.score !== null);
+      if (!completed.length) return 'Henüz puanlanmadı';
+      const avg = completed.reduce((sum, q) => sum + q.score, 0) / completed.length;
+      return `${avg.toFixed(1)} / 10`;
+    }
+    
+    async function loadFullCandidateProfile(candidateId) {
+      try {
+        const profile = await api('GET', `/api/candidates/${candidateId}/profile`);
+        candidateProfile.value = profile;
+        candidateProfileNotes.value = await api('GET', `/api/candidates/${candidateId}/notes`);
+        candidateProfileTimeline.value = await api('GET', `/api/candidates/${candidateId}/timeline`);
+        candidateProfileApps.value = await api('GET', `/api/candidates/${candidateId}/applications`);
+        candidateProfileReports.value = await api('GET', `/api/candidates/${candidateId}/reports`);
+        
+        // Split interview answers
+        const allHR = [];
+        const allTech = [];
+        for (const app of candidateProfileApps.value) {
+          try {
+            const hrAns = await api('GET', `/api/applications/${app.id}/interviews?type=HR`);
+            allHR.push(...hrAns);
+            const techAns = await api('GET', `/api/applications/${app.id}/interviews?type=TECHNICAL`);
+            allTech.push(...techAns);
+          } catch(e) {}
+        }
+        candidateHRAnswers.value = allHR;
+        candidateTechAnswers.value = allTech;
+      } catch (e) {
+        showToast('Aday detayları yüklenemedi: ' + e.message, 'error');
+      }
+    }
+    
+    function goBackToCandidates() {
+      history.pushState(null, '', '/positions');
+      page.value = 'talent';
+      loadCandidates();
+    }
+    
+    async function saveCandidateProfileNote() {
+      if (!newProfileNoteText.value.strip) {
+        if (!newProfileNoteText.value.trim()) return;
+      }
+      try {
+        await api('POST', `/api/candidates/${candidateProfile.value.id}/notes`, {
+          note_text: newProfileNoteText.value,
+          application_id: candidateProfileApps.value[0]?.id || null,
+          position_id: candidateProfileApps.value[0]?.position_id || null
+        });
+        showToast('Not kaydedildi.', 'success');
+        newProfileNoteText.value = '';
+        await loadFullCandidateProfile(candidateProfile.value.id);
+      } catch (e) {
+        showToast('Not kaydedilemedi: ' + e.message, 'error');
+      }
+    }
+    
+    async function runAiCandidateAnalysis(candidateId) {
+      aiAnalysisLoading.value = true;
+      try {
+        const res = await api('POST', '/api/ai/candidate-analysis', { candidate_id: candidateId });
+        candidateProfileAiAnalysis.value = res;
+        showToast('AI analizi başarıyla tamamlandı.', 'success');
+      } catch (e) {
+        showToast('AI Analizi hatası: ' + e.message, 'error');
+      } finally {
+        aiAnalysisLoading.value = false;
+      }
+    }
+    
+    async function generateProfileReport(reportType) {
+      if (!candidateProfileApps.value.length) {
+        showToast('Adayın aktif başvurusu bulunmuyor.', 'error');
+        return;
+      }
+      try {
+        await api('POST', '/api/reports/generate', {
+          application_id: candidateProfileApps.value[0].id,
+          report_type: reportType
+        });
+        showToast('Rapor başarıyla üretildi.', 'success');
+        await loadFullCandidateProfile(candidateProfile.value.id);
+      } catch (e) {
+        showToast('Rapor üretilemedi: ' + e.message, 'error');
+      }
+    }
+    
+    // Calendar helper functions
+    const calendarDays = computed(() => {
+      const year = calendarYear.value;
+      const month = calendarMonth.value;
+      
+      const firstDay = new Date(year, month, 1).getDay();
+      const startOffset = (firstDay + 6) % 7; // Align Monday
+      
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const prevDaysInMonth = new Date(year, month, 0).getDate();
+      
+      const days = [];
+      
+      for (let i = startOffset - 1; i >= 0; i--) {
+        const d = prevDaysInMonth - i;
+        days.push({
+          day: d,
+          isCurrentMonth: false,
+          dateString: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      for (let d = 1; d <= daysInMonth; d++) {
+        days.push({
+          day: d,
+          isCurrentMonth: true,
+          dateString: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      const totalCells = days.length > 35 ? 42 : 35;
+      const nextPadding = totalCells - days.length;
+      for (let d = 1; d <= nextPadding; d++) {
+        days.push({
+          day: d,
+          isCurrentMonth: false,
+          dateString: `${month === 11 ? year + 1 : year}-${String(month === 11 ? 1 : month + 2).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        });
+      }
+      
+      return days;
+    });
+    
+    function getEventsForDate(dateString) {
+      return calendarEvents.value.filter(e => e.start_time.split('T')[0] === dateString);
+    }
+    
+    function navigateCalendarMonth(direction) {
+      calendarMonth.value += direction;
+      if (calendarMonth.value < 0) {
+        calendarMonth.value = 11;
+        calendarYear.value--;
+      } else if (calendarMonth.value > 11) {
+        calendarMonth.value = 0;
+        calendarYear.value++;
+      }
+    }
+    
+    async function loadCalendarEvents() {
+      try {
+        calendarEvents.value = await api('GET', '/api/calendar/');
+      } catch(e) {}
+    }
+    
+    async function openNewEventModal(dateString) {
+      const dt = dateString || todayDateString;
+      const title = prompt("Etkinlik Başlığı girin:");
+      if (!title) return;
+      const type = prompt("Etkinlik Tipi girin (interview, task, reminder, deadline):", "reminder");
+      if (!type) return;
+      
+      try {
+        await api('POST', '/api/calendar/', {
+          title: title,
+          description: "Takvimden oluşturuldu",
+          event_type: type,
+          start_time: dt + "T10:00:00",
+          end_time: dt + "T11:00:00",
+          application_id: workspaceData.value?.applications[0]?.id || null
+        });
+        showToast('Etkinlik planlandı.', 'success');
+        await loadCalendarEvents();
+      } catch (e) {
+        showToast('Etkinlik oluşturulamadı: ' + e.message, 'error');
+      }
+    }
+    
+    function viewEventDetails(evt) {
+      alert(`Etkinlik: ${evt.title}\nTipi: ${evt.event_type}\nAçıklama: ${evt.description || '—'}\nTarih: ${formatDate(evt.start_time)}`);
+    }
+    
+    async function deleteCalendarEvent(id) {
+      if (!confirm("Bu etkinliği silmek istiyor musunuz?")) return;
+      try {
+        await api('DELETE', `/api/calendar/${id}`);
+        showToast('Etkinlik silindi.', 'success');
+        await loadCalendarEvents();
+      } catch (e) {
+        showToast('Silinemedi: ' + e.message, 'error');
+      }
+    }
+    
+    async function toggleTaskStatus(task) {
+      const newStatus = task.status === 'done' ? 'todo' : 'done';
+      try {
+        await api('PATCH', `/api/tasks/${task.id}`, { status: newStatus });
+        task.status = newStatus;
+        showToast('Görev güncellendi.', 'success');
+      } catch (e) {
+        showToast('Güncellenemedi: ' + e.message, 'error');
+      }
+    }
+    
+    // User Filtering
+    const filteredUsers = computed(() => {
+      let ulist = allUsers.value || [];
+      if (userSearchQuery.value) {
+        const q = userSearchQuery.value.toLowerCase();
+        ulist = ulist.filter(u => u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+      }
+      if (userRoleFilter.value) {
+        ulist = ulist.filter(u => u.role === userRoleFilter.value);
+      }
+      if (userStatusFilter.value) {
+        const isAct = userStatusFilter.value === 'active';
+        ulist = ulist.filter(u => u.is_active === isAct);
+      }
+      return ulist;
+    });
+    
+    // Fetch SVGs real stats
+    async function loadRealAnalytics() {
+      try {
+        departmentPerformanceData.value = await api('GET', '/api/analytics/department-performance');
+        interviewerPerformanceData.value = await api('GET', '/api/analytics/interviewer-performance');
+        costByDepartmentData.value = await api('GET', '/api/analytics/cost-by-department');
+        
+        const forecast = await api('GET', '/api/analytics/hiring-forecast');
+        forecastProjectedHires.value = forecast.projected_hires;
+        forecastProjectedInterviews.value = forecast.projected_interviews;
+        forecastConfidenceScore.value = forecast.confidence_score;
+      } catch(e) {}
+    }
+    
+    // Hook load calendar & real analytics to page changes
+    watch(page, (p) => {
+      if (p === 'tasks') {
+        loadCalendarEvents();
+      } else if (p === 'analytics') {
+        loadRealAnalytics();
+      }
+    });
+
+    // SPA routing click handler for candidate profile
+    function viewCandidate(candId) {
+      history.pushState(null, '', `/candidates/${candId}`);
+      page.value = 'candidate_profile';
+      loadFullCandidateProfile(candId);
+    }
+    
+    
     return {
       // state
       page, talentView, candidates, positions, stats, pipeline, pipelineLoading,

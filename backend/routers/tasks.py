@@ -38,6 +38,23 @@ def update_task(id: int, task_in: schemas.RecruitmentTaskCreate, db: Session = D
     db.refresh(task)
     return task
 
+@router.patch("/{id}", response_model=schemas.RecruitmentTaskOut)
+def patch_task(id: int, payload: dict, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    task = db.query(models.RecruitmentTask).filter(models.RecruitmentTask.id == id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Görev bulunamadı.")
+        
+    if "title" in payload: task.title = payload["title"]
+    if "description" in payload: task.description = payload["description"]
+    if "status" in payload: task.status = payload["status"]
+    if "assigned_to" in payload: task.assigned_to = payload["assigned_to"]
+    if "due_date" in payload: task.due_date = payload["due_date"]
+    
+    db.commit()
+    db.refresh(task)
+    return task
+
+
 @router.delete("/{id}", status_code=204)
 def delete_task(id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     task = db.query(models.RecruitmentTask).filter(models.RecruitmentTask.id == id).first()

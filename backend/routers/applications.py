@@ -277,3 +277,202 @@ def update_application_stage(app_id: int, payload: dict = Body(...), db: Session
     return {"status": a.status}
 
 
+@router.get("/{app_id}/interviews")
+def get_interview_answers(app_id: int, type: Optional[str] = "HR", db: Session = Depends(database.get_db)):
+    q = db.query(models.InterviewAnswer).filter(models.InterviewAnswer.application_id == app_id)
+    if type:
+        q = q.filter(models.InterviewAnswer.interview_type == type)
+    answers = q.all()
+    answers_sorted = sorted(answers, key=lambda x: x.question_index)
+    
+    if not answers_sorted and type in ("HR", "TECHNICAL"):
+        default_qs = []
+        if type == "HR":
+            default_qs = [
+                ("Tanışma & Motivasyon", "Pozisyona ve şirketimize başvurma motivasyonunuz nedir? Kariyer hedeflerinizle nasıl uyuşuyor?"),
+                ("Ekip Çalışması & İletişim", "Geçmişte yaşadığınız bir ekip içi iletişimsizlik veya çatışma durumunu nasıl çözdünüz?"),
+                ("Kültür Uyumu", "Şirket kültürü ve çalışma ortamı beklentileriniz nelerdir? Sizi en çok ne motive eder?"),
+                ("Maaş ve Başlama Durumu", "Maaş beklentiniz nedir ve işe başlama (ihbar) süreniz ne kadar?")
+            ]
+        else:
+            default_qs = [
+                ("Teknik Yetkinlikler", "Pozisyon gereksinimleri olan teknolojilerdeki uzmanlık seviyeniz ve tecrübeleriniz nelerdir?"),
+                ("Problem Çözme", "Karşılaştığınız en zor teknik problemi ve bunu nasıl analiz edip çözdüğünüzü anlatır mısınız?"),
+                ("Araçlar & Kütüphaneler", "Projelerinizde hangi yazılım geliştirme araçlarını, kütüphaneleri ve metodolojileri aktif kullandınız?"),
+                ("Sistem Tasarımı", "Ölçeklenebilir ve güvenli bir sistem tasarlarken dikkat ettiğiniz ana mimari prensipler nelerdir?")
+            ]
+        
+        for idx, (section, q_text) in enumerate(default_qs):
+            ans_rec = models.InterviewAnswer(
+                application_id=app_id,
+                question_index=idx,
+                interview_type=type,
+                section=section,
+                question=q_text,
+                is_completed=False
+            )
+            db.add(ans_rec)
+        db.commit()
+        
+        answers = db.query(models.InterviewAnswer).filter(
+            models.InterviewAnswer.application_id == app_id,
+            models.InterviewAnswer.interview_type == type
+        ).all()
+        answers_sorted = sorted(answers, key=lambda x: x.question_index)
+        
+    return answers_sorted
+
+
+@router.post("/{app_id}/interview-answers")
+def save_interview_answer(app_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+    question_index = payload.get("question_index")
+    if question_index is None:
+        raise HTTPException(status_code=400, detail="question_index is required")
+        
+    iv_type = payload.get("interview_type", "HR")
+    
+    ans = db.query(models.InterviewAnswer).filter(
+        models.InterviewAnswer.application_id == app_id,
+        models.InterviewAnswer.question_index == question_index,
+        models.InterviewAnswer.interview_type == iv_type
+    ).first()
+    
+    if not ans:
+        ans = models.InterviewAnswer(
+            application_id=app_id,
+            question_index=question_index,
+            interview_type=iv_type,
+            section=payload.get("section", "Mülakat"),
+            question=payload.get("question", ""),
+            is_completed=True
+        )
+        db.add(ans)
+        
+    ans.candidate_answer = payload.get("candidate_answer", "")
+    ans.score = payload.get("score")
+    ans.notes = payload.get("notes", "")
+    ans.is_completed = True
+    
+    db.commit()
+    db.refresh(ans)
+    
+    all_ans = db.query(models.InterviewAnswer).filter(
+        models.InterviewAnswer.application_id == app_id,
+        models.InterviewAnswer.interview_type == iv_type
+    ).all()
+    completed = [a for a in all_ans if a.is_completed and a.score is not None]
+    
+    if completed:
+        avg_score = sum([a.score for a in completed]) / len(completed)
+        
+        iv = db.query(models.Interview).filter(
+            models.Interview.application_id == app_id,
+            models.Interview.interview_type == iv_type
+        ).first()
+        if not iv:
+            # try lowercase for compatibility
+            iv = db.query(models.Interview).filter(
+                models.Interview.application_id == app_id,
+                models.Interview.interview_type == iv_type.lower()
+            ).first()
+        if not iv:
+            iv = models.Interview(
+                application_id=app_id,
+                interview_type=iv_type,
+                status="completed"
+            )
+            db.add(iv)
+        
+        iv.overall_score = float(avg_score)
+        
+        # Sync notes to candidate timeline
+        app_rec = db.query(models.Application).filter(models.Application.id == app_id).first()
+        if app_rec and app_rec.candidate:
+            cand = app_rec.candidate
+            if ans.notes:
+                note_rec = models.CandidateNote(
+                    candidate_id=cand.id,
+                    application_id=app_id,
+                    position_id=app_rec.position_id,
+                    note_text=f"[{iv_type} Mülakatı] Soru {question_index+1} Notu: {ans.notes}",
+                    created_by="Recruiter"
+                )
+                db.add(note_rec)
+                
+                act = models.CandidateActivity(
+                    candidate_id=cand.id,
+                    application_id=app_id,
+                    activity_type="note_added",
+                    note=f"[{iv_type} Mülakatı] Soru {question_index+1} Notu: {ans.notes}",
+                    created_by="Recruiter"
+                )
+                db.add(act)
+        
+        db.commit()
+        
+    return ans
+
+
+@router.post("/{app_id}/interviews")
+def schedule_or_init_interview(app_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+    iv_type = payload.get("interview_type", "HR")
+    round_num = payload.get("round_number", 1)
+    
+    app = db.query(models.Application).filter(models.Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+        
+    # parse date safely
+    scheduled_at = None
+    if payload.get("scheduled_at"):
+        try:
+            scheduled_at = datetime.fromisoformat(payload["scheduled_at"].replace("Z", "+00:00"))
+        except Exception:
+            pass
+            
+    iv = models.Interview(
+        application_id=app_id,
+        round_number=round_num,
+        interview_type=iv_type,
+        status="scheduled",
+        scheduled_at=scheduled_at,
+        duration_minutes=payload.get("duration_minutes", 60),
+        meeting_link=payload.get("meeting_link"),
+        interviewer_name=payload.get("interviewer_name", "Recruiter")
+    )
+    db.add(iv)
+    
+    # Update application stage to match
+    app.status = "interview"
+    
+    db.commit()
+    db.refresh(iv)
+    
+    # Also create calendar event
+    event = models.CalendarEvent(
+        title=f"Mülakat: {app.candidate.name if app.candidate else 'Aday'} - {app.position.title if app.position else 'Pozisyon'}",
+        description=f"İş Görüşmesi ({iv_type})",
+        event_type="interview",
+        start_time=iv.scheduled_at or datetime.utcnow(),
+        candidate_id=app.candidate_id,
+        position_id=app.position_id,
+        application_id=app_id,
+        interview_id=iv.id
+    )
+    db.add(event)
+    
+    # Log activity
+    if app.candidate:
+        act = models.CandidateActivity(
+            candidate_id=app.candidate_id,
+            application_id=app_id,
+            activity_type="interview_scheduled",
+            note=f"[{iv_type} Mülakatı] Planlandı: {round_num}. Tur",
+            created_by="Recruiter"
+        )
+        db.add(act)
+        
+    db.commit()
+    return iv
+
+

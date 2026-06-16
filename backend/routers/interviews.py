@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import json, os
@@ -209,4 +209,151 @@ def generate_questions_endpoint(data: schemas.InterviewQuestionsRequest, db: Ses
         position_desc=pos.description
     )
     return {"questions": questions}
+
+
+@router.patch("/{iv_id}", response_model=schemas.InterviewOut)
+def patch_interview(iv_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+    iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
+    if not iv:
+        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+        
+    if "status" in payload: iv.status = payload["status"]
+    if "overall_score" in payload: iv.overall_score = payload["overall_score"]
+    if "technical_score" in payload: iv.technical_score = payload["technical_score"]
+    if "cultural_score" in payload: iv.cultural_score = payload["cultural_score"]
+    if "notes" in payload: iv.notes = payload["notes"]
+    if "recommendation" in payload: iv.recommendation = payload["recommendation"]
+    if "result" in payload: iv.result = payload["result"]
+    if "result_note" in payload: iv.result_note = payload["result_note"]
+    
+    db.commit()
+    db.refresh(iv)
+    return iv
+
+
+@router.post("/{iv_id}/answers")
+def save_multiple_answers(iv_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+    iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
+    if not iv:
+        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+        
+    answers = payload.get("answers", [])
+    res_list = []
+    for a in answers:
+        q_idx = a.get("question_index")
+        if q_idx is None: continue
+        
+        ans = db.query(models.InterviewAnswer).filter(
+            models.InterviewAnswer.application_id == iv.application_id,
+            models.InterviewAnswer.question_index == q_idx,
+            models.InterviewAnswer.interview_type == iv.interview_type
+        ).first()
+        
+        if not ans:
+            ans = models.InterviewAnswer(
+                application_id=iv.application_id,
+                question_index=q_idx,
+                interview_type=iv.interview_type,
+                section=a.get("section", "Mülakat"),
+                question=a.get("question", ""),
+                is_completed=True
+            )
+            db.add(ans)
+            
+        ans.candidate_answer = a.get("candidate_answer", "")
+        ans.score = a.get("score")
+        ans.notes = a.get("notes", "")
+        ans.is_completed = True
+        
+        # Sync notes to candidate notes
+        app_rec = db.query(models.Application).filter(models.Application.id == iv.application_id).first()
+        if app_rec and app_rec.candidate and ans.notes:
+            note_rec = models.CandidateNote(
+                candidate_id=app_rec.candidate_id,
+                application_id=iv.application_id,
+                position_id=app_rec.position_id,
+                note_text=f"[{iv.interview_type}] Soru {q_idx+1} Notu: {ans.notes}",
+                created_by="Recruiter"
+            )
+            db.add(note_rec)
+            
+            act = models.CandidateActivity(
+                candidate_id=app_rec.candidate_id,
+                application_id=iv.application_id,
+                activity_type="note_added",
+                note=f"[{iv.interview_type}] Soru {q_idx+1} Notu: {ans.notes}",
+                created_by="Recruiter"
+            )
+            db.add(act)
+            
+        res_list.append(ans)
+        
+    db.commit()
+    return {"status": "ok", "count": len(res_list)}
+
+
+@router.post("/{iv_id}/generate-report")
+def generate_interview_report(iv_id: int, db: Session = Depends(database.get_db)):
+    iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
+    if not iv:
+        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+        
+    app = db.query(models.Application).filter(models.Application.id == iv.application_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+        
+    from routers.reports import generate_report
+    payload = {
+        "application_id": iv.application_id,
+        "report_type": iv.interview_type.upper()
+    }
+    # Create a dummy current_user model since the generator expects it but does not use it much
+    from unittest.mock import MagicMock
+    mock_user = MagicMock()
+    mock_user.full_name = "SkillMatch AI"
+    try:
+        rep = generate_report(payload, db, current_user=mock_user)
+        return rep
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+answers_router = APIRouter()
+
+@answers_router.patch("/{id}")
+def patch_interview_answer(id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+    ans = db.query(models.InterviewAnswer).filter(models.InterviewAnswer.id == id).first()
+    if not ans:
+        raise HTTPException(status_code=404, detail="Interview answer record not found")
+        
+    if "candidate_answer" in payload: ans.candidate_answer = payload["candidate_answer"]
+    if "score" in payload: ans.score = payload["score"]
+    if "notes" in payload: ans.notes = payload["notes"]
+    if "is_completed" in payload: ans.is_completed = payload["is_completed"]
+    
+    db.commit()
+    db.refresh(ans)
+    
+    app_rec = db.query(models.Application).filter(models.Application.id == ans.application_id).first()
+    if app_rec and app_rec.candidate and ans.notes:
+        note_rec = models.CandidateNote(
+            candidate_id=app_rec.candidate_id,
+            application_id=ans.application_id,
+            position_id=app_rec.position_id,
+            note_text=f"[{ans.interview_type}] Soru {ans.question_index+1} Notu: {ans.notes}",
+            created_by="Recruiter"
+        )
+        db.add(note_rec)
+        
+        act = models.CandidateActivity(
+            candidate_id=app_rec.candidate_id,
+            application_id=ans.application_id,
+            activity_type="note_added",
+            note=f"[{ans.interview_type}] Soru {ans.question_index+1} Notu: {ans.notes}",
+            created_by="Recruiter"
+        )
+        db.add(act)
+        db.commit()
+        
+    return ans
 
