@@ -1505,6 +1505,18 @@ createApp({
       try {
         const answers = await api('GET', `/api/applications/${appId}/interviews?type=${type}`);
         interviewQuestions.value = answers || [];
+        
+        if (type === 'TECHNICAL') {
+          try {
+            const hrAnswers = await api('GET', `/api/applications/${appId}/interviews?type=HR`);
+            hrInterviewAnswers.value = hrAnswers || [];
+          } catch (err) {
+            hrInterviewAnswers.value = [];
+          }
+        } else {
+          hrInterviewAnswers.value = [];
+        }
+
         activeQuestionIndex.value = 0;
         // load active question fields
         if (answers && answers.length > 0) {
@@ -1512,6 +1524,7 @@ createApp({
         }
       } catch (e) {
         interviewQuestions.value = [];
+        hrInterviewAnswers.value = [];
       }
     }
 
