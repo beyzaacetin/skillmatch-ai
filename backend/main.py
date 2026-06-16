@@ -79,6 +79,9 @@ try:
             "ALTER TABLE positions ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
             "ALTER TABLE positions ADD COLUMN location VARCHAR(255)",
             "ALTER TABLE positions ADD COLUMN headcount INTEGER DEFAULT 1",
+            "ALTER TABLE positions ADD COLUMN priority VARCHAR(50) DEFAULT 'Orta'",
+            "ALTER TABLE positions ADD COLUMN hiring_manager VARCHAR(255)",
+            "ALTER TABLE positions ADD COLUMN target_date VARCHAR(255)",
             
             # users table migration
             "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
@@ -283,6 +286,7 @@ try:
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
     app.include_router(positions.router, prefix="/api/positions", tags=["positions"])
+    app.include_router(positions.reports_router)
     app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
     app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
     app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])

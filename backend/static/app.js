@@ -815,6 +815,7 @@ createApp({
       selectedPosition.value = p;
       posTab.value = 'overview';
       posUploads.value = [];
+      await loadWorkspace(p.id);
     }
 
     async function loadPositionApps(p) {
@@ -1368,6 +1369,268 @@ createApp({
       }
     });
 
+    // --- POSITION WORKSPACE STATE ---
+    const workspaceData = ref(null);
+    const workspaceLoading = ref(false);
+    const matchingLoading = ref(false);
+    const insightsLoading = ref(false);
+    const questionsGenerating = ref(false);
+    const reportsGenerating = ref(false);
+    const activeInterviewApp = ref(null);
+    const interviewQuestions = ref([]);
+    const activeQuestionIndex = ref(0);
+    const candidateAnswer = ref('');
+    const questionScore = ref(null);
+    const recruiterNotes = ref('');
+    const decisionData = ref(null);
+    const activeDecisionApp = ref(null);
+    const activeReportApp = ref(null);
+    const selectedReportType = ref('');
+
+    async function loadWorkspace(positionId) {
+      workspaceLoading.value = true;
+      workspaceData.value = null;
+      try {
+        const data = await api('GET', `/api/positions/${positionId}/workspace`);
+        workspaceData.value = data;
+        selectedPosition.value = data.position;
+        // If we have applications and no active app selected for tabs, select the first one
+        if (data.applications && data.applications.length > 0) {
+          if (!activeInterviewApp.value) activeInterviewApp.value = data.applications[0];
+          if (!activeDecisionApp.value) activeDecisionApp.value = data.applications[0];
+          if (!activeReportApp.value) activeReportApp.value = data.applications[0];
+        }
+      } catch (e) {
+        showToast('Workspace yüklenemedi: ' + e.message, 'error');
+      } finally {
+        workspaceLoading.value = false;
+      }
+    }
+
+    async function runWorkspaceMatching() {
+      if (!selectedPosition.value) return;
+      matchingLoading.value = true;
+      try {
+        await api('POST', `/api/positions/${selectedPosition.value.id}/matching/run`);
+        showToast('AI Eşleştirme başarıyla tamamlandı.', 'success');
+        await loadWorkspace(selectedPosition.value.id);
+      } catch (e) {
+        showToast('Eşleştirme hatası: ' + e.message, 'error');
+      } finally {
+        matchingLoading.value = false;
+      }
+    }
+
+    async function generateWorkspaceInsights() {
+      if (!selectedPosition.value) return;
+      insightsLoading.value = true;
+      try {
+        await api('POST', `/api/positions/${selectedPosition.value.id}/ai-insights/generate`);
+        showToast('AI Öngörüleri başarıyla oluşturuldu.', 'success');
+        await loadWorkspace(selectedPosition.value.id);
+      } catch (e) {
+        showToast('AI Öngörü hatası: ' + e.message, 'error');
+      } finally {
+        insightsLoading.value = false;
+      }
+    }
+
+    async function addCandidateToWorkspace(candidateId) {
+      if (!selectedPosition.value) return;
+      try {
+        await api('POST', `/api/positions/${selectedPosition.value.id}/candidates`, { candidate_id: candidateId });
+        showToast('Aday pozisyona başarıyla eklendi.', 'success');
+        await loadWorkspace(selectedPosition.value.id);
+      } catch (e) {
+        showToast('Aday eklenemedi: ' + e.message, 'error');
+      }
+    }
+
+    async function updateApplicationStageInWorkspace(appId, stage) {
+      try {
+        await api('PATCH', `/api/applications/${appId}/stage`, { stage });
+        showToast('Aday aşaması güncellendi.', 'success');
+        if (selectedPosition.value) {
+          await loadWorkspace(selectedPosition.value.id);
+        }
+      } catch (e) {
+        showToast('Aşama güncellenemedi: ' + e.message, 'error');
+      }
+    }
+
+    async function generateInterviewQuestionsForCandidate(appId) {
+      if (!selectedPosition.value) return;
+      questionsGenerating.value = true;
+      try {
+        const qList = await api('POST', `/api/positions/${selectedPosition.value.id}/interview-questions/generate`, { application_id: appId });
+        interviewQuestions.value = qList;
+        activeQuestionIndex.value = 0;
+        // reset fields
+        candidateAnswer.value = '';
+        questionScore.value = null;
+        recruiterNotes.value = '';
+        showToast('AI Mülakat soruları başarıyla üretildi.', 'success');
+      } catch (e) {
+        showToast('Soru üretilemedi: ' + e.message, 'error');
+      } finally {
+        questionsGenerating.value = false;
+      }
+    }
+
+    async function loadInterviewAnswersForCandidate(appId) {
+      try {
+        const answers = await api('GET', `/api/applications/${appId}/interviews`);
+        interviewQuestions.value = answers || [];
+        activeQuestionIndex.value = 0;
+        // load active question fields
+        if (answers && answers.length > 0) {
+          loadActiveQuestionFields(0);
+        }
+      } catch (e) {
+        interviewQuestions.value = [];
+      }
+    }
+
+    function loadActiveQuestionFields(index) {
+      if (!interviewQuestions.value[index]) return;
+      const q = interviewQuestions.value[index];
+      candidateAnswer.value = q.candidate_answer || '';
+      questionScore.value = q.score;
+      recruiterNotes.value = q.notes || '';
+    }
+
+    async function saveInterviewQuestionAnswer() {
+      if (!activeInterviewApp.value || !interviewQuestions.value[activeQuestionIndex.value]) return;
+      try {
+        const q = interviewQuestions.value[activeQuestionIndex.value];
+        const res = await api('POST', `/api/applications/${activeInterviewApp.value.id}/interview-answers`, {
+          question_index: activeQuestionIndex.value,
+          candidate_answer: candidateAnswer.value,
+          score: questionScore.value ? Number(questionScore.value) : null,
+          notes: recruiterNotes.value,
+          section: q.section,
+          question: q.question
+        });
+        showToast('Mülakat yanıtı ve puanı kaydedildi.', 'success');
+        
+        // Update local item
+        interviewQuestions.value[activeQuestionIndex.value] = res;
+        
+        // Progress to next question if available
+        if (activeQuestionIndex.value < interviewQuestions.value.length - 1) {
+          activeQuestionIndex.value++;
+          loadActiveQuestionFields(activeQuestionIndex.value);
+        }
+      } catch (e) {
+        showToast('Puan kaydedilemedi: ' + e.message, 'error');
+      }
+    }
+
+    async function loadHiringDecisionForCandidate(appId) {
+      decisionData.value = {
+        decision: 'hold',
+        technical_score: 5,
+        interview_score: 5,
+        cultural_score: 5,
+        hiring_confidence: 'Orta',
+        strengths: [],
+        concerns: [],
+        recommended_salary: null,
+        performance_bonus: null,
+        start_date: '',
+        work_model: 'Ofis'
+      };
+      try {
+        const dec = await api('GET', `/api/applications/${appId}/decision`);
+        if (dec) {
+          decisionData.value = dec;
+        }
+      } catch (e) {
+        // Not found is fine, we use default
+      }
+    }
+
+    async function saveHiringDecision(decisionType) {
+      if (!activeDecisionApp.value) return;
+      try {
+        const payload = {
+          decision: decisionType,
+          technical_score: decisionData.value.technical_score ? Number(decisionData.value.technical_score) : null,
+          interview_score: decisionData.value.interview_score ? Number(decisionData.value.interview_score) : null,
+          cultural_score: decisionData.value.cultural_score ? Number(decisionData.value.cultural_score) : null,
+          hiring_confidence: decisionData.value.hiring_confidence,
+          strengths: Array.isArray(decisionData.value.strengths) ? decisionData.value.strengths : [],
+          concerns: Array.isArray(decisionData.value.concerns) ? decisionData.value.concerns : [],
+          recommended_salary: decisionData.value.recommended_salary ? Number(decisionData.value.recommended_salary) : null,
+          performance_bonus: decisionData.value.performance_bonus ? Number(decisionData.value.performance_bonus) : null,
+          start_date: decisionData.value.start_date,
+          work_model: decisionData.value.work_model
+        };
+        await api('POST', `/api/applications/${activeDecisionApp.value.id}/decision`, payload);
+        showToast('İşe alım kararı başarıyla kaydedildi.', 'success');
+        await loadWorkspace(selectedPosition.value.id);
+      } catch (e) {
+        showToast('Karar kaydedilemedi: ' + e.message, 'error');
+      }
+    }
+
+    async function generateReportForPosition(reportType) {
+      if (!selectedPosition.value || !activeReportApp.value) return;
+      reportsGenerating.value = true;
+      try {
+        await api('POST', `/api/reports/position/${selectedPosition.value.id}/generate`, {
+          application_id: activeReportApp.value.id,
+          report_type: reportType
+        });
+        showToast(`${reportType} başarıyla oluşturuldu.`, 'success');
+        await loadWorkspace(selectedPosition.value.id);
+      } catch (e) {
+        showToast('Rapor üretilemedi: ' + e.message, 'error');
+      } finally {
+        reportsGenerating.value = false;
+      }
+    }
+
+    // Reset selectedPosition when page changes
+    watch(page, (newPage) => {
+      if (newPage !== 'jobs') {
+        selectedPosition.value = null;
+      }
+    });
+
+    // Watchers for Active tab selection changes in Workspace
+    watch(activeInterviewApp, (newApp) => {
+      if (newApp) {
+        loadInterviewAnswersForCandidate(newApp.id);
+      }
+    });
+
+    watch(activeDecisionApp, (newApp) => {
+      if (newApp) {
+        loadHiringDecisionForCandidate(newApp.id);
+      }
+    });
+
+    const posSearchQuery = ref('');
+    const selectedDepPill = ref('Tümü');
+
+    const filteredPositions = computed(() => {
+      let list = positions.value;
+      const q = posSearchQuery.value.toLowerCase().trim();
+      if (q) {
+        list = list.filter(p => 
+          (p.title || '').toLowerCase().includes(q) || 
+          (p.department || '').toLowerCase().includes(q)
+        );
+      }
+      if (selectedDepPill.value !== 'Tümü') {
+        list = list.filter(p => 
+          (p.department || '').toLowerCase() === selectedDepPill.value.toLowerCase()
+        );
+      }
+      return list;
+    });
+
     const trackingData = computed(() => {
       return {
         upcomingInterviews: allInterviews.value.filter(iv => iv.status === 'scheduled'),
@@ -1393,6 +1656,8 @@ createApp({
       analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis,
+      workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
+      posSearchQuery, selectedDepPill, filteredPositions,
       
       // New v2 states
       aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
@@ -1418,6 +1683,7 @@ createApp({
       sendChat,
       stageColor, scoreClass, stageIndex, ivTypeLabel, formatDate, calculateBestMatch,
       showToast, viewMatchDetails, getHeatmapCount, getHeatmapColor, openCandidateByName,
+      loadWorkspace, runWorkspaceMatching, generateWorkspaceInsights, addCandidateToWorkspace, updateApplicationStageInWorkspace, generateInterviewQuestionsForCandidate, loadInterviewAnswersForCandidate, saveInterviewQuestionAnswer, loadHiringDecisionForCandidate, saveHiringDecision, generateReportForPosition,
       
       // New v2 methods
       openNewUserModal, saveNewUser, toggleUserStatus, editUser, updateUser,

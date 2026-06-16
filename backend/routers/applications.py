@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -257,4 +257,23 @@ def get_application_match_score(app_id: int, db: Session = Depends(database.get_
             raise HTTPException(status_code=500, detail=f"Eşleşme skoru hesaplanırken hata oluştu: {str(e)}")
             
     return ms
+
+
+@router.patch("/{app_id}/stage")
+def update_application_stage(app_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+    stage = payload.get("stage")
+    if not stage:
+        raise HTTPException(status_code=400, detail="Stage value is required")
+        
+    a = db.query(models.Application).filter(models.Application.id == app_id).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+        
+    old_status = a.status
+    _push_history(a, stage, payload.get("note", "Aşama güncellendi."))
+    if stage == "hired":
+        a.hired_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"status": a.status}
+
 

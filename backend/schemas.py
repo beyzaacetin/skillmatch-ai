@@ -146,6 +146,9 @@ class PositionBase(BaseModel):
     is_active: Optional[bool] = True
     location: Optional[str] = None
     headcount: Optional[int] = 1
+    priority: Optional[str] = "Orta"
+    hiring_manager: Optional[str] = None
+    target_date: Optional[str] = None
 
     @field_validator('required_skills', 'preferred_skills', mode='before')
     @classmethod
@@ -542,3 +545,118 @@ class CandidateActivityCreate(BaseModel):
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     metadata_json: Optional[dict] = None
+
+
+class AIRequestOut(BaseModel):
+    id: int
+    prompt: str
+    response: Optional[str] = None
+    model_name: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class PositionInsightsOut(BaseModel):
+    id: int
+    position_id: int
+    time_to_fill_prediction: Optional[str] = None
+    pipeline_health: int
+    market_competition: Optional[str] = None
+    candidate_pool_quality: int
+    budget_risk: Optional[str] = None
+    offer_acceptance_prediction: int
+    actionable_recommendations: List[str] = []
+    market_avg_salary: Optional[str] = None
+    our_offer: Optional[str] = None
+    market_open_positions: Optional[str] = None
+    market_avg_time_to_fill: Optional[str] = None
+    risks: List[Any] = []
+    recruitment_guide: List[str] = []
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
+class InterviewAnswerCreate(BaseModel):
+    question_index: int
+    section: str
+    question: str
+    expected_answer: Optional[str] = None
+    red_flag_warning: Optional[str] = None
+    candidate_answer: Optional[str] = None
+    score: Optional[int] = None
+    notes: Optional[str] = None
+    is_completed: Optional[bool] = False
+
+
+class InterviewAnswerUpdate(BaseModel):
+    candidate_answer: Optional[str] = None
+    score: Optional[int] = None
+    notes: Optional[str] = None
+    is_completed: Optional[bool] = None
+
+
+class InterviewAnswerOut(BaseModel):
+    id: int
+    application_id: int
+    question_index: int
+    section: str
+    question: str
+    expected_answer: Optional[str] = None
+    red_flag_warning: Optional[str] = None
+    candidate_answer: Optional[str] = None
+    score: Optional[int] = None
+    notes: Optional[str] = None
+    is_completed: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
+class HiringDecisionCreate(BaseModel):
+    decision: str  # "hired", "hold", "rejected"
+    technical_score: Optional[float] = None
+    interview_score: Optional[float] = None
+    cultural_score: Optional[float] = None
+    hiring_confidence: Optional[str] = None
+    strengths: Optional[List[str]] = []
+    concerns: Optional[List[str]] = []
+    recommended_salary: Optional[int] = None
+    performance_bonus: Optional[int] = None
+    start_date: Optional[str] = None
+    work_model: Optional[str] = None
+
+
+class HiringDecisionOut(BaseModel):
+    id: int
+    application_id: int
+    decision: str
+    technical_score: Optional[float] = None
+    interview_score: Optional[float] = None
+    cultural_score: Optional[float] = None
+    hiring_confidence: Optional[str] = None
+    strengths: List[str] = []
+    concerns: List[str] = []
+    recommended_salary: Optional[int] = None
+    performance_bonus: Optional[int] = None
+    start_date: Optional[str] = None
+    work_model: Optional[str] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class PositionReportOut(BaseModel):
+    id: int
+    position_id: int
+    report_type: str
+    report_content: Optional[str] = None
+    pdf_path: Optional[str] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+

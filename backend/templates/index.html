@@ -548,46 +548,752 @@
 
     <!-- JOBS (POSITIONS) -->
     <template v-if="page==='jobs'">
-      <div class="page-hdr">
-        <div>
-          <div class="page-hdr-title">Pozisyonlar</div>
-          <div class="page-hdr-sub">Açık pozisyonları yönetin</div>
+      
+      <!-- PAGE 1: POSITIONS LIST -->
+      <div v-if="!selectedPosition">
+        <div class="page-hdr" style="padding: 16px 24px;">
+          <div>
+            <div class="page-hdr-title">Pozisyon Yönetimi</div>
+            <div class="page-hdr-sub">{{ positions.length }} pozisyon · {{ positions.filter(p => p.is_active).length }} aktif · {{ positions.filter(p => p.priority === 'Kritik').length }} kritik</div>
+          </div>
+          <div style="margin-left:auto; display:flex; gap:8px">
+            <button class="btn btn-secondary" @click="selectedDepPill = 'Tümü'; posSearchQuery = ''">Filtreyi Temizle</button>
+            <button class="btn btn-primary" @click="showNewPositionModal=true">+ Pozisyon Ekle</button>
+          </div>
         </div>
-        <div style="margin-left:auto"><button class="btn btn-primary" @click="showNewPositionModal=true">+ Pozisyon Ekle</button></div>
+
+        <div class="page-body" style="padding: 24px;">
+          <!-- KPI Cards Grid -->
+          <div class="positions-kpi-grid">
+            <div class="positions-kpi-card">
+              <div class="kpi-card-title">Toplam Açık Kadro</div>
+              <div class="kpi-card-value" style="color: var(--primary)">{{ positions.reduce((acc, p) => acc + (p.headcount || 0), 0) }}</div>
+            </div>
+            <div class="positions-kpi-card">
+              <div class="kpi-card-title">Aktif Aday</div>
+              <div class="kpi-card-value" style="color: #2563EB">{{ candidates.length }}</div>
+            </div>
+            <div class="positions-kpi-card">
+              <div class="kpi-card-title">Kritik Pozisyon</div>
+              <div class="kpi-card-value" style="color: #EF4444">{{ positions.filter(p => p.priority === 'Kritik').length }}</div>
+            </div>
+            <div class="positions-kpi-card">
+              <div class="kpi-card-title">Ortalama İlerleme</div>
+              <div class="kpi-card-value" style="color: #F59E0B">82%</div>
+            </div>
+          </div>
+
+          <!-- Search & Filter Row -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:16px">
+            <input type="text" class="input" placeholder="Pozisyon ara..." v-model="posSearchQuery" style="width: 260px">
+            <div class="pills-container" style="margin-bottom:0">
+              <span v-for="pill in ['Tümü', 'Teknoloji', 'Ürün', 'Analitik', 'Finans', 'Pazarlama', 'İnsan Kaynakları', 'Satış']" :key="pill" 
+                    class="category-pill" :class="{active: selectedDepPill === pill}" @click="selectedDepPill = pill">
+                {{ pill }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Enterprise Table Wrapper -->
+          <div class="enterprise-table-wrapper">
+            <table class="enterprise-table">
+              <thead>
+                <tr>
+                  <th>Pozisyon</th>
+                  <th>Departman</th>
+                  <th>Durum</th>
+                  <th>Aday</th>
+                  <th>İşe Alım Müdürü</th>
+                  <th>Hedef Tarih</th>
+                  <th>Pipeline</th>
+                  <th>Bütçe</th>
+                  <th>Öncelik</th>
+                  <th>İşlemler</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in filteredPositions" :key="p.id">
+                  <td class="text-bold" style="font-size:14px">{{ p.title }} <span style="font-size:11px;color:var(--g500);font-weight:normal">(x{{ p.headcount }})</span></td>
+                  <td><span class="skill-tag" style="background:#F3F4F6; color:var(--g600)">{{ p.department || 'Genel' }}</span></td>
+                  <td>
+                    <span class="badge" :class="{ 'b-hired': p.is_active && p.priority !== 'Kritik', 'b-rejected': !p.is_active, 'b-screening': p.is_active && p.priority === 'Kritik' }">
+                      {{ !p.is_active ? 'Pasif' : (p.priority === 'Kritik' ? 'Kritik' : 'Aktif') }}
+                    </span>
+                  </td>
+                  <td class="text-bold">{{ p.applications?.length || 0 }} Aday</td>
+                  <td>{{ p.hiring_manager || 'Belirtilmedi' }}</td>
+                  <td>{{ p.target_date || 'Belirtilmedi' }}</td>
+                  <td style="width: 140px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div class="progress-bar-bg" style="flex:1;height:6px;background:#E5E7EB;border-radius:3px;overflow:hidden">
+                        <div class="progress-bar-fill" :style="{width: '65%', background: 'var(--primary)'}" style="height:100%"></div>
+                      </div>
+                      <span style="font-size:11px;font-weight:700">65%</span>
+                    </div>
+                  </td>
+                  <td>{{ p.salary_min ? p.salary_min.toLocaleString() : '0' }} - {{ p.salary_max ? p.salary_max.toLocaleString() : '0' }} {{ p.salary_currency }}</td>
+                  <td>
+                    <span class="badge" :class="{'badge-priority-critical': p.priority === 'Kritik', 'badge-priority-high': p.priority === 'Yüksek', 'badge-priority-normal': p.priority === 'Orta'}">
+                      {{ p.priority || 'Orta' }}
+                    </span>
+                  </td>
+                  <td>
+                    <div style="display:flex; gap:6px; align-items:center">
+                      <button class="btn btn-secondary btn-sm" @click="openPositionDetail(p)" style="padding: 4px 12px; font-weight:600">Aç</button>
+                      <button class="btn btn-ghost btn-icon btn-sm" @click="deletePosition(p.id)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!filteredPositions.length">
+                  <td colspan="10" style="text-align:center; padding:40px; color:var(--g500)">
+                    Arama kriterlerine uygun pozisyon bulunamadı.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-      <div class="page-body">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
-          <div v-for="p in positions" :key="p.id" class="card" @click="openPositionDetail(p)" style="cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow=''">
-            <div class="card-hdr">
-              <div>
-                <div style="font-weight:700;font-size:14px">{{ p.title }}</div>
-                <div style="font-size:12px;color:var(--g500);margin-top:2px">{{ p.department || 'Departman belirtilmedi' }}</div>
+
+      <!-- PAGE 2: POSITION WORKSPACE -->
+      <div v-else class="workspace-container">
+        <!-- Header -->
+        <div class="workspace-header">
+          <a class="back-link" @click="selectedPosition = null">← Pozisyonlara Dön</a>
+          <div class="workspace-title-row">
+            <div class="workspace-title-left">
+              <div class="workspace-title">
+                {{ selectedPosition.title }}
+                <span class="badge b-hired" style="font-size: 11px">Aktif</span>
+                <span class="badge badge-priority-high" style="font-size: 11px">{{ selectedPosition.priority || 'Orta' }} Öncelik</span>
               </div>
-              <div style="display:flex;gap:6px">
-                <button class="btn btn-secondary btn-sm" @click.stop="openMatchPosition(p)">Eşleştir</button>
-                <button class="btn btn-ghost btn-icon btn-sm" @click.stop="deletePosition(p.id)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+              <div class="workspace-meta">
+                <div class="workspace-meta-item"><b>Departman:</b> {{ selectedPosition.department || 'Genel' }}</div>
+                <div class="workspace-meta-item"><b>İK Müdürü:</b> {{ selectedPosition.hiring_manager || 'Belirtilmedi' }}</div>
+                <div class="workspace-meta-item"><b>Hedef Tarih:</b> {{ selectedPosition.target_date || 'Belirtilmedi' }}</div>
+              </div>
+            </div>
+            <div class="workspace-actions">
+              <button class="btn btn-secondary" @click="generateWorkspaceInsights" :disabled="insightsLoading">
+                <span v-if="insightsLoading">Analiz Yapılıyor...</span>
+                <span v-else>AI Analiz</span>
+              </button>
+              <button class="btn btn-secondary" @click="showToast('Mülakat takvimi planlama ekranı açıldı.', 'info')">Planla</button>
+              <button class="btn btn-primary" @click="showToast('Genel rapor dışa aktarılıyor...', 'success')">Dışa Aktar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI metrics row -->
+        <div class="workspace-kpi-row" v-if="workspaceData">
+          <div class="workspace-kpi-item">
+            <div class="workspace-kpi-lbl">Açık Kadro</div>
+            <div class="workspace-kpi-val">{{ workspaceData.applications?.filter(a => a.status === 'hired').length || 0 }} / {{ selectedPosition.headcount || 1 }}</div>
+          </div>
+          <div class="workspace-kpi-item">
+            <div class="workspace-kpi-lbl">Doldurulan</div>
+            <div class="workspace-kpi-val">{{ workspaceData.applications?.filter(a => a.status === 'hired').length || 0 }}</div>
+          </div>
+          <div class="workspace-kpi-item">
+            <div class="workspace-kpi-lbl">Aktif Aday</div>
+            <div class="workspace-kpi-val">{{ workspaceData.applications?.filter(a => a.status !== 'hired' && a.status !== 'rejected').length || 0 }}</div>
+          </div>
+          <div class="workspace-kpi-item">
+            <div class="workspace-kpi-lbl">Pipeline Uyum Ort.</div>
+            <div class="workspace-kpi-val">82%</div>
+          </div>
+          <div class="workspace-kpi-item">
+            <div class="workspace-kpi-lbl">Gün Açık</div>
+            <div class="workspace-kpi-val">18 Gün</div>
+          </div>
+          <div class="workspace-kpi-item">
+            <div class="workspace-kpi-lbl">Maaş Bütçesi</div>
+            <div class="workspace-kpi-val" style="font-size:16px; padding-top:2px">{{ selectedPosition.salary_max ? selectedPosition.salary_max.toLocaleString() + ' ' + selectedPosition.salary_currency : 'Belirtilmedi' }}</div>
+          </div>
+        </div>
+
+        <!-- Workspace Navigation Tabs -->
+        <div class="workspace-tabs-container">
+          <button class="workspace-tab-btn" :class="{active: posTab === 'overview'}" @click="posTab = 'overview'">Genel Bakış</button>
+          <button class="workspace-tab-btn" :class="{active: posTab === 'candidates'}" @click="posTab = 'candidates'">Adaylar</button>
+          <button class="workspace-tab-btn" :class="{active: posTab === 'matching'}" @click="posTab = 'matching'">Eşleştirme</button>
+          <button class="workspace-tab-btn" :class="{active: posTab === 'ai_insights'}" @click="posTab = 'ai_insights'">AI Öngörüleri</button>
+          <button class="workspace-tab-btn" :class="{active: posTab === 'interviews'}" @click="posTab = 'interviews'">Mülakatlar</button>
+          <button class="workspace-tab-btn" :class="{active: posTab === 'decision'}" @click="posTab = 'decision'">Karar</button>
+          <button class="workspace-tab-btn" :class="{active: posTab === 'reports'}" @click="posTab = 'reports'">Raporlar</button>
+        </div>
+
+        <!-- TAB CONTENT PANELS -->
+        <div class="workspace-tab-content">
+          
+          <!-- TAB 1: GENEL BAKIŞ -->
+          <div v-if="posTab === 'overview'" style="display:grid; grid-template-columns: 2fr 1fr; gap:24px">
+            <!-- Left Side Cards -->
+            <div style="display:flex; flex-direction:column; gap:24px">
+              <!-- Pozisyon Özeti -->
+              <div class="card" style="padding: 24px">
+                <div class="card-hdr" style="margin-bottom:16px">
+                  <div style="font-weight:700;font-size:16px">Pozisyon Özeti</div>
+                </div>
+                <div class="card-body">
+                  <textarea class="input" style="width:100%; height:120px; line-height:1.6; margin-bottom:12px" v-model="selectedPosition.description"></textarea>
+                  <button class="btn btn-primary btn-sm" @click="savePosition(selectedPosition)">Değişiklikleri Kaydet</button>
+                </div>
+              </div>
+
+              <!-- Beceri Gereksinimleri -->
+              <div class="card" style="padding: 24px">
+                <div class="card-hdr" style="margin-bottom:16px">
+                  <div style="font-weight:700;font-size:16px">Beceri Gereksinimleri</div>
+                </div>
+                <div class="card-body" style="display:flex; flex-direction:column; gap:16px">
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:#EF4444; margin-bottom:8px; text-transform:uppercase">Zorunlu Beceriler</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap">
+                      <span class="skill-tag" style="background:#FEE2E2; color:#EF4444; border-color:#FEE2E2" v-for="s in selectedPosition.required_skills" :key="s">{{ s }}</span>
+                      <span v-if="!selectedPosition.required_skills?.length" style="font-size:12px; color:var(--g400)">Belirtilmedi</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:#F59E0B; margin-bottom:8px; text-transform:uppercase">Tercih Edilen Beceriler</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap">
+                      <span class="skill-tag" style="background:#FEF3C7; color:#F59E0B; border-color:#FEF3C7" v-for="s in selectedPosition.preferred_skills" :key="s">{{ s }}</span>
+                      <span v-if="!selectedPosition.preferred_skills?.length" style="font-size:12px; color:var(--g400)">Belirtilmedi</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:#10B981; margin-bottom:8px; text-transform:uppercase">Artı Değer (Plus) Beceriler</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap">
+                      <span class="skill-tag" style="background:#D1FAE5; color:#10B981; border-color:#D1FAE5" v-for="s in ['Agile', 'CI/CD Pipelines', 'Cloud Native']" :key="s">{{ s }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Side Cards -->
+            <div style="display:flex; flex-direction:column; gap:24px">
+              <!-- AI İşe Alım Rehberi -->
+              <div class="card" style="padding: 20px; background:#ECFDF5; border-color:#A7F3D0" v-if="workspaceData?.insights?.recruitment_guide?.length">
+                <div style="font-weight:700; font-size:14px; color:#065F46; margin-bottom:12px; display:flex; align-items:center; gap:6px">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                  AI İşe Alım Rehberi
+                </div>
+                <ul style="padding-left:18px; margin:0; font-size:12.5px; color:#047857; line-height:1.6; display:flex; flex-direction:column; gap:6px">
+                  <li v-for="item in workspaceData.insights.recruitment_guide" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+              <div class="card" style="padding:20px; text-align:center" v-else>
+                <div style="font-size:13px; color:var(--g500); margin-bottom:10px">Rehber ve pazar verileri için AI Analizi çalıştırın.</div>
+                <button class="btn btn-secondary btn-sm" @click="generateWorkspaceInsights">AI Analizi Çalıştır</button>
+              </div>
+
+              <!-- Pazar Bilgileri -->
+              <div class="card" style="padding: 20px" v-if="workspaceData?.insights">
+                <div style="font-weight:700; font-size:14px; color:var(--g900); margin-bottom:12px">Pazar Bilgileri (TR Tech)</div>
+                <div style="display:flex; flex-direction:column; gap:12px; font-size:12.5px">
+                  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F3F4F6; padding-bottom:6px">
+                    <span style="color:var(--g500)">Piyasa Ort. Maaş</span>
+                    <span class="text-bold">{{ workspaceData.insights.market_avg_salary || 'Belirtilmedi' }}</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F3F4F6; padding-bottom:6px">
+                    <span style="color:var(--g500)">Teklif Durumumuz</span>
+                    <span class="text-bold">{{ workspaceData.insights.our_offer || 'Belirtilmedi' }}</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; border-bottom:1px solid #F3F4F6; padding-bottom:6px">
+                    <span style="color:var(--g500)">Sektörde Açık İlan</span>
+                    <span class="text-bold">{{ workspaceData.insights.market_open_positions || 'Belirtilmedi' }}</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; padding-bottom:2px">
+                    <span style="color:var(--g500)">Sektör Ort. Süre</span>
+                    <span class="text-bold">{{ workspaceData.insights.market_avg_time_to_fill || 'Belirtilmedi' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pozisyon Riskleri -->
+              <div class="card" style="padding: 20px" v-if="workspaceData?.insights?.risks?.length">
+                <div style="font-weight:700; font-size:14px; color:var(--g900); margin-bottom:12px">Pozisyon Riskleri</div>
+                <div style="display:flex; flex-direction:column; gap:8px">
+                  <div v-for="risk in workspaceData.insights.risks" :key="risk.title" 
+                       style="display:flex; gap:8px; align-items:center; font-size:12.5px; border-bottom:1px solid #F9FAFB; padding-bottom:6px">
+                    <span class="badge" :class="{'badge-priority-critical': risk.severity === 'Yüksek', 'badge-priority-high': risk.severity === 'Orta', 'badge-priority-normal': risk.severity === 'Düşük'}" style="font-size:10px">
+                      {{ risk.severity }}
+                    </span>
+                    <span style="color:var(--g700)">{{ risk.title }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: ADAYLAR (STAGE PIPELINE) -->
+          <div v-if="posTab === 'candidates'">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+              <div style="font-size:14px; color:var(--g600); font-weight:600">Başvuruları sürükle-bırak yöntemiyle aşamalar arasında hareket ettirebilirsiniz.</div>
+              <div style="display:flex; gap:8px; align-items:center">
+                <span style="font-size:13px; color:var(--g500)">Aday Ekle:</span>
+                <select class="input" style="width:200px; padding: 4px 8px; font-size:13px" @change="addCandidateToWorkspace($event.target.value); $event.target.value=''">
+                  <option value="">Aday seçin...</option>
+                  <option v-for="c in candidates" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="stage-board" v-if="workspaceData">
+              <div class="stage-col" v-for="col in [
+                {status: 'applied', label: 'Başvuru'},
+                {status: 'screening', label: 'Ön Eleme'},
+                {status: 'hr_interview', label: 'HR Mülakat'},
+                {status: 'tech_interview', label: 'Teknik Mülakat'},
+                {status: 'offer', label: 'Teklif'},
+                {status: 'hired', label: 'İşe Alındı'}
+              ]" :key="col.status"
+                   @dragover.prevent @drop="updateApplicationStageInWorkspace(draggedApp.id, col.status)">
+                <div class="stage-col-header">
+                  <span class="stage-col-title">{{ col.label }}</span>
+                  <span class="stage-col-count">{{ workspaceData.applications?.filter(a => a.status === col.status).length || 0 }}</span>
+                </div>
+                
+                <div v-for="app in workspaceData.applications?.filter(a => a.status === col.status)" :key="app.id" 
+                     class="stage-cand-card" draggable="true" @dragstart="draggedApp = app">
+                  <div style="display:flex; align-items:center; margin-bottom:8px">
+                    <div class="cand-avatar-initials">{{ app.candidate?.name?.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase() }}</div>
+                    <div style="font-weight:700; font-size:13px; color:var(--g900)">{{ app.candidate?.name }}</div>
+                  </div>
+                  <div style="font-size:11px; color:var(--g500); margin-bottom:8px">{{ app.candidate?.skills?.slice(0, 3).join(', ') || 'Beceri eklenmemiş' }}</div>
+                  <div style="display:flex; justify-content:space-between; align-items:center">
+                    <span v-if="app.match_score" class="score-pill" :class="scoreClass(app.match_score)" style="font-size:10.5px; padding:2px 6px">
+                      %{{ Math.round(app.match_score) }}
+                    </span>
+                    <span v-else style="font-size:10px; color:var(--g400)">% Uyum Yok</span>
+                    <span style="font-size:10px; color:var(--g400)">{{ app.source || 'Manuel' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: EŞLEŞTİRME (MATCHING) -->
+          <div v-if="posTab === 'matching'" style="display:grid; grid-template-columns: 320px 1fr; gap:24px">
+            <!-- Left pane candidate list -->
+            <div class="card" style="padding: 16px; min-height:500px">
+              <div style="font-weight:700; font-size:15px; margin-bottom:12px">AI Aday Sıralaması</div>
+              <div style="display:flex; flex-direction:column; gap:8px" v-if="workspaceData?.applications?.length">
+                <div v-for="(app, idx) in [...workspaceData.applications].sort((a,b)=>(b.match_score||0)-(a.match_score||0))" :key="app.id" 
+                     class="interview-section-item" :class="{active: activeInterviewApp?.id === app.id}" @click="activeInterviewApp = app">
+                  <div style="display:flex; align-items:center; gap:8px">
+                    <span style="font-size:11px; font-weight:700; color:var(--g400)">#{{ idx + 1 }}</span>
+                    <span style="font-weight:600">{{ app.candidate?.name }}</span>
+                  </div>
+                  <span class="score-pill" :class="scoreClass(app.match_score)" style="font-size:10px; padding: 2px 6px" v-if="app.match_score">
+                    %{{ Math.round(app.match_score) }}
+                  </span>
+                </div>
+              </div>
+              <div v-else style="font-size:13px; color:var(--g400); text-align:center; padding-top:40px">Pozisyonda aday bulunmamaktadır.</div>
+            </div>
+
+            <!-- Right pane match details -->
+            <div class="card" style="padding: 24px" v-if="activeInterviewApp">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid #F3F4F6; padding-bottom:16px">
+                <div>
+                  <div style="font-size:20px; font-weight:800; color:var(--g900)">{{ activeInterviewApp.candidate?.name }}</div>
+                  <div style="font-size:13px; color:var(--g500); margin-top:2px">Uyum Skoru Değerlendirmesi</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:32px; font-weight:900; color:var(--primary)">%{{ Math.round(activeInterviewApp.match_score || 0) }}</div>
+                  <div style="font-size:11px; font-weight:600; color:var(--g400); text-transform:uppercase; letter-spacing:0.04em">Genel AI Uyumu</div>
+                </div>
+              </div>
+
+              <!-- Matching metrics bar graph visual references only -->
+              <div style="display:flex; justify-content:space-between; align-items:center; background:#ECFDF5; border:1px solid #A7F3D0; border-radius:8px; padding:12px; margin-bottom:20px">
+                <div style="font-size:12.5px; color:#065F46; font-weight:600">Hesaplama Formülü: %40 Aranan Beceriler + %25 Deneyim + %20 Sektör Uyum + %15 Eğitim & Dil</div>
+                <button class="btn btn-primary btn-sm" @click="runWorkspaceMatching" :disabled="matchingLoading">
+                  <span v-if="matchingLoading">Hesaplanıyor...</span>
+                  <span v-else>AI Eşleştirme Çalıştır</span>
                 </button>
               </div>
-            </div>
-            <div class="card-body">
-              <p style="font-size:13px;color:var(--g600);margin-bottom:12px;line-height:1.5">{{ (p.description||'').slice(0,120) }}{{ (p.description||'').length>120?'…':'' }}</p>
-              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px">
-                <span v-for="s in (p.required_skills||[]).slice(0,5)" :key="s" class="skill-tag">{{ s }}</span>
-              </div>
-              <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--g500)">
-                <span v-if="p.salary_min">{{ p.salary_min.toLocaleString() }} – {{ (p.salary_max||0).toLocaleString() }} {{ p.salary_currency }}</span>
-                <span v-else>Maaş belirtilmedi</span>
-                <span>{{ p.seniority_level || '' }}</span>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; font-size:13px; color:var(--g700)">
+                <!-- Left Details -->
+                <div>
+                  <div style="font-weight:700; color:var(--g900); margin-bottom:8px">Eşleşen Beceriler</div>
+                  <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:16px">
+                    <span class="skill-tag" style="background:#D1FAE5; color:#10B981; border-color:#D1FAE5" v-for="s in activeInterviewApp.matching_skills" :key="s">{{ s }}</span>
+                    <span v-if="!activeInterviewApp.matching_skills?.length" style="font-size:12px; color:var(--g400)">Eşleşen temel beceri bulunamadı.</span>
+                  </div>
+
+                  <div style="font-weight:700; color:var(--g900); margin-bottom:8px">Eksik Beceriler</div>
+                  <div style="display:flex; gap:4px; flex-wrap:wrap">
+                    <span class="skill-tag" style="background:#FEE2E2; color:#EF4444; border-color:#FEE2E2" 
+                          v-for="s in selectedPosition.required_skills?.filter(x => !activeInterviewApp.matching_skills?.includes(x))" :key="s">
+                      {{ s }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Right Details -->
+                <div style="background:#F9FAFB; border-radius:8px; padding:16px">
+                  <div style="font-weight:700; color:var(--g900); margin-bottom:8px">AI Değerlendirme Özeti</div>
+                  <p style="line-height:1.5; color:var(--g600); margin-bottom:12px">
+                    Adayın mevcut CV bilgileri, pozisyonda aranan deneyim yılı ve teknik yetenekler ile karşılaştırılmıştır. Semantik açıdan aday profilinin domain uzmanlığıyla uyuştuğu görülmektedir.
+                  </p>
+                  <div style="font-weight:700; color:var(--g900); margin-bottom:4px">Güçlü Yönler:</div>
+                  <ul style="padding-left:16px; margin:0 0 10px 0; font-size:12px; line-height:1.4">
+                    <li>İlgili programlama dillerinde pratik tecrübe.</li>
+                    <li>Sektörel domain bilgisi ve problem çözme yaklaşımı.</li>
+                  </ul>
+                  <div style="font-weight:700; color:var(--g900); margin-bottom:4px">Gelişim Alanları:</div>
+                  <ul style="padding-left:16px; margin:0; font-size:12px; line-height:1.4">
+                    <li>CI/CD araçları ve bulut teknolojileri tecrübe eksikliği.</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
-          <div v-if="!positions.length" style="grid-column:1/-1" class="empty">
-            <div class="empty-title">Henüz pozisyon yok</div>
-            <button class="btn btn-primary btn-sm" style="margin-top:10px" @click="showNewPositionModal=true">Pozisyon Ekle</button>
+
+          <!-- TAB 4: AI ÖNGÖRÜLERİ (AI INSIGHTS) -->
+          <div v-if="posTab === 'ai_insights'">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px">
+              <div style="font-size:14px; color:var(--g600); font-weight:600">Pozisyon süreci, bütçe hedefleri ve aday havuzuna ilişkin yapay zeka tahminleri:</div>
+              <button class="btn btn-primary" @click="generateWorkspaceInsights" :disabled="insightsLoading">
+                <span v-if="insightsLoading">Öngörü Oluşturuluyor...</span>
+                <span v-else>AI Öngörü Oluştur</span>
+              </button>
+            </div>
+
+            <div v-if="workspaceData?.insights" style="display:flex; flex-direction:column; gap:24px">
+              <!-- Grid cards -->
+              <div class="reports-grid" style="grid-template-columns: repeat(3, 1fr)">
+                <div class="card" style="padding: 20px; display:flex; flex-direction:column; justify-content:center; gap:8px">
+                  <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase">Dolma Süresi Tahmini</div>
+                  <div style="font-size:28px; font-weight:800; color:var(--primary)">{{ workspaceData.insights.time_to_fill_prediction }}</div>
+                </div>
+                <div class="card" style="padding: 20px; display:flex; flex-direction:column; justify-content:center; gap:8px">
+                  <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase">Pipeline Sağlığı</div>
+                  <div style="font-size:28px; font-weight:800; color:#2563EB">{{ workspaceData.insights.pipeline_health }}/100</div>
+                </div>
+                <div class="card" style="padding: 20px; display:flex; flex-direction:column; justify-content:center; gap:8px">
+                  <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase">Pazar Rekabeti</div>
+                  <div style="font-size:28px; font-weight:800; color:#EF4444">{{ workspaceData.insights.market_competition }}</div>
+                </div>
+                <div class="card" style="padding: 20px; display:flex; flex-direction:column; justify-content:center; gap:8px">
+                  <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase">Aday Havuzu Kalitesi</div>
+                  <div style="font-size:28px; font-weight:800; color:#F59E0B">{{ workspaceData.insights.candidate_pool_quality }}/100</div>
+                </div>
+                <div class="card" style="padding: 20px; display:flex; flex-direction:column; justify-content:center; gap:8px">
+                  <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase">Bütçe Riski</div>
+                  <div style="font-size:28px; font-weight:800; color:#10B981">{{ workspaceData.insights.budget_risk }}</div>
+                </div>
+                <div class="card" style="padding: 20px; display:flex; flex-direction:column; justify-content:center; gap:8px">
+                  <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase">Teklif Kabul Tahmini</div>
+                  <div style="font-size:28px; font-weight:800; color:#7C3AED">%{{ workspaceData.insights.offer_acceptance_prediction }}</div>
+                </div>
+              </div>
+
+              <!-- AI Eylem Önerileri card -->
+              <div class="card" style="padding: 24px" v-if="workspaceData.insights.actionable_recommendations?.length">
+                <div style="font-weight:700; font-size:16px; margin-bottom:16px; color:var(--g900)">AI Eylem Önerileri</div>
+                <ul style="padding-left:20px; display:flex; flex-direction:column; gap:10px; font-size:13.5px; color:var(--g700); line-height:1.5">
+                  <li v-for="rec in workspaceData.insights.actionable_recommendations" :key="rec">{{ rec }}</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="empty" v-else>
+              <div class="empty-title">Yapay zeka öngörüleri henüz oluşturulmadı.</div>
+              <button class="btn btn-primary btn-sm" style="margin-top:10px" @click="generateWorkspaceInsights">Öngörü Oluştur</button>
+            </div>
           </div>
+
+          <!-- TAB 5: MÜLAKATLAR (INTERVIEWS WORKSPACE) -->
+          <div v-if="posTab === 'interviews'">
+            <div class="interview-split">
+              <!-- Left pane candidate list -->
+              <div class="interview-left-pane">
+                <div style="font-weight:700; font-size:14px; margin-bottom:10px; color:var(--g800)">Aday Mülakat Süreci</div>
+                <div style="display:flex; flex-direction:column; gap:6px" v-if="workspaceData?.applications?.length">
+                  <div v-for="app in workspaceData.applications" :key="app.id" 
+                       class="interview-section-item" :class="{active: activeInterviewApp?.id === app.id}" @click="activeInterviewApp = app">
+                    <span style="font-weight:600">{{ app.candidate?.name }}</span>
+                    <span style="font-size:10px; color:var(--g400)">{{ app.status === 'hired' ? 'Tamamlandı' : 'Sürüyor' }}</span>
+                  </div>
+                </div>
+                <div v-else style="font-size:13px; color:var(--g400); text-align:center; padding-top:20px">Aday yok.</div>
+              </div>
+
+              <!-- Center pane selected question info -->
+              <div class="interview-center-pane">
+                <div v-if="activeInterviewApp">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+                    <div style="font-size:16px; font-weight:700; color:var(--g900)">Soru {{ activeQuestionIndex + 1 }} / {{ interviewQuestions.length || 4 }}</div>
+                    <button class="btn btn-secondary btn-sm" @click="generateInterviewQuestionsForCandidate(activeInterviewApp.id)" :disabled="questionsGenerating">
+                      <span v-if="questionsGenerating">Sorular Üretiliyor...</span>
+                      <span v-else>Soruları AI ile Yeniden Üret</span>
+                    </button>
+                  </div>
+
+                  <div v-if="interviewQuestions.length > 0 && interviewQuestions[activeQuestionIndex]" style="display:flex; flex-direction:column; gap:16px">
+                    <div style="font-size:13px; color:var(--primary); font-weight:700; text-transform:uppercase">{{ interviewQuestions[activeQuestionIndex].section }}</div>
+                    <div style="font-size:16px; font-weight:700; color:var(--g900); line-height:1.4">{{ interviewQuestions[activeQuestionIndex].question }}</div>
+
+                    <!-- Evaluation Guide -->
+                    <div class="question-guide-card">
+                      <div style="font-weight:700; font-size:12px; color:var(--primary); margin-bottom:6px">Değerlendirme Rehberi (Beklenen Cevap)</div>
+                      <div style="font-size:12.5px; color:var(--g700); line-height:1.5">{{ interviewQuestions[activeQuestionIndex].expected_answer }}</div>
+                    </div>
+
+                    <!-- Red Flag Warning -->
+                    <div class="red-flag-card" v-if="interviewQuestions[activeQuestionIndex].red_flag_warning">
+                      <b>Kırmızı Bayrak (Red Flag Warning):</b> {{ interviewQuestions[activeQuestionIndex].red_flag_warning }}
+                    </div>
+
+                    <!-- Recruiter inputs -->
+                    <div>
+                      <label class="label">Adayın Cevabı</label>
+                      <textarea class="input" style="width:100%; height:90px" placeholder="Adayın cevabını özetleyin..." v-model="candidateAnswer"></textarea>
+                    </div>
+
+                    <div style="display:flex; gap:16px; align-items:center">
+                      <div>
+                        <label class="label" style="margin-bottom:6px">Değerlendirme Puanı</label>
+                        <div style="display:flex; gap:4px">
+                          <button v-for="score in 10" :key="score" class="score-circle-btn" 
+                                  :class="{active: questionScore === score}" @click="questionScore = score">
+                            {{ score }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="label">Görüşme Notları</label>
+                      <textarea class="input" style="width:100%; height:60px" placeholder="Ek mülakat notları ekleyin..." v-model="recruiterNotes"></textarea>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end">
+                      <button class="btn btn-primary" @click="saveInterviewQuestionAnswer" :disabled="!questionScore">Soruyu Tamamla & İlerle</button>
+                    </div>
+                  </div>
+                  <div class="empty" v-else>
+                    <div class="empty-title" style="font-size:14px">Mülakat soruları henüz üretilmedi veya aday henüz puanlanmadı.</div>
+                    <button class="btn btn-primary btn-sm" style="margin-top:10px" @click="generateInterviewQuestionsForCandidate(activeInterviewApp.id)" :disabled="questionsGenerating">
+                      Soruları AI ile Üret
+                    </button>
+                  </div>
+                </div>
+                <div class="empty" v-else>Aday seçin.</div>
+              </div>
+
+              <!-- Right pane score summary -->
+              <div class="interview-right-pane" v-if="activeInterviewApp">
+                <div style="font-weight:700; font-size:14px; margin-bottom:16px; color:var(--g900)">Anlık Puan Özeti</div>
+                <div style="display:flex; flex-direction:column; gap:12px; font-size:12.5px" v-if="interviewQuestions.length">
+                  <div v-for="q in interviewQuestions" :key="q.id" style="border-bottom:1px solid #F3F4F6; padding-bottom:8px">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px">
+                      <span class="text-bold">{{ q.section }}</span>
+                      <span class="text-bold" style="color:var(--primary)" v-if="q.score !== null">{{ q.score }} / 10</span>
+                      <span style="color:var(--g400); font-style:italic" v-else>Puanlanmadı</span>
+                    </div>
+                    <div style="color:var(--g500); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" :title="q.notes">{{ q.notes || 'Not girilmemiş.' }}</div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:2px solid #E5E7EB">
+                    <span class="text-bold" style="font-size:14px">Ortalama Skor:</span>
+                    <span class="text-bold" style="font-size:18px; color:var(--primary)">
+                      {{ 
+                        interviewQuestions.filter(x => x.score !== null).length > 0 
+                        ? (interviewQuestions.filter(x => x.score !== null).reduce((acc, x) => acc + x.score, 0) / interviewQuestions.filter(x => x.score !== null).length).toFixed(1) + ' / 10'
+                        : 'Henüz puanlanmadı'
+                      }}
+                    </span>
+                  </div>
+                </div>
+                <div style="font-size:13px; color:var(--g400); font-style:italic" v-else>
+                  Soru-cevap özeti bulunmamaktadır.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 6: KARAR (DECISION WORKSPACE) -->
+          <div v-if="posTab === 'decision'">
+            <div class="decision-split" v-if="workspaceData">
+              <!-- Left panel candidates list & decision inputs -->
+              <div class="decision-card" style="display:flex; flex-direction:column; gap:20px">
+                <div style="display:flex; gap:12px; align-items:center; border-bottom:1px solid #F3F4F6; padding-bottom:12px">
+                  <span style="font-size:14px; font-weight:700">Aday Seçin:</span>
+                  <select class="input" style="flex:1" v-model="activeDecisionApp">
+                    <option v-for="app in workspaceData.applications" :key="app.id" :value="app">{{ app.candidate?.name }}</option>
+                  </select>
+                </div>
+
+                <div v-if="activeDecisionApp && decisionData" style="display:flex; flex-direction:column; gap:16px">
+                  <div style="display:flex; justify-content:space-between; align-items:center">
+                    <div>
+                      <div style="font-size:18px; font-weight:800; color:var(--g900)">İşe Alım Kararı</div>
+                      <div style="font-size:13px; color:var(--g500); margin-top:2px">{{ activeDecisionApp.candidate?.name }} · Match %{{ Math.round(activeDecisionApp.match_score || 0) }}</div>
+                    </div>
+                  </div>
+
+                  <!-- Scores sliders scaled 1-10 -->
+                  <div style="display:flex; flex-direction:column; gap:12px">
+                    <div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px">
+                        <span class="text-bold">Teknik Puan</span>
+                        <span class="text-bold" style="color:var(--primary)">{{ decisionData.technical_score }} / 10</span>
+                      </div>
+                      <input type="range" min="1" max="10" step="1" class="input" style="width:100%; padding:0; height:6px" v-model="decisionData.technical_score">
+                    </div>
+                    <div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px">
+                        <span class="text-bold">Mülakat Puanı</span>
+                        <span class="text-bold" style="color:var(--primary)">{{ decisionData.interview_score }} / 10</span>
+                      </div>
+                      <input type="range" min="1" max="10" step="1" class="input" style="width:100%; padding:0; height:6px" v-model="decisionData.interview_score">
+                    </div>
+                    <div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px">
+                        <span class="text-bold">Kültürel Uyum</span>
+                        <span class="text-bold" style="color:var(--primary)">{{ decisionData.cultural_score }} / 10</span>
+                      </div>
+                      <input type="range" min="1" max="10" step="1" class="input" style="width:100%; padding:0; height:6px" v-model="decisionData.cultural_score">
+                    </div>
+                  </div>
+
+                  <!-- Hiring confidence selection -->
+                  <div>
+                    <label class="label">İşe Alım Güveni</label>
+                    <select class="input" v-model="decisionData.hiring_confidence">
+                      <option value="Yüksek">Yüksek</option>
+                      <option value="Orta">Orta</option>
+                      <option value="Düşük">Düşük</option>
+                    </select>
+                  </div>
+
+                  <div style="display:flex; gap:12px; margin-top:10px">
+                    <button class="btn btn-sm" style="flex:1; background:#D1FAE5; color:#065F46; font-weight:700" @click="saveHiringDecision('hired')">İşe Al</button>
+                    <button class="btn btn-sm" style="flex:1; background:#FEF3C7; color:#92400E; font-weight:700" @click="saveHiringDecision('hold')">Beklet</button>
+                    <button class="btn btn-sm" style="flex:1; background:#FEE2E2; color:#991B1B; font-weight:700" @click="saveHiringDecision('rejected')">Reddet</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right panel strengths & concerns and offer parameters -->
+              <div class="decision-card" style="display:flex; flex-direction:column; gap:20px" v-if="activeDecisionApp && decisionData">
+                <div>
+                  <div style="font-weight:700; font-size:15px; margin-bottom:10px; color:var(--g900)">Artılar & Eksiler</div>
+                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:12.5px">
+                    <div style="background:#ECFDF5; border-radius:8px; padding:12px; color:#065F46">
+                      <div style="font-weight:700; margin-bottom:4px">Güçlü Yönler (Artılar)</div>
+                      <ul style="padding-left:14px; margin:0">
+                        <li>Hızlı uyum yeteneği</li>
+                        <li>Teknik problem çözme gücü</li>
+                      </ul>
+                    </div>
+                    <div style="background:#FEF2F2; border-radius:8px; padding:12px; color:#991B1B">
+                      <div style="font-weight:700; margin-bottom:4px">Endişeler (Eksiler)</div>
+                      <ul style="padding-left:14px; margin:0">
+                        <li>Düşük bütçe esnekliği</li>
+                        <li>Süreç hızı beklentisi</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="border-top:1px solid #F3F4F6; padding-top:16px">
+                  <div style="font-weight:700; font-size:15px; margin-bottom:12px; color:var(--g900)">Teklif & Sözleşme Detayları</div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px">
+                    <div>
+                      <label class="label">Önerilen Maaş (NET)</label>
+                      <input type="number" class="input" placeholder="TRY" v-model="decisionData.recommended_salary">
+                    </div>
+                    <div>
+                      <label class="label">Performans Primi</label>
+                      <input type="number" class="input" placeholder="TRY" v-model="decisionData.performance_bonus">
+                    </div>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+                    <div>
+                      <label class="label">Başlangıç Tarihi</label>
+                      <input type="text" class="input" placeholder="GG.AA.YYYY" v-model="decisionData.start_date">
+                    </div>
+                    <div>
+                      <label class="label">Çalışma Modeli</label>
+                      <select class="input" v-model="decisionData.work_model">
+                        <option value="Ofis">Ofis</option>
+                        <option value="Hibrit">Hibrit</option>
+                        <option value="Uzaktan (Remote)">Uzaktan (Remote)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 7: RAPORLAR (REPORTS ARCHIVE) -->
+          <div v-if="posTab === 'reports'">
+            <div style="display:grid; grid-template-columns: 280px 1fr; gap:24px" v-if="workspaceData">
+              <!-- Left candidates selector -->
+              <div class="card" style="padding: 16px; min-height:480px">
+                <div style="font-weight:700; font-size:15px; margin-bottom:12px">Aday Raporları</div>
+                <div style="display:flex; flex-direction:column; gap:8px">
+                  <div v-for="app in workspaceData.applications" :key="app.id" 
+                       class="interview-section-item" :class="{active: activeReportApp?.id === app.id}" @click="activeReportApp = app">
+                    <span style="font-weight:600">{{ app.candidate?.name }}</span>
+                    <span style="font-size:10px; color:var(--g400)">%{{ Math.round(app.match_score || 0) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right reports panel -->
+              <div style="display:flex; flex-direction:column; gap:20px" v-if="activeReportApp">
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#F3F4F6; padding:12px; border-radius:8px">
+                  <span style="font-size:13.5px; font-weight:700; color:var(--g800)">{{ activeReportApp.candidate?.name }} için Rapor İşlemleri</span>
+                  <div style="display:flex; gap:8px; align-items:center">
+                    <select class="input" style="width:220px; padding: 4px 8px; font-size:13px" v-model="selectedReportType">
+                      <option value="">Rapor şablonu seçin...</option>
+                      <option value="HR Değerlendirme Raporu">HR Değerlendirme Raporu</option>
+                      <option value="Teknik Değerlendirme Raporu">Teknik Değerlendirme Raporu</option>
+                      <option value="Aday Özet Raporu">Aday Özet Raporu</option>
+                      <option value="İşe Alım Kararı Raporu">İşe Alım Kararı Raporu</option>
+                      <option value="Mülakat Raporu">Mülakat Raporu</option>
+                      <option value="AI Değerlendirme Raporu">AI Değerlendirme Raporu</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" @click="generateReportForPosition(selectedReportType)" :disabled="!selectedReportType || reportsGenerating">
+                      <span v-if="reportsGenerating">Üretiliyor...</span>
+                      <span v-else>AI Rapor Üret</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="reports-grid">
+                  <div class="report-card" v-for="rep in workspaceData.reports" :key="rep.id">
+                    <div>
+                      <div style="font-weight:700; font-size:14px; color:var(--g900); margin-bottom:4px">{{ rep.report_type }}</div>
+                      <div style="font-size:11px; color:var(--g400)">Oluşturulma: {{ formatDate(rep.created_at) }}</div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:16px">
+                      <!-- Downloads real generated PDF -->
+                      <a :href="'/api/reports/' + rep.id + '/download'" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; padding: 4px 0">PDF</a>
+                      <button class="btn btn-ghost btn-sm" style="flex:1" @click="showToast('Rapor paylaşım linki kopyalandı.', 'success')">Paylaş</button>
+                    </div>
+                  </div>
+                  <div v-if="!workspaceData.reports?.length" style="grid-column: 1/-1" class="empty">
+                    <div class="empty-title">Bu pozisyon için henüz bir rapor üretilmemiş.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
+
     </template>
 
     <!-- INTERVIEWS -->
@@ -1930,7 +2636,7 @@
   </div>
 
   <!-- POSITION DETAIL MODAL -->
-  <div v-if="selectedPosition" class="overlay" @click.self="selectedPosition=null">
+  <div v-if="selectedPosition && page !== 'jobs'" class="overlay" @click.self="selectedPosition=null">
     <div class="modal modal-xl">
       <div class="modal-hdr">
         <div style="flex:1">

@@ -87,6 +87,9 @@ class Position(Base):
     is_active = Column(Boolean, default=True)
     location = Column(String, nullable=True)
     headcount = Column(Integer, default=1)
+    priority = Column(String, default="Orta")
+    hiring_manager = Column(String, nullable=True)
+    target_date = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     applications = relationship("Application", back_populates="position", cascade="all, delete-orphan")
 
@@ -295,4 +298,81 @@ class RecruitmentTask(Base):
     assigned_to = Column(String, nullable=True)
     due_date = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AIRequest(Base):
+    __tablename__ = "ai_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    prompt = Column(Text, nullable=False)
+    response = Column(Text, nullable=True)
+    model_name = Column(String, nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PositionInsights(Base):
+    __tablename__ = "position_insights"
+    id = Column(Integer, primary_key=True, index=True)
+    position_id = Column(Integer, ForeignKey("positions.id"), nullable=False)
+    time_to_fill_prediction = Column(String, nullable=True)
+    pipeline_health = Column(Integer, default=100)
+    market_competition = Column(String, nullable=True)
+    candidate_pool_quality = Column(Integer, default=100)
+    budget_risk = Column(String, nullable=True)
+    offer_acceptance_prediction = Column(Integer, default=100)
+    actionable_recommendations = Column(JSON, default=[])
+    market_avg_salary = Column(String, nullable=True)
+    our_offer = Column(String, nullable=True)
+    market_open_positions = Column(String, nullable=True)
+    market_avg_time_to_fill = Column(String, nullable=True)
+    risks = Column(JSON, default=[])
+    recruitment_guide = Column(JSON, default=[])
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class InterviewAnswer(Base):
+    __tablename__ = "interview_answers"
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
+    question_index = Column(Integer, nullable=False)
+    section = Column(String, nullable=False)
+    question = Column(Text, nullable=False)
+    expected_answer = Column(Text, nullable=True)
+    red_flag_warning = Column(Text, nullable=True)
+    candidate_answer = Column(Text, nullable=True)
+    score = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+    is_completed = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
+class HiringDecision(Base):
+    __tablename__ = "hiring_decisions"
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), unique=True, nullable=False)
+    decision = Column(String, nullable=False)  # "hired", "hold", "rejected"
+    technical_score = Column(Float, nullable=True)
+    interview_score = Column(Float, nullable=True)
+    cultural_score = Column(Float, nullable=True)
+    hiring_confidence = Column(String, nullable=True)
+    strengths = Column(JSON, default=[])
+    concerns = Column(JSON, default=[])
+    recommended_salary = Column(Integer, nullable=True)
+    performance_bonus = Column(Integer, nullable=True)
+    start_date = Column(String, nullable=True)
+    work_model = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PositionReport(Base):
+    __tablename__ = "position_reports"
+    id = Column(Integer, primary_key=True, index=True)
+    position_id = Column(Integer, ForeignKey("positions.id"), nullable=False)
+    report_type = Column(String, nullable=False)
+    report_content = Column(Text, nullable=True)
+    pdf_path = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
