@@ -346,13 +346,6 @@ def run_ai_matching(position_id: int, db: Session = Depends(database.get_db)):
     return {"status": "success"}
 
 
-@router.get("/{position_id}/matches", response_model=List[schemas.CandidateMatch])
-def match_candidates(position_id: int, db: Session = Depends(database.get_db)):
-    from services.matcher import matcher_service
-    matches = matcher_service.match_candidates(position_id, db)
-    return matches
-
-
 # GET MATCHING RESULTS
 @router.get("/{position_id}/matching")
 def get_ai_matching(position_id: int, db: Session = Depends(database.get_db)):

@@ -346,10 +346,6 @@ class InterviewAnswer(Base):
     is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
-    interview_type = Column(String, default="HR")
-    interviewer_notes = Column(Text, nullable=True)
-    red_flags = Column(Text, nullable=True)
-    ai_summary = Column(Text, nullable=True)
 
 
 class HiringDecision(Base):
@@ -374,39 +370,9 @@ class PositionReport(Base):
     __tablename__ = "position_reports"
     id = Column(Integer, primary_key=True, index=True)
     position_id = Column(Integer, ForeignKey("positions.id"), nullable=False)
-    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=True)
-    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
     report_type = Column(String, nullable=False)
     report_content = Column(Text, nullable=True)
     pdf_path = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class CandidateNote(Base):
-    __tablename__ = "candidate_notes"
-    id = Column(Integer, primary_key=True, index=True)
-    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=False)
-    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
-    position_id = Column(Integer, ForeignKey("positions.id"), nullable=True)
-    note_text = Column(Text, nullable=False)
-    created_by = Column(String, default="Recruiter")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class CalendarEvent(Base):
-    __tablename__ = "calendar_events"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
-    event_type = Column(String, default="reminder") # interview | task | reminder | deadline
-    start_time = Column(DateTime(timezone=True), nullable=False)
-    end_time = Column(DateTime(timezone=True), nullable=True)
-    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=True)
-    position_id = Column(Integer, ForeignKey("positions.id"), nullable=True)
-    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
-    interview_id = Column(Integer, ForeignKey("interviews.id"), nullable=True)
-    task_id = Column(Integer, ForeignKey("recruitment_tasks.id"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
 
 

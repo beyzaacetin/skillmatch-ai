@@ -590,10 +590,6 @@ class InterviewAnswerCreate(BaseModel):
     score: Optional[int] = None
     notes: Optional[str] = None
     is_completed: Optional[bool] = False
-    interview_type: Optional[str] = "HR"
-    interviewer_notes: Optional[str] = None
-    red_flags: Optional[str] = None
-    ai_summary: Optional[str] = None
 
 
 class InterviewAnswerUpdate(BaseModel):
@@ -601,10 +597,6 @@ class InterviewAnswerUpdate(BaseModel):
     score: Optional[int] = None
     notes: Optional[str] = None
     is_completed: Optional[bool] = None
-    interview_type: Optional[str] = None
-    interviewer_notes: Optional[str] = None
-    red_flags: Optional[str] = None
-    ai_summary: Optional[str] = None
 
 
 class InterviewAnswerOut(BaseModel):
@@ -621,10 +613,6 @@ class InterviewAnswerOut(BaseModel):
     is_completed: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
-    interview_type: Optional[str] = "HR"
-    interviewer_notes: Optional[str] = None
-    red_flags: Optional[str] = None
-    ai_summary: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -665,61 +653,10 @@ class HiringDecisionOut(BaseModel):
 class PositionReportOut(BaseModel):
     id: int
     position_id: int
-    candidate_id: Optional[int] = None
-    application_id: Optional[int] = None
     report_type: str
     report_content: Optional[str] = None
     pdf_path: Optional[str] = None
     created_at: datetime
     class Config:
         from_attributes = True
-
-
-class CandidateNoteCreate(BaseModel):
-    note_text: str
-    application_id: Optional[int] = None
-    position_id: Optional[int] = None
-
-
-class CandidateNoteOut(BaseModel):
-    id: int
-    candidate_id: int
-    application_id: Optional[int] = None
-    position_id: Optional[int] = None
-    note_text: str
-    created_by: str
-    created_at: datetime
-    class Config:
-        from_attributes = True
-
-
-class CalendarEventCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
-    event_type: str = "reminder"
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    candidate_id: Optional[int] = None
-    position_id: Optional[int] = None
-    application_id: Optional[int] = None
-    interview_id: Optional[int] = None
-    task_id: Optional[int] = None
-
-
-class CalendarEventOut(BaseModel):
-    id: int
-    title: str
-    description: Optional[str] = None
-    event_type: str
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    candidate_id: Optional[int] = None
-    position_id: Optional[int] = None
-    application_id: Optional[int] = None
-    interview_id: Optional[int] = None
-    task_id: Optional[int] = None
-    created_at: datetime
-    class Config:
-        from_attributes = True
-
 
