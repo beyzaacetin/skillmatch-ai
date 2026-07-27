@@ -174,11 +174,19 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
         "applications": apps_data,
         "insights": {
             "id": insights.id,
-            "summary": insights.summary,
-            "market_salary_benchmark": insights.market_salary_benchmark,
-            "talent_pool_scarcity": insights.talent_pool_scarcity,
-            "recruitment_velocity": insights.recruitment_velocity,
-            "actionable_recommendations": insights.actionable_recommendations
+            "time_to_fill_prediction": insights.time_to_fill_prediction,
+            "pipeline_health": insights.pipeline_health,
+            "market_competition": insights.market_competition,
+            "candidate_pool_quality": insights.candidate_pool_quality,
+            "budget_risk": insights.budget_risk,
+            "offer_acceptance_prediction": insights.offer_acceptance_prediction,
+            "actionable_recommendations": insights.actionable_recommendations,
+            "market_avg_salary": insights.market_avg_salary,
+            "our_offer": insights.our_offer,
+            "market_open_positions": insights.market_open_positions,
+            "market_avg_time_to_fill": insights.market_avg_time_to_fill,
+            "risks": insights.risks,
+            "recruitment_guide": insights.recruitment_guide
         } if insights else None,
         "reports": reports_list
     }
