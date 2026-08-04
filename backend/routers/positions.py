@@ -52,8 +52,16 @@ def create_position(
 
 
 @router.get("/", response_model=List[schemas.Position])
-def read_positions(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
-    positions = db.query(models.Position).offset(skip).limit(limit).all()
+def read_positions(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    q = db.query(models.Position)
+    from services.scope_policy_service import scope_policy_service
+    q = scope_policy_service.apply_position_scope(q, db, current_user)
+    positions = q.offset(skip).limit(limit).all()
     return positions
 
 

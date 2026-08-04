@@ -57,56 +57,76 @@ def clean_db():
     db.close()
 
 def test_delete_candidate_with_match_scores():
+    from auth import get_current_user
     db = TestingSessionLocal()
     
-    # Create candidate
-    candidate = models.Candidate(
-        name="John Doe",
-        email="john@example.com",
-        skills=["Python"],
-        experience=[]
+    test_user = models.User(
+        email="admin_delete@example.com",
+        full_name="admin",
+        hashed_password="mocked_password",
+        role="ADMIN",
+        is_active=True
     )
-    db.add(candidate)
+    db.add(test_user)
     db.commit()
-    db.refresh(candidate)
+    db.refresh(test_user)
+
+    def mock_get_current_user():
+        return test_user
+        
+    app.dependency_overrides[get_current_user] = mock_get_current_user
     
-    # Create position
-    position = models.Position(
-        title="Python Developer",
-        description="Write Python code",
-        required_skills=["Python"]
-    )
-    db.add(position)
-    db.commit()
-    db.refresh(position)
-    
-    # Create match score
-    match_score = models.MatchScore(
-        candidate_id=candidate.id,
-        position_id=position.id,
-        overall_score=85.0,
-        llm_model=settings.GEMINI_MODEL
-    )
-    db.add(match_score)
-    db.commit()
-    
-    # Try soft deleting via API
-    response = client.delete(f"/api/candidates/{candidate.id}")
-    assert response.status_code == 200
-    
-    # Verify candidate is soft deleted
-    db.refresh(candidate)
-    assert candidate.is_deleted is True
-    assert candidate.deleted_at is not None
-    assert candidate.deleted_by == "admin"
-    
-    # Verify candidate does not show up in listing
-    get_response = client.get("/api/candidates/")
-    assert get_response.status_code == 200
-    candidates_list = get_response.json()
-    assert len(candidates_list) == 0
-    
-    db.close()
+    try:
+        # Create candidate
+        candidate = models.Candidate(
+            name="John Doe",
+            email="john@example.com",
+            skills=["Python"],
+            experience=[]
+        )
+        db.add(candidate)
+        db.commit()
+        db.refresh(candidate)
+        
+        # Create position
+        position = models.Position(
+            title="Python Developer",
+            description="Write Python code",
+            required_skills=["Python"]
+        )
+        db.add(position)
+        db.commit()
+        db.refresh(position)
+        
+        # Create match score
+        match_score = models.MatchScore(
+            candidate_id=candidate.id,
+            position_id=position.id,
+            overall_score=85.0,
+            llm_model=settings.GEMINI_MODEL
+        )
+        db.add(match_score)
+        db.commit()
+        
+        # Try soft deleting via API
+        response = client.delete(f"/api/candidates/{candidate.id}")
+        assert response.status_code == 200
+        
+        # Verify candidate is soft deleted
+        db.refresh(candidate)
+        assert candidate.is_deleted is True
+        assert candidate.deleted_at is not None
+        assert candidate.deleted_by == "admin"
+        
+        # Verify candidate does not show up in listing
+        get_response = client.get("/api/candidates/")
+        assert get_response.status_code == 200
+        candidates_list = get_response.json()
+        assert len(candidates_list) == 0
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
 
 def test_restore_candidate():
     db = TestingSessionLocal()
@@ -514,5 +534,60 @@ def test_audit_logging():
     assert logs[0].action == "position_created"
     
     db.close()
+
+
+def test_role_scope_filtering():
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    
+    # Create test scope hotels
+    h1 = models.Hotel(organization_id=1, city_id=1, region_id=1, name="Hotel Scope A", code="HSA")
+    h2 = models.Hotel(organization_id=1, city_id=1, region_id=1, name="Hotel Scope B", code="HSB")
+    db.add(h1)
+    db.add(h2)
+    db.commit()
+    db.refresh(h1)
+    db.refresh(h2)
+    
+    # Create positions in separate hotels
+    pos1 = models.Position(title="Hotel A Barista", is_active=True, hotel_id=h1.id, description="F&B service")
+    pos2 = models.Position(title="Hotel B Lifeguard", is_active=True, hotel_id=h2.id, description="Pool safety")
+    db.add(pos1)
+    db.add(pos2)
+    db.commit()
+    
+    # Create scoped user
+    scoped_user = models.User(
+        email="scoped_user@example.com",
+        full_name="Scoped User",
+        hashed_password="mocked_password",
+        role="RECRUITER",
+        data_visibility_scope="HOTEL",
+        hotel_access_ids=[h1.id],
+        is_active=True
+    )
+    db.add(scoped_user)
+    db.commit()
+    db.refresh(scoped_user)
+    
+    def mock_get_current_user():
+        return scoped_user
+        
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    
+    try:
+        res = client.get("/api/positions/")
+        assert res.status_code == 200
+        positions = res.json()
+        
+        # Should only see the position in Hotel A (Hotel Scope A)
+        titles = [p["title"] for p in positions]
+        assert "Hotel A Barista" in titles
+        assert "Hotel B Lifeguard" not in titles
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
+
 
 

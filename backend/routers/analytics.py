@@ -665,23 +665,77 @@ def get_dashboard_settings(
     config = db.query(models.SystemConfiguration).filter_by(key=key).first()
     if config:
         return config.value
-    # Default settings matching preset 'operation'
-    return {
-        "preset": "operation",
-        "widgets": {
-            "assistant": True,
-            "schedule": True,
-            "positions": True,
-            "candidates": True,
-            "actions": True,
-            "recent_activities": True
-        },
-        "rules": {
-            "default_for_role": True,
-            "keep_actions_top": True,
-            "hide_empty_widgets": True
+        
+    # Role defaults mapping
+    role = (current_user.role or "RECRUITER").upper()
+    if role in ("ADMIN", "SYSTEM_ADMIN"):
+        return {
+            "preset": "operation",
+            "widgets": {
+                "assistant": True,
+                "schedule": True,
+                "positions": True,
+                "candidates": True,
+                "actions": True,
+                "recent_activities": True
+            },
+            "rules": {
+                "default_for_role": True,
+                "keep_actions_top": True,
+                "hide_empty_widgets": True
+            }
         }
-    }
+    elif role in ("RECRUITER", "HR"):
+        return {
+            "preset": "operation",
+            "widgets": {
+                "assistant": True,
+                "schedule": True,
+                "positions": True,
+                "candidates": True,
+                "actions": True,
+                "recent_activities": True
+            },
+            "rules": {
+                "default_for_role": True,
+                "keep_actions_top": True,
+                "hide_empty_widgets": True
+            }
+        }
+    elif role in ("HIRING_MANAGER", "MANAGER"):
+        return {
+            "preset": "manager",
+            "widgets": {
+                "assistant": True,
+                "schedule": False,
+                "positions": True,
+                "candidates": False,
+                "actions": True,
+                "recent_activities": True
+            },
+            "rules": {
+                "default_for_role": True,
+                "keep_actions_top": True,
+                "hide_empty_widgets": True
+            }
+        }
+    else:  # VIEWER or others
+        return {
+            "preset": "sade",
+            "widgets": {
+                "assistant": False,
+                "schedule": True,
+                "positions": False,
+                "candidates": False,
+                "actions": True,
+                "recent_activities": False
+            },
+            "rules": {
+                "default_for_role": True,
+                "keep_actions_top": True,
+                "hide_empty_widgets": True
+            }
+        }
 
 
 @router.post("/dashboard-settings")

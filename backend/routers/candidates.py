@@ -85,17 +85,31 @@ async def upload_cv(
     return db_candidate
 
 @router.get("/", response_model=List[schemas.Candidate])
-def read_candidates(skip: int = 0, limit: int = 200, include_deleted: bool = False, db: Session = Depends(database.get_db)):
+def read_candidates(
+    skip: int = 0, 
+    limit: int = 200, 
+    include_deleted: bool = False, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
     q = db.query(models.Candidate)
     if not include_deleted:
         q = q.filter(models.Candidate.is_deleted == False)
+    from services.scope_policy_service import scope_policy_service
+    q = scope_policy_service.apply_candidate_scope(q, db, current_user)
     return q.offset(skip).limit(limit).all()
 
 @router.get("/with-best-position")
-def get_candidates_with_best_position(include_deleted: bool = False, db: Session = Depends(database.get_db)):
+def get_candidates_with_best_position(
+    include_deleted: bool = False, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
     q = db.query(models.Candidate)
     if not include_deleted:
         q = q.filter(models.Candidate.is_deleted == False)
+    from services.scope_policy_service import scope_policy_service
+    q = scope_policy_service.apply_candidate_scope(q, db, current_user)
     candidates = q.all()
     positions = db.query(models.Position).filter(models.Position.is_active == True).all()
     
