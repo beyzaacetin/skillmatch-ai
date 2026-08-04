@@ -42,26 +42,56 @@ async def upload_cv(
         if bl:
             raise HTTPException(status_code=403, detail=f"Aday kara listededir: {bl.blacklist_reason or 'Sebep belirtilmemiş'}")
 
-    db_candidate = models.Candidate(
-        name=analysis.get("name", "Bilinmiyor"),
-        original_filename=file.filename,
-        upload_status="Completed",
-        email=email,
-        phone=phone,
-        summary=analysis.get("summary"),
-        skills=analysis.get("skills", []),
-        experience=analysis.get("experience", []),
-        education=analysis.get("education", []),
-        certifications=analysis.get("certifications", []),
-        projects=analysis.get("projects", []),
-        seniority_level=analysis.get("seniority_level"),
-        seniority_score=analysis.get("seniority_score"),
-        strengths=analysis.get("strengths", []),
-        areas_for_improvement=analysis.get("areas_for_improvement", []),
-    )
-    db.add(db_candidate)
-    db.commit()
-    db.refresh(db_candidate)
+    # Duplicate check
+    db_candidate = None
+    if email or phone:
+        db_candidate = db.query(models.Candidate).filter(
+            ((models.Candidate.email == email) & (models.Candidate.email != None)) |
+            ((models.Candidate.phone == phone) & (models.Candidate.phone != None))
+        ).first()
+
+    # If duplicate found, check lock status
+    if db_candidate:
+        from services.ownership_service import check_candidate_lock
+        lock_status = check_candidate_lock(db_candidate.id, current_user, db)
+        if lock_status.get("locked"):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Bu aday zaten {lock_status.get('owning_hotel_name')} tarafından kilitli aktif bir süreçte ({lock_status.get('position_title')})."
+            )
+        # Update existing candidate details
+        db_candidate.name = analysis.get("name", db_candidate.name)
+        db_candidate.summary = analysis.get("summary", db_candidate.summary)
+        db_candidate.skills = analysis.get("skills", db_candidate.skills)
+        db_candidate.experience = analysis.get("experience", db_candidate.experience)
+        db_candidate.education = analysis.get("education", db_candidate.education)
+        db_candidate.seniority_level = analysis.get("seniority_level", db_candidate.seniority_level)
+        db_candidate.seniority_score = analysis.get("seniority_score", db_candidate.seniority_score)
+        db_candidate.strengths = analysis.get("strengths", db_candidate.strengths)
+        db_candidate.areas_for_improvement = analysis.get("areas_for_improvement", db_candidate.areas_for_improvement)
+        db.commit()
+    else:
+        # Create new candidate record
+        db_candidate = models.Candidate(
+            name=analysis.get("name", "Bilinmiyor"),
+            original_filename=file.filename,
+            upload_status="Completed",
+            email=email,
+            phone=phone,
+            summary=analysis.get("summary"),
+            skills=analysis.get("skills", []),
+            experience=analysis.get("experience", []),
+            education=analysis.get("education", []),
+            certifications=analysis.get("certifications", []),
+            projects=analysis.get("projects", []),
+            seniority_level=analysis.get("seniority_level"),
+            seniority_score=analysis.get("seniority_score"),
+            strengths=analysis.get("strengths", []),
+            areas_for_improvement=analysis.get("areas_for_improvement", []),
+        )
+        db.add(db_candidate)
+        db.commit()
+        db.refresh(db_candidate)
     
     # Save CV file to static/uploads
     try:
@@ -169,10 +199,41 @@ def get_candidates_with_best_position(
     return results
 
 @router.get("/{candidate_id}", response_model=schemas.Candidate)
-def read_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
+def read_candidate(
+    candidate_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
+        
+    from services.ownership_service import check_candidate_lock
+    lock_status = check_candidate_lock(c.id, current_user, db)
+    if lock_status.get("locked"):
+        masked_cand = models.Candidate(
+            id=c.id,
+            name=c.name[:2] + "*** " + c.name.split()[-1][:2] + "***" if len(c.name.split()) > 1 else c.name[:2] + "***",
+            email="***@***",
+            phone="***",
+            summary="Aday başka bir otelde kilitli aktif süreçtedir. Kişisel bilgilere erişim kısıtlanmıştır.",
+            skills=c.skills,
+            experience=c.experience,
+            education=c.education,
+            certifications=c.certifications,
+            projects=c.projects,
+            seniority_level=c.seniority_level,
+            seniority_score=c.seniority_score,
+            strengths=c.strengths,
+            areas_for_improvement=c.areas_for_improvement,
+            rating=c.rating,
+            tags=c.tags,
+            is_favorite=c.is_favorite,
+            is_blacklisted=c.is_blacklisted,
+            blacklist_reason=c.blacklist_reason,
+            cv_file_path=c.cv_file_path
+        )
+        return masked_cand
     return c
 
 @router.patch("/{candidate_id}/rating")

@@ -590,4 +590,72 @@ def test_role_scope_filtering():
         db.close()
 
 
+def test_candidate_duplicate_detection_and_locking():
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    
+    # 1. Create hot1 and hot2
+    hot1 = models.Hotel(organization_id=1, city_id=1, region_id=1, name="Hotel 1", code="HT1")
+    hot2 = models.Hotel(organization_id=1, city_id=1, region_id=1, name="Hotel 2", code="HT2")
+    db.add(hot1)
+    db.add(hot2)
+    db.commit()
+    db.refresh(hot1)
+    db.refresh(hot2)
+    
+    # 2. Create users for hot1 and hot2
+    u1 = models.User(email="u1@example.com", full_name="User 1", hashed_password="mock", role="RECRUITER", data_visibility_scope="HOTEL", hotel_access_ids=[hot1.id], is_active=True)
+    u2 = models.User(email="u2@example.com", full_name="User 2", hashed_password="mock", role="RECRUITER", data_visibility_scope="HOTEL", hotel_access_ids=[hot2.id], is_active=True)
+    db.add(u1)
+    db.add(u2)
+    db.commit()
+    db.refresh(u1)
+    db.refresh(u2)
+
+    # 3. Create positions in both hotels
+    pos1 = models.Position(title="Developer", is_active=True, hotel_id=hot1.id, description="F&B service")
+    pos2 = models.Position(title="Manager", is_active=True, hotel_id=hot2.id, description="Pool safety")
+    db.add(pos1)
+    db.add(pos2)
+    db.commit()
+    db.refresh(pos1)
+    db.refresh(pos2)
+
+    # 4. Create existing candidate record linked to an active LOCKED application in Hotel 1
+    cand = models.Candidate(name="Alice locked", email="alice_locked@example.com", phone="12345", is_deleted=False)
+    db.add(cand)
+    db.commit()
+    db.refresh(cand)
+
+    app1 = models.Application(
+        candidate_id=cand.id,
+        position_id=pos1.id,
+        status="applied",
+        hotel_id=hot1.id,
+        lock_status="LOCKED"
+    )
+    db.add(app1)
+    db.commit()
+
+    # Query candidate details with User 2 (belonging to Hotel 2)
+    def mock_get_current_user():
+        return u2
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+
+    try:
+        res = client.get(f"/api/candidates/{cand.id}")
+        assert res.status_code == 200
+        data = res.json()
+        
+        # Details must be masked because it is locked by Hotel 1
+        assert data["email"] == "***@***"
+        assert data["phone"] == "***"
+        assert "Alice" not in data["name"]
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
+
+
+
 
