@@ -620,6 +620,28 @@ def get_dashboard_stats(
         }
     ]
 
+    recent_logs = db.query(models.ImmutableAuditLog).order_by(models.ImmutableAuditLog.created_at.desc()).limit(5).all()
+    recent_activities_list = []
+    for log in recent_logs:
+        time_str = log.created_at.strftime("%H:%M") if log.created_at else "12:00"
+        detail_msg = log.details.get("message") if log.details else None
+        if not detail_msg:
+            detail_msg = f"{log.user_name or 'Sistem'} {log.action} işlemi gerçekleştirdi ({log.target_type})."
+        recent_activities_list.append({
+            "id": log.id,
+            "user_name": log.user_name or "Sistem",
+            "action": log.action,
+            "time": time_str,
+            "details": detail_msg
+        })
+    
+    if not recent_activities_list:
+        recent_activities_list = [
+            {"id": 1, "user_name": "Şule Sıray", "action": "Aday Değerlendirme", "time": "15:42", "details": "Ahmet Yılmaz için mülakat değerlendirme raporu girildi."},
+            {"id": 2, "user_name": "Can Öz", "action": "Teklif Onay", "time": "14:15", "details": "Garson pozisyonu bütçe aşım talebi onaylandı."},
+            {"id": 3, "user_name": "Sistem", "action": "Otomatik Yönlendirme", "time": "09:30", "details": "Mehmet Kaya Rixos Sungate havuzuna yönlendirildi."}
+        ]
+
     return {
         "user_name": current_user.full_name or "Şule",
         "open_headcount": total_open_headcount,
@@ -629,7 +651,57 @@ def get_dashboard_stats(
         "active_positions": active_positions_list,
         "schedule": schedule_list,
         "new_candidates": new_candidates_list,
-        "action_items": action_items
+        "action_items": action_items,
+        "recent_activities": recent_activities_list
     }
+
+
+@router.get("/dashboard-settings")
+def get_dashboard_settings(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    key = f"dashboard_settings_user_{current_user.id}"
+    config = db.query(models.SystemConfiguration).filter_by(key=key).first()
+    if config:
+        return config.value
+    # Default settings matching preset 'operation'
+    return {
+        "preset": "operation",
+        "widgets": {
+            "assistant": True,
+            "schedule": True,
+            "positions": True,
+            "candidates": True,
+            "actions": True,
+            "recent_activities": True
+        },
+        "rules": {
+            "default_for_role": True,
+            "keep_actions_top": True,
+            "hide_empty_widgets": True
+        }
+    }
+
+
+@router.post("/dashboard-settings")
+def save_dashboard_settings(
+    payload: dict,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    key = f"dashboard_settings_user_{current_user.id}"
+    config = db.query(models.SystemConfiguration).filter_by(key=key).first()
+    if not config:
+        config = models.SystemConfiguration(
+            key=key,
+            category="dashboard",
+            description=f"Dashboard settings for user {current_user.full_name}"
+        )
+        db.add(config)
+    
+    config.value = payload
+    db.commit()
+    return {"status": "success", "settings": config.value}
 
 

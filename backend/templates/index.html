@@ -8,6 +8,48 @@
 <link rel="stylesheet" href="/static/style.css?v={% endraw %}{{ commit_hash }}{% raw %}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Simple Switch CSS */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e5e7eb;
+  transition: .2s;
+  border-radius: 20px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: #0e3a2f;
+}
+input:checked + .slider:before {
+  transform: translateX(16px);
+}
+</style>
 </head>
 <body>
 <div id="app" class="app">
@@ -277,25 +319,17 @@
         </div>
 
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">
-          <!-- View Mode Toggle -->
-          <div style="display:flex; background:var(--g100); border-radius:8px; padding:3px; gap:4px">
-            <button class="btn btn-sm" :class="dashboardViewMode==='merkez'?'btn-primary':'btn-ghost'" @click="dashboardViewMode='merkez'" style="padding:4px 12px; font-size:12px; font-weight:600">Merkez görünümü</button>
-            <button class="btn btn-sm" :class="dashboardViewMode==='bana_ozel'?'btn-primary':'btn-ghost'" @click="dashboardViewMode='bana_ozel'" style="padding:4px 12px; font-size:12px; font-weight:600">Bana özel</button>
-          </div>
-
           <!-- Hotel Filter (Only for admins/system HR to select hotel scope) -->
           <select v-model="dashboardHotelFilter" class="fs" style="width:auto; padding:6px 12px; font-size:13px; font-weight:600; border-radius:8px; border:1px solid var(--g200)">
             <option value="">Rixos Türkiye (Tümü)</option>
             <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
           </select>
 
-          <!-- Test Role Selector -->
-          <div style="display:flex; align-items:center; gap:8px">
-            <select v-model="dashboardTestRole" class="fs" style="width:auto; padding:6px 12px; font-size:13px; font-weight:600; border-radius:8px; border:1px solid var(--g200); background:#f9fafb">
-              <option value="ADMIN">Merkez İK Yöneticisi</option>
-              <option value="RECRUITER">Tesis İK Sorumlusu</option>
-            </select>
-          </div>
+          <!-- Dashboard settings button -->
+          <button @click="showDashboardSettings = true" class="btn" style="background:#0e3a2f; border:none; color:#fff; font-weight:600; display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:8px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            Dashboard'u düzenle
+          </button>
         </div>
       </div>
 
@@ -343,14 +377,41 @@
           </div>
         </div>
 
+        <!-- Horizontal Action Center (keep_actions_top is true) -->
+        <div v-if="dashboardSettings.widgets.actions && dashboardSettings.rules.keep_actions_top && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.action_items && dashboardStatsData.action_items.length > 0))" 
+             style="background:#0e3a2f; color:#fff; border-radius:16px; padding:24px; margin-bottom:24px">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+            <div>
+              <div style="font-size:20px; font-weight:700">Bugün ilgilenmeniz gereken {{ dashboardStatsData.action_items.length }} konu var</div>
+              <div style="font-size:13px; opacity:0.8; margin-top:4px">Önceliklendirilmiş aksiyon merkezi</div>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px">
+            <div v-for="item in dashboardStatsData.action_items" :key="item.id" 
+                 style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; gap:12px">
+              <div>
+                <div style="font-weight:700; font-size:14px; color:#fff">{{ item.title }}</div>
+                <div style="font-size:12px; opacity:0.8; margin-top:4px">{{ item.description }}</div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px">
+                <span style="font-size:10px; opacity:0.6">{{ item.time }}</span>
+                <button class="btn btn-ghost btn-sm" style="color:#fff; font-weight:700; padding:0; font-size:12px; border:none; background:none"
+                        @click="page = item.target_page; if (item.target_sub_tab) talentSubTab = item.target_sub_tab; if(item.target_page==='interviews') interviewTab='calendar';">
+                  {{ item.action_text }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 3-Column Layout Row -->
-        <div style="display:grid; grid-template-columns: 1fr 1.6fr 1.2fr; gap:24px; align-items:start">
+        <div :style="dashboardGridStyle">
           
           <!-- LEFT COLUMN (1fr) -->
-          <div style="display:flex; flex-direction:column; gap:24px">
+          <div v-if="dashboardSettings.widgets.assistant || dashboardSettings.widgets.schedule" style="display:flex; flex-direction:column; gap:24px">
             
             <!-- SkillMatch Assistant Card -->
-            <div class="card" style="background:linear-gradient(135deg, #f0fdf4 0%, #fffbeb 100%); border:1px solid #bbf7d0; padding:20px; border-radius:16px; display:flex; flex-direction:column; gap:16px">
+            <div v-if="dashboardSettings.widgets.assistant" class="card" style="background:linear-gradient(135deg, #f0fdf4 0%, #fffbeb 100%); border:1px solid #bbf7d0; padding:20px; border-radius:16px; display:flex; flex-direction:column; gap:16px">
               <div style="display:flex; justify-content:space-between; align-items:center">
                 <div style="display:flex; align-items:center; gap:8px">
                   <div style="width:36px; height:36px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700">S</div>
@@ -380,7 +441,7 @@
             </div>
 
             <!-- Program / Schedule Panel -->
-            <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
+            <div v-if="dashboardSettings.widgets.schedule && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.schedule && dashboardStatsData.schedule.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
                 <div style="font-weight:700; font-size:14px; color:var(--g800)">Bugünkü programım</div>
                 <button class="btn btn-ghost btn-sm text-primary" style="font-size:12px; font-weight:600" @click="page='interviews'; interviewTab='calendar'">Tüm takvim →</button>
@@ -413,10 +474,10 @@
           </div>
 
           <!-- MIDDLE COLUMN (1.6fr) -->
-          <div style="display:flex; flex-direction:column; gap:24px">
+          <div v-if="dashboardSettings.widgets.positions || dashboardSettings.widgets.candidates" style="display:flex; flex-direction:column; gap:24px">
             
             <!-- Active Positions Table -->
-            <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
+            <div v-if="dashboardSettings.widgets.positions && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.active_positions && dashboardStatsData.active_positions.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
                 <div>
                   <div style="font-weight:700; font-size:14px; color:var(--g800)">Aktif pozisyonlarım</div>
@@ -463,7 +524,7 @@
             </div>
 
             <!-- New Applications Panel -->
-            <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
+            <div v-if="dashboardSettings.widgets.candidates && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.new_candidates && dashboardStatsData.new_candidates.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
                 <div>
                   <div style="font-weight:700; font-size:14px; color:var(--g800)">Yeni başvurular</div>
@@ -494,38 +555,245 @@
           </div>
 
           <!-- RIGHT COLUMN (1.2fr) -->
-          <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--g100); padding-bottom:12px">
-              <div style="display:flex; align-items:center; gap:8px">
-                <div style="font-weight:700; font-size:14px; color:var(--g800)">İlgilenmeniz gerekenler</div>
-                <span class="badge b-rejected" style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700">10</span>
+          <div v-if="(dashboardSettings.widgets.actions && !dashboardSettings.rules.keep_actions_top) || dashboardSettings.widgets.recent_activities" style="display:flex; flex-direction:column; gap:24px">
+            
+            <!-- İlgilenmeniz Gerekenler Card -->
+            <div v-if="dashboardSettings.widgets.actions && !dashboardSettings.rules.keep_actions_top && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.action_items && dashboardStatsData.action_items.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--g100); padding-bottom:12px">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <div style="font-weight:700; font-size:14px; color:var(--g800)">İlgilenmeniz gerekenler</div>
+                  <span class="badge b-rejected" style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700">{{ dashboardStatsData.action_items.length }}</span>
+                </div>
+              </div>
+
+              <!-- Urgent action center items list -->
+              <div style="display:flex; flex-direction:column; gap:16px">
+                <div v-for="item in dashboardStatsData.action_items" :key="item.id" 
+                     style="border-bottom:1px solid var(--g100); padding-bottom:16px; display:flex; gap:12px; align-items:flex-start">
+                  <div style="width:32px; height:32px; border-radius:50%; background:#f3f4f6; display:flex; align-items:center; justify-content:center; flex-shrink:0">
+                    <svg v-if="item.id==='expiring_locks'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <svg v-else-if="item.id==='missing_reports'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <svg v-else-if="item.id==='pending_approvals'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    <svg v-else-if="item.id==='empty_pipeline'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  </div>
+                  <div style="flex:1">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
+                      <span style="font-weight:700; font-size:13px; color:var(--g900)">{{ item.title }}</span>
+                      <span style="font-size:10px; color:var(--g400)">{{ item.time }}</span>
+                    </div>
+                    <p style="font-size:11.5px; color:var(--g600); margin:0 0 8px 0; line-height:1.4">{{ item.description }}</p>
+                    <button class="btn btn-ghost btn-sm text-primary" style="padding:0; font-size:11.5px; font-weight:700" 
+                            @click="page = item.target_page; if (item.target_sub_tab) talentSubTab = item.target_sub_tab; if(item.target_page==='interviews') interviewTab='calendar';">
+                      {{ item.action_text }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Urgent action center items list -->
-            <div style="display:flex; flex-direction:column; gap:16px">
-              <div v-for="item in dashboardStatsData.action_items" :key="item.id" 
-                   style="border-bottom:1px solid var(--g100); padding-bottom:16px; display:flex; gap:12px; align-items:flex-start">
-                <div style="width:32px; height:32px; border-radius:50%; background:#f3f4f6; display:flex; align-items:center; justify-content:center; flex-shrink:0">
-                  <svg v-if="item.id==='expiring_locks'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <svg v-else-if="item.id==='missing_reports'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <svg v-else-if="item.id==='pending_approvals'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                  <svg v-else-if="item.id==='empty_pipeline'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <!-- Son Hareketler Card -->
+            <div v-if="dashboardSettings.widgets.recent_activities && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.recent_activities && dashboardStatsData.recent_activities.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--g100); padding-bottom:12px">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <div style="font-weight:700; font-size:14px; color:var(--g800)">Son Hareketler</div>
                 </div>
-                <div style="flex:1">
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
-                    <span style="font-weight:700; font-size:13px; color:var(--g900)">{{ item.title }}</span>
-                    <span style="font-size:10px; color:var(--g400)">{{ item.time }}</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:16px">
+                <div v-for="act in dashboardStatsData.recent_activities" :key="act.id" style="border-bottom:1px solid var(--g100); padding-bottom:12px; display:flex; gap:10px; align-items:flex-start">
+                  <div style="width:24px; height:24px; border-radius:50%; background:#f0fdf4; display:flex; align-items:center; justify-content:center; color:#0e3a2f; font-size:10px; font-weight:700; flex-shrink:0">
+                    {{ (act.user_name || 'S')[0].toUpperCase() }}
                   </div>
-                  <p style="font-size:11.5px; color:var(--g600); margin:0 0 8px 0; line-height:1.4">{{ item.description }}</p>
-                  <button class="btn btn-ghost btn-sm text-primary" style="padding:0; font-size:11.5px; font-weight:700" 
-                          @click="page = item.target_page; if (item.target_sub_tab) talentSubTab = item.target_sub_tab; if(item.target_page==='interviews') interviewTab='calendar';">
-                    {{ item.action_text }}
-                  </button>
+                  <div style="flex:1">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px">
+                      <span style="font-weight:600; font-size:12px; color:var(--g900)">{{ act.user_name }}</span>
+                      <span style="font-size:10px; color:var(--g400)">{{ act.time }}</span>
+                    </div>
+                    <p style="font-size:11.5px; color:var(--g600); margin:0; line-height:1.4">{{ act.details }}</p>
+                  </div>
                 </div>
               </div>
             </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DASHBOARD SETTINGS DRAWER -->
+      <div v-if="showDashboardSettings" class="modal-backdrop" style="display:flex; justify-content:flex-end; align-items:stretch; background:rgba(0,0,0,0.4); z-index:9999" @click.self="showDashboardSettings = false">
+        <div style="width:480px; background:#fff; box-shadow:-4px 0 24px rgba(0,0,0,0.15); display:flex; flex-direction:column; padding:32px; overflow-y:auto; animation: slideIn 0.3s ease">
+          
+          <!-- Header -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:var(--g500); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px">DASHBOARD AYARLARI</div>
+              <div style="font-size:24px; font-weight:700; color:var(--g800)">Çalışma masanızı düzenleyin</div>
+              <div style="font-size:13px; color:var(--g500); margin-top:4px">Widget'ları açıp kapatın ve rolünüz için varsayılan görünümü kaydedin.</div>
+            </div>
+            <button @click="showDashboardSettings = false" style="background:var(--g100); border:none; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--g600)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <!-- Presets (Hazır Düzenler) -->
+          <div style="margin-bottom:28px">
+            <div style="font-size:13px; font-weight:700; color:var(--g800); margin-bottom:12px">Hazır düzenler</div>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px">
+              
+              <!-- Preset: Operasyon -->
+              <div @click="applyPreset('operation')" :style="dashboardSettings.preset === 'operation' ? 'border:1.5px solid #0e3a2f; background:#f4f7f6' : 'border:1px solid var(--g200)'" style="border-radius:10px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#0e3a2f"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                <div style="font-weight:700; font-size:13px; color:var(--g800)">Operasyon</div>
+                <div style="font-size:10px; color:var(--g500)">Günlük aksiyon odaklı</div>
+              </div>
+
+              <!-- Preset: Yönetici -->
+              <div @click="applyPreset('manager')" :style="dashboardSettings.preset === 'manager' ? 'border:1.5px solid #0e3a2f; background:#f4f7f6' : 'border:1px solid var(--g200)'" style="border-radius:10px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#0e3a2f"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <div style="font-weight:700; font-size:13px; color:var(--g800)">Yönetici</div>
+                <div style="font-size:10px; color:var(--g500)">KPI ve performans</div>
+              </div>
+
+              <!-- Preset: Sade -->
+              <div @click="applyPreset('simple')" :style="dashboardSettings.preset === 'simple' ? 'border:1.5px solid #0e3a2f; background:#f4f7f6' : 'border:1px solid var(--g200)'" style="border-radius:10px; padding:16px; cursor:pointer; display:flex; flex-direction:column; gap:8px">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#0e3a2f"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                <div style="font-weight:700; font-size:13px; color:var(--g800)">Sade</div>
+                <div style="font-size:10px; color:var(--g500)">Yalnızca kritik işler</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Components (Bileşenler) -->
+          <div style="margin-bottom:28px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+              <div style="font-size:13px; font-weight:700; color:var(--g800)">Dashboard bileşenleri</div>
+              <button @click="dashboardSettings.widgets = { assistant: true, schedule: true, positions: true, candidates: true, actions: true, recent_activities: true }" style="background:none; border:none; font-size:11px; font-weight:600; color:#0e3a2f; cursor:pointer">Tümünü aç</button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:16px">
+              
+              <!-- Widget: SkillMatch Asistan -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--g100)">
+                <div style="display:flex; gap:12px; align-items:center">
+                  <span style="font-size:16px; color:var(--g400)">⠿</span>
+                  <div>
+                    <div style="font-weight:600; font-size:13px; color:var(--g800)">SkillMatch Asistan</div>
+                    <div style="font-size:11px; color:var(--g500)">Günlük AI önerileri ve hızlı işlemler</div>
+                  </div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="dashboardSettings.widgets.assistant">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <!-- Widget: Bugünkü Programım -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--g100)">
+                <div style="display:flex; gap:12px; align-items:center">
+                  <span style="font-size:16px; color:var(--g400)">⠿</span>
+                  <div>
+                    <div style="font-weight:600; font-size:13px; color:var(--g800)">Bugünkü Programım</div>
+                    <div style="font-size:11px; color:var(--g500)">Görüşmeler ve onay toplantıları</div>
+                  </div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="dashboardSettings.widgets.schedule">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <!-- Widget: Aktif Pozisyonlarım -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--g100)">
+                <div style="display:flex; gap:12px; align-items:center">
+                  <span style="font-size:16px; color:var(--g400)">⠿</span>
+                  <div>
+                    <div style="font-weight:600; font-size:13px; color:var(--g800)">Aktif Pozisyonlarım</div>
+                    <div style="font-size:11px; color:var(--g500)">Pozisyon bazlı başvuru ve dönüşüm</div>
+                  </div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="dashboardSettings.widgets.positions">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <!-- Widget: Yeni Başvurular -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--g100)">
+                <div style="display:flex; gap:12px; align-items:center">
+                  <span style="font-size:16px; color:var(--g400)">⠿</span>
+                  <div>
+                    <div style="font-weight:600; font-size:13px; color:var(--g800)">Yeni Başvurular</div>
+                    <div style="font-size:11px; color:var(--g500)">Size atanan son adaylar</div>
+                  </div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="dashboardSettings.widgets.candidates">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <!-- Widget: İlgilenmeniz Gerekenler -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--g100)">
+                <div style="display:flex; gap:12px; align-items:center">
+                  <span style="font-size:16px; color:var(--g400)">⠿</span>
+                  <div>
+                    <div style="font-weight:600; font-size:13px; color:var(--g800)">İlgilenmeniz Gerekenler</div>
+                    <div style="font-size:11px; color:var(--g500)">SLA, onay ve eksik işlem uyarıları</div>
+                  </div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="dashboardSettings.widgets.actions">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <!-- Widget: Son Hareketler -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--g100)">
+                <div style="display:flex; gap:12px; align-items:center">
+                  <span style="font-size:16px; color:var(--g400)">⠿</span>
+                  <div>
+                    <div style="font-weight:600; font-size:13px; color:var(--g800)">Son Hareketler</div>
+                    <div style="font-size:11px; color:var(--g500)">Süreçlerinizdeki güncel değişiklikler</div>
+                  </div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" v-model="dashboardSettings.widgets.recent_activities">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Rules (Kurallar) -->
+          <div style="margin-bottom:32px">
+            <div style="font-size:13px; font-weight:700; color:var(--g800); margin-bottom:12px">Görünüm kuralları</div>
+            <div style="display:flex; flex-direction:column; gap:12px">
+              
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--g700); cursor:pointer">
+                <input type="checkbox" v-model="dashboardSettings.rules.default_for_role" style="accent-color:#0e3a2f; width:16px; height:16px">
+                <span>Bu düzeni rolüm için varsayılan yap</span>
+              </label>
+
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--g700); cursor:pointer">
+                <input type="checkbox" v-model="dashboardSettings.rules.keep_actions_top" style="accent-color:#0e3a2f; width:16px; height:16px">
+                <span>Kritik "İlgilenmeniz Gerekenler" alanını her zaman üstte tut</span>
+              </label>
+
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--g700); cursor:pointer">
+                <input type="checkbox" v-model="dashboardSettings.rules.hide_empty_widgets" style="accent-color:#0e3a2f; width:16px; height:16px">
+                <span>Boş widget'ları otomatik gizle</span>
+              </label>
+
+            </div>
+          </div>
+
+          <!-- Footer Buttons -->
+          <div style="display:flex; gap:12px; margin-top:auto; padding-top:20px; border-top:1px solid var(--g200)">
+            <button class="btn" style="flex:1; background:#fff; border:1px solid var(--g300); color:var(--g700); font-weight:600" @click="showDashboardSettings = false">Vazgeç</button>
+            <button class="btn" style="flex:1; background:#0e3a2f; border:none; color:#fff; font-weight:600" @click="saveDashboardSettings">Düzeni kaydet</button>
           </div>
 
         </div>

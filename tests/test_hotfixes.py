@@ -391,3 +391,63 @@ def test_dashboard_stats():
             del app.dependency_overrides[get_current_user]
         db.close()
 
+
+def test_dashboard_settings():
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    
+    test_user = models.User(
+        email="test_settings_user@example.com",
+        full_name="Fatma Güler",
+        hashed_password="mocked_password",
+        role="RECRUITER",
+        is_active=True
+    )
+    db.add(test_user)
+    db.commit()
+    db.refresh(test_user)
+
+    def mock_get_current_user():
+        return test_user
+        
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    
+    try:
+        # 1. GET default settings
+        res = client.get("/api/analytics/dashboard-settings")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["preset"] == "operation"
+        assert data["widgets"]["assistant"] is True
+
+        # 2. POST custom settings
+        payload = {
+            "preset": "manager",
+            "widgets": {
+                "assistant": True,
+                "schedule": False,
+                "positions": True,
+                "candidates": False,
+                "actions": True,
+                "recent_activities": True
+            },
+            "rules": {
+                "default_for_role": False,
+                "keep_actions_top": False,
+                "hide_empty_widgets": True
+            }
+        }
+        res_post = client.post("/api/analytics/dashboard-settings", json=payload)
+        assert res_post.status_code == 200
+        
+        # 3. GET custom settings again
+        res_get = client.get("/api/analytics/dashboard-settings")
+        assert res_get.status_code == 200
+        data_get = res_get.json()
+        assert data_get["preset"] == "manager"
+        assert data_get["widgets"]["schedule"] is False
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
+

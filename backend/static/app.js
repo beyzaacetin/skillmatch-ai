@@ -83,6 +83,41 @@ createApp({
       action_items: []
     });
     const dashboardLoading = ref(false);
+    const showDashboardSettings = ref(false);
+    const dashboardSettings = ref({
+      preset: 'operation',
+      widgets: {
+        assistant: true,
+        schedule: true,
+        positions: true,
+        candidates: true,
+        actions: true,
+        recent_activities: true
+      },
+      rules: {
+        default_for_role: true,
+        keep_actions_top: true,
+        hide_empty_widgets: true
+      }
+    });
+
+    const dashboardGridStyle = computed(() => {
+      const showLeft = dashboardSettings.value.widgets.assistant || dashboardSettings.value.widgets.schedule;
+      const showMiddle = dashboardSettings.value.widgets.positions || dashboardSettings.value.widgets.candidates;
+      const showRight = (dashboardSettings.value.widgets.actions && !dashboardSettings.value.rules.keep_actions_top) || dashboardSettings.value.widgets.recent_activities;
+      
+      let cols = [];
+      if (showLeft) cols.push('1fr');
+      if (showMiddle) cols.push('1.6fr');
+      if (showRight) cols.push('1.2fr');
+      
+      return {
+        display: 'grid',
+        gridTemplateColumns: cols.length > 0 ? cols.join(' ') : '1fr',
+        gap: '24px',
+        alignItems: 'start'
+      };
+    });
 
     // Workforce Headcount Budget & Suggestions (Phase 3)
     const talentSubTab = ref('pool');
@@ -389,7 +424,60 @@ createApp({
     // ─── LOAD DATA ────────────────────────────────────────────────────
     async function loadInitialData() {
       if (!currentUser.value) return;
-      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats()]);
+      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings()]);
+    }
+
+    async function loadDashboardSettings() {
+      try {
+        const data = await api('GET', '/api/analytics/dashboard-settings');
+        if (data) {
+          dashboardSettings.value = data;
+        }
+      } catch (e) {
+        console.error('Error loading dashboard settings:', e);
+      }
+    }
+
+    async function saveDashboardSettings() {
+      try {
+        await api('POST', '/api/analytics/dashboard-settings', dashboardSettings.value);
+        showDashboardSettings.value = false;
+        await loadDashboardStats();
+      } catch (e) {
+        alert('Ayarlar kaydedilemedi: ' + e.message);
+      }
+    }
+
+    function applyPreset(presetType) {
+      dashboardSettings.value.preset = presetType;
+      if (presetType === 'operation') {
+        dashboardSettings.value.widgets = {
+          assistant: true,
+          schedule: true,
+          positions: true,
+          candidates: true,
+          actions: true,
+          recent_activities: true
+        };
+      } else if (presetType === 'manager') {
+        dashboardSettings.value.widgets = {
+          assistant: true,
+          schedule: false,
+          positions: true,
+          candidates: false,
+          actions: true,
+          recent_activities: true
+        };
+      } else if (presetType === 'simple') {
+        dashboardSettings.value.widgets = {
+          assistant: false,
+          schedule: true,
+          positions: false,
+          candidates: false,
+          actions: true,
+          recent_activities: false
+        };
+      }
     }
 
     async function loadDashboardStats() {
@@ -2307,6 +2395,7 @@ createApp({
 
       // Dashboard State & Methods
       dashboardHotelFilter, dashboardViewMode, dashboardTestRole, dashboardStatsData, dashboardLoading, loadDashboardStats,
+      showDashboardSettings, dashboardSettings, loadDashboardSettings, saveDashboardSettings, applyPreset, dashboardGridStyle,
 
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
