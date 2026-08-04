@@ -34,6 +34,11 @@ def create_interview(data: schemas.InterviewCreate, db: Session = Depends(databa
     app.status_history = h
     db.commit()
     db.refresh(iv)
+    try:
+        from services.ownership_service import reset_ownership_timer
+        reset_ownership_timer(iv.application_id, db, "interview_scheduled")
+    except Exception:
+        pass
     return iv
 
 @router.get("/application/{app_id}", response_model=List[schemas.InterviewOut])
@@ -58,6 +63,11 @@ def save_feedback(iv_id: int, data: schemas.InterviewFeedback, db: Session = Dep
     iv.status = "completed"
     db.commit()
     db.refresh(iv)
+    try:
+        from services.ownership_service import reset_ownership_timer
+        reset_ownership_timer(iv.application_id, db, "interview_completed")
+    except Exception:
+        pass
     return iv
 
 @router.post("/{iv_id}/generate-questions")

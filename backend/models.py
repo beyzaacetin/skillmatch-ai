@@ -39,6 +39,9 @@ JSON = RobustJSON
 class Candidate(Base):
     __tablename__ = "candidates"
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
+    position_id = Column(Integer, ForeignKey("positions.id"), nullable=True)
+    full_name = Column(String, nullable=True)
     name = Column(String, index=True)
     email = Column(String, index=True, nullable=True)
     phone = Column(String, nullable=True)
@@ -73,6 +76,7 @@ class Candidate(Base):
 class Position(Base):
     __tablename__ = "positions"
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
     title = Column(String, index=True)
     department = Column(String, nullable=True)
     description = Column(Text)
@@ -91,6 +95,10 @@ class Position(Base):
     hiring_manager = Column(String, nullable=True)
     target_date = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Multi-hotel configurations
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    
     applications = relationship("Application", back_populates="position", cascade="all, delete-orphan")
 
 # ─── YENİ (v4) ───────────────────────────────────────────────────────────────
@@ -115,6 +123,14 @@ class Application(Base):
     applied_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     hired_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Configurable Ownership & locks
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=True)
+    ownership_started_at = Column(DateTime(timezone=True), nullable=True)
+    ownership_expires_at = Column(DateTime(timezone=True), nullable=True)
+    extension_count = Column(Integer, default=0)
+    lock_status = Column(String, default="UNLOCKED") # LOCKED, UNLOCKED, WAITING
+    
     # Relations
     candidate = relationship("Candidate", back_populates="applications")
     position = relationship("Position", back_populates="applications")
@@ -124,6 +140,7 @@ class Application(Base):
 class Interview(Base):
     __tablename__ = "interviews"
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
     application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
     round_number = Column(Integer, default=1)
     interview_type = Column(String, default="hr")   # hr|technical|video|onsite
@@ -159,7 +176,13 @@ class Interview(Base):
 class Offer(Base):
     __tablename__ = "offers"
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
     application_id = Column(Integer, ForeignKey("applications.id"), unique=True, nullable=False)
+    position_id = Column(Integer, ForeignKey("positions.id"), nullable=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=True)
+    recruiter_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    offered_salary = Column(Float, nullable=True)
+    offer_date = Column(String, nullable=True)
     status = Column(String, default="draft")    # draft|sent|accepted|rejected|negotiating
     proposed_salary = Column(Integer, nullable=True)
     final_salary = Column(Integer, nullable=True)
@@ -172,6 +195,10 @@ class Offer(Base):
     letter_content = Column(Text, nullable=True)   # AI üretimi teklif mektubu
     sent_at = Column(DateTime(timezone=True), nullable=True)
     responded_at = Column(DateTime(timezone=True), nullable=True)
+    deviation_reason = Column(String, nullable=True)
+    deviation_explanation = Column(Text, nullable=True)
+    approved_by = Column(JSON, default=[])
+    approval_status = Column(String, default="APPROVED")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     application = relationship("Application", back_populates="offer")
 
@@ -201,10 +228,12 @@ class UserRole(enum.Enum):
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     full_name = Column(String)
     role = Column(String, default=UserRole.RECRUITER.value)
+    role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
     department = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -213,6 +242,12 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     # candidate specific
     candidate_access_token = Column(String, nullable=True, index=True)
+    
+    # Scoped permissions
+    hotel_access_ids = Column(JSON, default=[])
+    region_access_ids = Column(JSON, default=[])
+    department_access_ids = Column(JSON, default=[])
+    data_visibility_scope = Column(String, default="GLOBAL") # GLOBAL, REGIONAL, HOTEL, DEPARTMENT
 
 class Log(Base):
     __tablename__ = "logs"
@@ -407,6 +442,195 @@ class CalendarEvent(Base):
     interview_id = Column(Integer, ForeignKey("interviews.id"), nullable=True)
     task_id = Column(Integer, ForeignKey("recruitment_tasks.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─── Multi-Hotel Settings & Structure (v5) ───────────────────────────────────
+
+class Organization(Base):
+    __tablename__ = "organizations"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    code = Column(String, unique=True, index=True)
+    is_active = Column(Boolean, default=True)
+    order_index = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Country(Base):
+    __tablename__ = "countries"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    code = Column(String, unique=True, index=True)
+    is_active = Column(Boolean, default=True)
+
+class City(Base):
+    __tablename__ = "cities"
+    id = Column(Integer, primary_key=True, index=True)
+    country_id = Column(Integer, ForeignKey("countries.id"), nullable=False)
+    name = Column(String, index=True)
+    is_active = Column(Boolean, default=True)
+
+class Region(Base):
+    __tablename__ = "regions"
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    name = Column(String, index=True)
+    is_active = Column(Boolean, default=True)
+
+class Hotel(Base):
+    __tablename__ = "hotels"
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    region_id = Column(Integer, ForeignKey("regions.id"), nullable=False)
+    name = Column(String, index=True)
+    code = Column(String, unique=True, index=True)
+    branding_settings = Column(JSON, default={})
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Department(Base):
+    __tablename__ = "departments"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    code = Column(String, unique=True, index=True)
+    is_active = Column(Boolean, default=True)
+    order_index = Column(Integer, default=0)
+
+class HotelDepartmentPositionMapping(Base):
+    __tablename__ = "hotel_department_position_mappings"
+    id = Column(Integer, primary_key=True, index=True)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    position_title = Column(String, nullable=False)
+
+class Role(Base):
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    code = Column(String, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    permissions = Column(JSON, default={})
+    is_custom = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class SystemConfiguration(Base):
+    __tablename__ = "system_configurations"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True)
+    value = Column(JSON, nullable=True)
+    category = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=True)
+
+class ImmutableAuditLog(Base):
+    __tablename__ = "immutable_audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True)
+    user_name = Column(String, nullable=True)
+    action = Column(String, index=True)
+    target_type = Column(String, index=True)
+    target_id = Column(Integer, nullable=True)
+    details = Column(JSON, default={})
+    ip_address = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CandidateExtensionRequest(Base):
+    __tablename__ = "candidate_extension_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
+    requested_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reason_category = Column(String, nullable=False)
+    custom_explanation = Column(Text, nullable=True)
+    status = Column(String, default="PENDING")  # PENDING, APPROVED, REJECTED
+    days_requested = Column(Integer, default=10)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CandidateInterestWaitingList(Base):
+    __tablename__ = "candidate_interest_waiting_lists"
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=False)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    notified = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkforceHeadcountBudget(Base):
+    __tablename__ = "workforce_headcount_budgets"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    position_title = Column(String, nullable=False)
+    headcount_budget = Column(Integer, default=0)
+    target_salary_min = Column(Integer, nullable=True)
+    target_salary_max = Column(Integer, nullable=True)
+    currency = Column(String, default='TRY')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CandidateRoutingSuggestion(Base):
+    __tablename__ = "candidate_routing_suggestions"
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, ForeignKey("candidates.id"), nullable=False)
+    source_hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    target_hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    position_title = Column(String, nullable=False)
+    status = Column(String, default='PENDING') # PENDING, ACCEPTED, REJECTED
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class SalaryPolicy(Base):
+    __tablename__ = "salary_policies"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    position_title = Column(String, nullable=False, index=True)
+    seniority_level = Column(String, nullable=True)  # Junior, Mid, Senior
+    min_salary = Column(Integer, nullable=False)
+    target_salary = Column(Integer, nullable=False)
+    max_salary = Column(Integer, nullable=False)
+    accommodation = Column(Boolean, default=False)
+    transportation = Column(Boolean, default=False)
+    meal = Column(Boolean, default=False)
+    bonus = Column(String, nullable=True)
+    additional_benefits = Column(JSON, default=[])
+    currency = Column(String, default='TRY')
+    effective_start_date = Column(DateTime(timezone=True), nullable=True)
+    effective_end_date = Column(DateTime(timezone=True), nullable=True)
+    version = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True)
+    status = Column(String, default='active')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class OfferApprovalRequest(Base):
+    __tablename__ = "offer_approval_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    offer_id = Column(Integer, ForeignKey("offers.id"), nullable=False)
+    approver_role = Column(String, nullable=False)  # HOTEL_HR, CENTRAL_HR
+    sequence_number = Column(Integer, default=1)
+    status = Column(String, default='PENDING')  # PENDING, APPROVED, REJECTED
+    decision_notes = Column(Text, nullable=True)
+    resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
 
 
 

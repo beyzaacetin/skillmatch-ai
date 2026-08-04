@@ -174,7 +174,29 @@ try:
             
             # position_reports table migration for Candidate reports visibility
             "ALTER TABLE position_reports ADD COLUMN candidate_id INTEGER",
-            "ALTER TABLE position_reports ADD COLUMN application_id INTEGER"
+            "ALTER TABLE position_reports ADD COLUMN application_id INTEGER",
+            
+            # Multi-hotel & dynamic role columns additions (v5)
+            "ALTER TABLE users ADD COLUMN role_id INTEGER",
+            "ALTER TABLE users ADD COLUMN hotel_access_ids JSON DEFAULT '[]'",
+            "ALTER TABLE users ADD COLUMN region_access_ids JSON DEFAULT '[]'",
+            "ALTER TABLE users ADD COLUMN department_access_ids JSON DEFAULT '[]'",
+            "ALTER TABLE users ADD COLUMN data_visibility_scope VARCHAR(50) DEFAULT 'GLOBAL'",
+            
+            "ALTER TABLE positions ADD COLUMN hotel_id INTEGER",
+            "ALTER TABLE positions ADD COLUMN department_id INTEGER",
+            
+            "ALTER TABLE applications ADD COLUMN hotel_id INTEGER",
+            "ALTER TABLE applications ADD COLUMN ownership_started_at TIMESTAMP",
+            "ALTER TABLE applications ADD COLUMN ownership_expires_at TIMESTAMP",
+            "ALTER TABLE applications ADD COLUMN extension_count INTEGER DEFAULT 0",
+            "ALTER TABLE applications ADD COLUMN lock_status VARCHAR(50) DEFAULT 'UNLOCKED'",
+
+            # offers table deviations & approvals (v6 Phase 4)
+            "ALTER TABLE offers ADD COLUMN deviation_reason VARCHAR(255)",
+            "ALTER TABLE offers ADD COLUMN deviation_explanation TEXT",
+            "ALTER TABLE offers ADD COLUMN approved_by JSON DEFAULT '[]'",
+            "ALTER TABLE offers ADD COLUMN approval_status VARCHAR(50) DEFAULT 'APPROVED'"
         ]
         for q in queries:
             try:
@@ -267,6 +289,18 @@ try:
     except Exception as demo_err:
         print(f"[Startup] Demo user setup package import failed: {demo_err}")
 
+    # Seed multi-hotel hierarchy foundation
+    try:
+        from database import SessionLocal
+        from services.seed import seed_multi_hotel_foundation
+        db_session = SessionLocal()
+        try:
+            seed_multi_hotel_foundation(db_session)
+        finally:
+            db_session.close()
+    except Exception as seed_err:
+        print(f"[Startup] Seeding multi-hotel database failed: {seed_err}")
+
     app = FastAPI(title="SkillMatch AI v4", version="4.0.0", docs_url="/api/docs")
 
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -291,9 +325,12 @@ try:
     templates = Jinja2Templates(directory=templates_dir)
 
     # Routers
-    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports
+    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, settings, ownership, portal
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
+    app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
+    app.include_router(ownership.router, prefix="/api/ownership", tags=["ownership"])
+    app.include_router(portal.router, prefix="/api/portal", tags=["portal"])
     app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
     app.include_router(positions.router, prefix="/api/positions", tags=["positions"])
     app.include_router(reports.router, prefix="/api/reports", tags=["reports"])

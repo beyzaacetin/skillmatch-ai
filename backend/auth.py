@@ -88,24 +88,61 @@ def get_current_active_user(
 
 # ─── Rol Tabanlı Erişim Kontrolü (RBAC) ───────────────────────────────────────
 
+def check_permission(permission_key: str):
+    """
+    Kullanıcının dinamik rolündeki yetkilerden birine sahip olmasını doğrular.
+    Örnek: Depends(check_permission("can_access_settings"))
+    """
+    def checker(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+        # System Admin always bypasses checks
+        if current_user.role == "SYSTEM_ADMIN" or current_user.role == "ADMIN":
+            return current_user
+            
+        if current_user.role_id:
+            role = db.query(models.Role).filter(models.Role.id == current_user.role_id).first()
+            if role and role.permissions and role.permissions.get(permission_key):
+                return current_user
+                
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu işlem için gerekli yetkiniz bulunmamaktadır."
+        )
+    return checker
+
+
 def require_roles(*roles: models.UserRole):
     """
     Kullanıcının belirtilen rollerden birine sahip olmasını zorunlu kılar.
     Kullanım: Depends(require_roles(UserRole.HR, UserRole.ADMIN))
     """
-    def checker(current_user: models.User = Depends(get_current_user)):
+    def checker(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+        # Get dynamic role code
+        role_code = None
+        if current_user.role_id:
+            role_obj = db.query(models.Role).filter(models.Role.id == current_user.role_id).first()
+            if role_obj:
+                role_code = role_obj.code.upper()
+                
         allowed = [r.value.upper() if hasattr(r, 'value') else str(r).upper() for r in roles]
         user_role_upper = current_user.role.upper() if current_user.role else ""
         
+        # If user has a database role, use its code for checks
+        if role_code:
+            user_role_upper = role_code
+            
         # Map aliases and support case-insensitive database values
         if "RECRUITER" in allowed:
-            allowed.extend(["HR", "RECRUITER"])
+            allowed.extend(["HR", "RECRUITER", "HOTEL_HR", "CENTRAL_HR", "REGIONAL_HR"])
         if "HIRING_MANAGER" in allowed:
-            allowed.extend(["MANAGER", "HIRING_MANAGER"])
+            allowed.extend(["MANAGER", "HIRING_MANAGER", "DEPARTMENT_MANAGER"])
         if "ADMIN" in allowed:
-            allowed.extend(["ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN"])
+            allowed.extend(["ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN", "SYSTEM_ADMIN"])
             
         if user_role_upper not in allowed:
+            # If the user is a SYSTEM_ADMIN, they have all permissions
+            if role_code == "SYSTEM_ADMIN" or current_user.role == "ADMIN":
+                return current_user
+                
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Bu işlem için yetkiniz yok. Gerekli rol: {allowed}"
@@ -114,18 +151,30 @@ def require_roles(*roles: models.UserRole):
     return checker
 
 
-def require_hr_or_admin(current_user: models.User = Depends(get_current_user)):
+def require_hr_or_admin(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """İK veya Admin rolü gerektirir."""
-    user_role_upper = current_user.role.upper() if current_user.role else ""
-    if user_role_upper not in ["HR", "RECRUITER", "ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN"]:
+    role_code = None
+    if current_user.role_id:
+        role_obj = db.query(models.Role).filter(models.Role.id == current_user.role_id).first()
+        if role_obj:
+            role_code = role_obj.code.upper()
+            
+    user_role_upper = role_code or (current_user.role.upper() if current_user.role else "")
+    if user_role_upper not in ["HR", "RECRUITER", "ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN", "SYSTEM_ADMIN", "CENTRAL_HR", "REGIONAL_HR", "HOTEL_HR"]:
         raise HTTPException(status_code=403, detail="Bu işlem için İK veya Admin yetkisi gerekli")
     return current_user
 
 
-def require_manager_or_above(current_user: models.User = Depends(get_current_user)):
+def require_manager_or_above(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Yönetici, İK veya Admin rolü gerektirir."""
-    user_role_upper = current_user.role.upper() if current_user.role else ""
-    if user_role_upper not in ["MANAGER", "HIRING_MANAGER", "HR", "RECRUITER", "ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN"]:
+    role_code = None
+    if current_user.role_id:
+        role_obj = db.query(models.Role).filter(models.Role.id == current_user.role_id).first()
+        if role_obj:
+            role_code = role_obj.code.upper()
+            
+    user_role_upper = role_code or (current_user.role.upper() if current_user.role else "")
+    if user_role_upper not in ["MANAGER", "HIRING_MANAGER", "HR", "RECRUITER", "ADMIN", "AGENCY_ADMIN", "SUPER_ADMIN", "SYSTEM_ADMIN", "CENTRAL_HR", "REGIONAL_HR", "HOTEL_HR", "DEPARTMENT_MANAGER"]:
         raise HTTPException(status_code=403, detail="Bu işlem için Yönetici veya üzeri yetki gerekli")
     return current_user
 

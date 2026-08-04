@@ -58,15 +58,39 @@ def create_application(data: schemas.ApplicationCreate, db: Session = Depends(da
         except Exception as fallback_err:
             logger.error(f"Fallback matcher failed: {fallback_err}")
 
+    from datetime import timedelta
+    cfg_simul = db.query(models.SystemConfiguration).filter_by(key="simultaneous_applications_allowed").first()
+    simultaneous_allowed = cfg_simul.value if cfg_simul else False
+
+    if not simultaneous_allowed:
+        active_app = db.query(models.Application).filter(
+            models.Application.candidate_id == data.candidate_id,
+            models.Application.lock_status == 'LOCKED',
+            models.Application.status.notin_(['hired', 'rejected', 'withdrawn'])
+        ).first()
+        if active_app and active_app.hotel_id != position.hotel_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Bu adayın başka bir otelde kilitli aktif başvurusu bulunmaktadır. Eş zamanlı süreç başlatılamaz."
+            )
+
+    cfg_days = db.query(models.SystemConfiguration).filter_by(key="ownership_duration_days").first()
+    days = int(cfg_days.value) if cfg_days else 10
+
+    now_utc = datetime.now(timezone.utc)
     app = models.Application(
         candidate_id=data.candidate_id, position_id=data.position_id,
         status="applied",
-        status_history=[{"status": "applied", "date": datetime.now(timezone.utc).isoformat(), "note": "Başvuru oluşturuldu"}],
+        status_history=[{"status": "applied", "date": now_utc.isoformat(), "note": "Başvuru oluşturuldu"}],
         cover_letter=data.cover_letter, source=data.source,
         match_score=score_val,
         semantic_score=semantic_val,
         keyword_score=keyword_val,
         matching_skills=skills_val,
+        hotel_id=position.hotel_id,
+        ownership_started_at=now_utc,
+        ownership_expires_at=now_utc + timedelta(days=days),
+        lock_status='LOCKED'
     )
     try:
         db.add(app)
@@ -81,6 +105,12 @@ def create_application(data: schemas.ApplicationCreate, db: Session = Depends(da
 
 @router.get("/", response_model=List[schemas.ApplicationOut])
 def list_applications(position_id: Optional[int]=None, status: Optional[str]=None, db: Session = Depends(database.get_db)):
+    try:
+        from services.ownership_service import check_and_release_expired_ownerships
+        check_and_release_expired_ownerships(db)
+    except Exception as err:
+        logger.error(f"Error auto-releasing expired ownerships: {err}")
+
     q = db.query(models.Application).join(models.Candidate).filter(models.Candidate.is_deleted == False).options(joinedload(models.Application.candidate), joinedload(models.Application.position))
     if position_id: q = q.filter(models.Application.position_id == position_id)
     if status: q = q.filter(models.Application.status == status)
@@ -215,6 +245,11 @@ def update_status(app_id: int, data: schemas.ApplicationStatusUpdate, db: Sessio
     _push_history(a, data.status, data.note)
     if data.status == "hired": a.hired_at = datetime.now(timezone.utc)
     db.commit()
+    try:
+        from services.ownership_service import reset_ownership_timer
+        reset_ownership_timer(a.id, db, "status_changed")
+    except Exception:
+        pass
     
     # Log the transition
     from routers.candidates import _log
@@ -274,6 +309,11 @@ def update_application_stage(app_id: int, payload: dict = Body(...), db: Session
     if stage == "hired":
         a.hired_at = datetime.now(timezone.utc)
     db.commit()
+    try:
+        from services.ownership_service import reset_ownership_timer
+        reset_ownership_timer(a.id, db, "status_changed")
+    except Exception:
+        pass
     return {"status": a.status}
 
 

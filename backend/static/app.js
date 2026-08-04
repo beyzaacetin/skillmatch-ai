@@ -59,11 +59,27 @@ createApp({
     const candidates = ref([]);
     const positions = ref([]);
     const stats = ref({});
+    const salaryStats = ref({ avg_offered: 0, median_offered: 0, avg_accepted: 0, acceptance_rate: 0, deviation_rate: 0, policy_benchmarks: [] });
     const pipeline = ref([]);
     const pipelineLoading = ref(false);
     const pipelinePositionFilter = ref('');
     const allInterviews = ref([]);
     const pipelineStats = ref({});
+
+    // Workforce Headcount Budget & Suggestions (Phase 3)
+    const talentSubTab = ref('pool');
+    const sharingJob = ref(null);
+    const sharingHotel = ref(null);
+    const showShareModal = ref(false);
+    const showWalkinModal = ref(false);
+    const publicJob = ref({});
+    const publicBranding = ref({});
+    const publicApplyForm = ref({ name: '', email: '', phone: '', cover_letter: '' });
+    const publicApplyCv = ref(null);
+    const submittingPublic = ref(false);
+    const walkinForm = ref({ name: '', email: '', phone: '', position_title: '', kvkk_consent: false });
+    const walkinCv = ref(null);
+    const submittingWalkin = ref(false);
 
     // AI Interview Assistant State
     const interviewTab = ref('list');
@@ -150,14 +166,15 @@ createApp({
     const matchModal = ref({ show: false, candidate: null, positionId: '', results: [], loading: false });
 
     // Forms
-    const newPos = ref({ title: '', department: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null });
+    const newPos = ref({ title: '', department: '', hotel_id: '', department_id: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null });
     const newApp = ref({ candidate_id: '', position_id: '', source: '', cover_letter: '' });
     const newIv = ref({ round_number: 1, interview_type: 'hr', scheduled_at: '', duration_minutes: 60, interviewer_name: '', meeting_link: '' });
-    const newOffer = ref({ proposed_salary: null, start_date: '', position_title: '', benefits_str: '', notes: '' });
+    const newOffer = ref({ proposed_salary: null, start_date: '', position_title: '', benefits_str: '', notes: '', deviation_reason: '', deviation_explanation: '' });
     const loginData = ref({ email: '', password: '' });
     const authMode = ref('login');
     const registerData = ref({ full_name: '', email: '', password: '', department: '' });
     const allUsers = ref([]);
+    const pendingApprovals = ref([]);
 
     // AI Search, Tasks, Bulk, Timeline, Users CRUD State
     const aiSearchQuery = ref('');
@@ -184,6 +201,42 @@ createApp({
     const newUser = ref({ full_name: '', email: '', password: '', department: '', role: 'RECRUITER', is_active: true });
     const editingUser = ref(null);
     const passwordResetData = ref({ userId: null, password: '', confirmPassword: '' });
+
+    // System Settings States
+    const settingsSubTab = ref('org');
+    const orgSubTab = ref('orgs');
+    const settingsData = ref({ organizations: [], countries: [], cities: [], regions: [], hotels: [], departments: [], mappings: [], roles: [], configs: [], auditLogs: [], salaryPolicies: [], extensionRequests: [] });
+    
+    // Settings modals
+    const showOrgModal = ref(false);
+    const showHotelModal = ref(false);
+    const showDeptModal = ref(false);
+    const showMappingModal = ref(false);
+    const showRoleModal = ref(false);
+    
+    // Editing structures
+    const editingOrg = ref({ id: null, name: '', code: '', is_active: true, order_index: 0 });
+    const editingHotel = ref({ id: null, organization_id: '', city_id: '', region_id: '', name: '', code: '', branding_settings: {}, is_active: true });
+    const editingDept = ref({ id: null, name: '', code: '', is_active: true, order_index: 0 });
+    const newMapping = ref({ hotel_id: '', department_id: '', position_title: '' });
+    const editingRole = ref({ id: null, name: '', code: '', description: '', permissions: {}, is_custom: true });
+    
+    const permissionLabelMap = {
+      can_access_settings: { title: "Sistem Ayarlarına Erişim", desc: "Tüm sistem ayarlarını ve parametrelerini görebilir/değiştirebilir." },
+      can_see_salaries: { title: "Maaş Bilgilerini Görme", desc: "Aday tekliflerindeki ve politikalardaki maaş bilgilerini görebilir." },
+      can_edit_salaries: { title: "Maaş Bilgilerini Düzenleme", desc: "Maaş politikalarını ve tekliflerdeki tutarları değiştirebilir." },
+      can_approve_offers: { title: "Teklif Onaylama", desc: "Sapma gösteren teklifleri ve onay süreçlerini onaylayabilir." },
+      can_manage_users: { title: "Kullanıcı Yönetimi", desc: "Sistem kullanıcılarını ekleyebilir, silebilir ve yetkilendirebilir." },
+      can_export_data: { title: "Veri Dışa Aktarma", desc: "Raporları Excel veya PDF olarak dışa aktarabilir." },
+      can_blacklist: { title: "Kara Liste Yönetimi", desc: "Adayları kara listeye alabilir veya kara listeden çıkarabilir." },
+      can_view_reports: { title: "Raporları Görüntüleme", desc: "Sistem ve performans analitiği raporlarını inceleyebilir." }
+    };
+
+    // Candidate Ownership & Locks States
+    const candidateLockStatus = ref({ locked: false });
+    const showExtensionModal = ref(false);
+    const newExtensionRequest = ref({ application_id: null, reason_category: 'Candidate requested a later interview date', custom_explanation: '' });
+
 
     // Interview feedback
     const feedbackIv = ref(null);
@@ -318,7 +371,7 @@ createApp({
     // ─── LOAD DATA ────────────────────────────────────────────────────
     async function loadInitialData() {
       if (!currentUser.value) return;
-      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics()]);
+      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings()]);
     }
 
     async function loadCandidates() {
@@ -333,12 +386,14 @@ createApp({
       try {
         const posFilter = analyticsPositionFilter.value ? `&position_id=${analyticsPositionFilter.value}` : '';
         const dateFilter = analyticsDateFilter.value ? `&date_range=${analyticsDateFilter.value}` : '';
-        const [data, logsData] = await Promise.all([
+        const [data, logsData, salaryData] = await Promise.all([
           api('GET', `/api/analytics/stats?${posFilter}${dateFilter}`),
-          api('GET', '/api/analytics/logs')
+          api('GET', '/api/analytics/logs'),
+          api('GET', '/api/analytics/salary-report')
         ]);
         stats.value = data;
         logs.value = logsData;
+        salaryStats.value = salaryData;
         // Build topSkills from chart data
         if (data.charts?.skills) {
           const sk = {};
@@ -823,8 +878,10 @@ createApp({
 
     async function savePosition() {
       try {
+        const deptObj = settingsData.value.departments.find(d => d.id === newPos.value.department_id);
         const payload = {
           ...newPos.value,
+          department: deptObj ? deptObj.name : newPos.value.department,
           required_skills: newPos.value.required_skills_str.split(',').map(s => s.trim()).filter(Boolean),
           preferred_skills: [],
         };
@@ -832,7 +889,7 @@ createApp({
         const saved = await api('POST', '/api/positions/', payload);
         positions.value.unshift(saved);
         showNewPositionModal.value = false;
-        newPos.value = { title: '', department: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null };
+        newPos.value = { title: '', department: '', hotel_id: '', department_id: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null };
       } catch (e) { alert('Kayıt hatası: ' + e.message); }
     }
 
@@ -1163,11 +1220,13 @@ createApp({
           position_title: newOffer.value.position_title,
           benefits: newOffer.value.benefits_str.split(',').map(s => s.trim()).filter(Boolean),
           notes: newOffer.value.notes,
+          deviation_reason: newOffer.value.deviation_reason || null,
+          deviation_explanation: newOffer.value.deviation_explanation || null,
         };
         const saved = await api('POST', '/api/offers/', payload);
         currentOffer.value = saved;
         showNewOfferModal.value = false;
-        newOffer.value = { proposed_salary: null, start_date: '', position_title: '', benefits_str: '', notes: '' };
+        newOffer.value = { proposed_salary: null, start_date: '', position_title: '', benefits_str: '', notes: '', deviation_reason: '', deviation_explanation: '' };
         if (selectedApp.value) selectedApp.value.status = 'offer';
         loadPipeline();
       } catch (e) { alert('Teklif kaydedilemedi: ' + e.message); }
@@ -1347,10 +1406,18 @@ createApp({
 
     // ─── INIT ─────────────────────────────────────────────────────────
     onMounted(async () => {
-      // SPA route checking for candidate profile
       const path = window.location.pathname;
+      const jobMatch = path.match(/^\/portal\/job\/(\d+)/);
+      const walkinMatch = path.match(/^\/portal\/walk-in\/(\d+)/);
       const candMatch = path.match(/^\/candidates\/(\d+)/);
-      if (candMatch) {
+      
+      if (jobMatch) {
+        page.value = 'public_job';
+        await loadPublicJobDetails(parseInt(jobMatch[1]));
+      } else if (walkinMatch) {
+        page.value = 'public_walkin';
+        await loadPublicWalkinDetails(parseInt(walkinMatch[1]));
+      } else if (candMatch) {
         page.value = 'candidate_profile';
         await loadFullCandidateProfile(parseInt(candMatch[1]));
       } else {
@@ -1708,6 +1775,48 @@ createApp({
       };
     });
 
+    const filteredMappingTitles = computed(() => {
+      const hotelId = Number(newPos.value.hotel_id);
+      const deptId = Number(newPos.value.department_id);
+      if (!hotelId || !deptId) return [];
+      const filtered = settingsData.value.mappings.filter(m => 
+        Number(m.hotel_id) === hotelId && 
+        Number(m.department_id) === deptId
+      );
+      const titles = filtered.map(m => m.position_title).filter(Boolean);
+      return [...new Set(titles)].sort();
+    });
+
+    const matchedSalaryPolicy = computed(() => {
+      if (!selectedApp.value) return null;
+      const hotelId = Number(selectedApp.value.hotel_id);
+      const posTitle = newOffer.value.position_title || (selectedApp.value.position ? selectedApp.value.position.title : '');
+      const deptId = selectedApp.value.position ? Number(selectedApp.value.position.department_id) : null;
+      
+      const policies = settingsData.value.salaryPolicies || [];
+      
+      // Match exact hotel + department + title
+      let p = policies.find(x => 
+        Number(x.hotel_id) === hotelId && 
+        Number(x.department_id) === deptId && 
+        (x.position_title || '').toLowerCase() === posTitle.toLowerCase()
+      );
+      if (p) return p;
+
+      // Match hotel + title
+      p = policies.find(x => 
+        Number(x.hotel_id) === hotelId && 
+        (x.position_title || '').toLowerCase() === posTitle.toLowerCase()
+      );
+      if (p) return p;
+
+      // Match title only
+      p = policies.find(x => 
+        (x.position_title || '').toLowerCase() === posTitle.toLowerCase()
+      );
+      return p || null;
+    });
+
 
     // --- 6 MODULES REDESIGN HELPER FUNCTIONS ---
     
@@ -1749,6 +1858,12 @@ createApp({
         candidateProfileApps.value = await api('GET', `/api/candidates/${candidateId}/applications`);
         candidateProfileReports.value = await api('GET', `/api/candidates/${candidateId}/reports`);
         
+        try {
+          candidateLockStatus.value = await api('GET', `/api/ownership/candidate-lock-status/${candidateId}`);
+        } catch (e) {
+          candidateLockStatus.value = { locked: false };
+        }
+
         // Split interview answers
         const allHR = [];
         const allTech = [];
@@ -2091,9 +2206,563 @@ createApp({
       // Candidate communication methods
       normalizePhoneForWhatsApp, openCommunication, generateAiDraft, openInExternalChannel, copyCommText, getDaysSinceLastActivity,
 
+      // ─── SYSTEM SETTINGS (SİSTEM AYARLARI) ────────────────────────────
+      loadSettings,
+      getRegionName,
+      getCityName,
+      getHotelName,
+      getDeptName,
+      formatAuditDate,
+      openNewOrgModal,
+      editOrg,
+      saveOrg,
+      openNewHotelModal,
+      editHotel,
+      saveHotel,
+      openNewDeptModal,
+      editDept,
+      saveDept,
+      openNewMappingModal,
+      saveMapping,
+      deleteMapping,
+      openNewRoleModal,
+      editRole,
+      saveRole,
+      saveConfig,
+      
+      // settings state
+      settingsSubTab,
+      orgSubTab,
+      settingsData,
+      showOrgModal,
+      showHotelModal,
+      showDeptModal,
+      showMappingModal,
+      showRoleModal,
+      editingOrg,
+      editingHotel,
+      editingDept,
+      newMapping,
+      editingRole,
+      permissionLabelMap,
+
+      // Candidate Ownership & Locks
+      candidateLockStatus,
+      showExtensionModal,
+      newExtensionRequest,
+      subscribeToWaitingList,
+      forceReleaseLock,
+      openExtensionRequestModal,
+      submitExtensionRequest,
+      resolveExtension,
+
+      // Phase 3 portal state & methods
+      talentSubTab, sharingJob, sharingHotel, showShareModal, showWalkinModal,
+      publicJob, publicBranding, publicApplyForm, publicApplyCv, submittingPublic,
+      walkinForm, walkinCv, submittingWalkin,
+      loadPublicJobDetails, loadPublicWalkinDetails, submitPublicApplication, onPublicCvSelected,
+      submitWalkinApplication, onWalkinCvSelected, getJobShareUrl, getWalkinShareUrl,
+      shareJobPosting, shareHotelWalkIn, copyShareLink, loadHeadcountBudgets, uploadBudgetExcel,
+      loadRoutingSuggestions, resolveRoutingSuggestion,
+      filteredMappingTitles, matchedSalaryPolicy,
+      pendingApprovals, loadPendingApprovals, resolveApproval, uploadSalaryPolicyExcel,
+      salaryStats,
+
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
       allUsers, loadUsers,
     };
+
+    // ─── SYSTEM SETTINGS METHODS IMPLEMENTATION ───────────────────────
+    async function loadSettings() {
+      try {
+        const [orgs, cities, regions, hotels, depts, mappings, roles, configs, logs, requests, policies] = await Promise.all([
+          api('GET', '/api/settings/organizations'),
+          api('GET', '/api/settings/cities'),
+          api('GET', '/api/settings/regions'),
+          api('GET', '/api/settings/hotels'),
+          api('GET', '/api/settings/departments'),
+          api('GET', '/api/settings/mappings'),
+          api('GET', '/api/settings/roles'),
+          api('GET', '/api/settings/configs'),
+          api('GET', '/api/settings/audit-logs'),
+          api('GET', '/api/ownership/extension-requests'),
+          api('GET', '/api/settings/salary-policy')
+        ]);
+        
+        settingsData.value.organizations = orgs;
+        settingsData.value.cities = cities;
+        settingsData.value.regions = regions;
+        settingsData.value.hotels = hotels;
+        settingsData.value.departments = depts;
+        settingsData.value.mappings = mappings;
+        settingsData.value.roles = roles;
+        settingsData.value.auditLogs = logs;
+        settingsData.value.extensionRequests = requests;
+        settingsData.value.salaryPolicies = policies;
+        
+        settingsData.value.configs = configs.map(c => {
+          if (Array.isArray(c.value)) {
+            return { ...c, valueRaw: c.value.join('\n') };
+          }
+          return c;
+        });
+      } catch (e) {
+        showToast('Ayarlar yüklenemedi: ' + e.message, 'error');
+      }
+    }
+
+    function getRegionName(id) {
+      const r = settingsData.value.regions.find(x => x.id === id);
+      return r ? r.name : 'Bilinmeyen Bölge';
+    }
+    function getCityName(id) {
+      const c = settingsData.value.cities.find(x => x.id === id);
+      return c ? c.name : 'Bilinmeyen Şehir';
+    }
+    function getHotelName(id) {
+      const h = settingsData.value.hotels.find(x => x.id === id);
+      return h ? h.name : 'Bilinmeyen Otel';
+    }
+    function getDeptName(id) {
+      const d = settingsData.value.departments.find(x => x.id === id);
+      return d ? d.name : 'Bilinmeyen Departman';
+    }
+    function formatAuditDate(ds) {
+      if (!ds) return '-';
+      const d = new Date(ds);
+      return d.toLocaleString('tr-TR');
+    }
+
+    function openNewOrgModal() {
+      editingOrg.value = { id: null, name: '', code: '', is_active: true, order_index: 0 };
+      showOrgModal.value = true;
+    }
+    function editOrg(org) {
+      editingOrg.value = { ...org };
+      showOrgModal.value = true;
+    }
+    async function saveOrg() {
+      try {
+        if (editingOrg.value.id) {
+          await api('PUT', `/api/settings/organizations/${editingOrg.value.id}`, editingOrg.value);
+          showToast('Organizasyon güncellendi.', 'success');
+        } else {
+          await api('POST', '/api/settings/organizations', editingOrg.value);
+          showToast('Organizasyon oluşturuldu.', 'success');
+        }
+        showOrgModal.value = false;
+        loadSettings();
+      } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+    }
+
+    function openNewHotelModal() {
+      editingHotel.value = { id: null, organization_id: settingsData.value.organizations[0]?.id || '', city_id: settingsData.value.cities[0]?.id || '', region_id: settingsData.value.regions[0]?.id || '', name: '', code: '', branding_settings: {}, is_active: true };
+      showHotelModal.value = true;
+    }
+    function editHotel(hotel) {
+      editingHotel.value = { ...hotel };
+      showHotelModal.value = true;
+    }
+    async function saveHotel() {
+      try {
+        if (editingHotel.value.id) {
+          await api('PUT', `/api/settings/hotels/${editingHotel.value.id}`, editingHotel.value);
+          showToast('Otel güncellendi.', 'success');
+        } else {
+          await api('POST', '/api/settings/hotels', editingHotel.value);
+          showToast('Otel oluşturuldu.', 'success');
+        }
+        showHotelModal.value = false;
+        loadSettings();
+      } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+    }
+
+    function openNewDeptModal() {
+      editingDept.value = { id: null, name: '', code: '', is_active: true, order_index: 0 };
+      showDeptModal.value = true;
+    }
+    function editDept(dept) {
+      editingDept.value = { ...dept };
+      showDeptModal.value = true;
+    }
+    async function saveDept() {
+      try {
+        if (editingDept.value.id) {
+          await api('PUT', `/api/settings/departments/${editingDept.value.id}`, editingDept.value);
+          showToast('Departman güncellendi.', 'success');
+        } else {
+          await api('POST', '/api/settings/departments', editingDept.value);
+          showToast('Departman oluşturuldu.', 'success');
+        }
+        showDeptModal.value = false;
+        loadSettings();
+      } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+    }
+
+    function openNewMappingModal() {
+      newMapping.value = { hotel_id: settingsData.value.hotels[0]?.id || '', department_id: settingsData.value.departments[0]?.id || '', position_title: '' };
+      showMappingModal.value = true;
+    }
+    async function saveMapping() {
+      try {
+        await api('POST', '/api/settings/mappings', newMapping.value);
+        showToast('Pozisyon eşleşmesi oluşturuldu.', 'success');
+        showMappingModal.value = false;
+        loadSettings();
+      } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+    }
+    async function deleteMapping(id) {
+      if (!confirm('Bu pozisyon eşleşmesini kaldırmak istediğinizden emin misiniz?')) return;
+      try {
+        await api('DELETE', `/api/settings/mappings/${id}`);
+        showToast('Pozisyon eşleşmesi kaldırıldı.', 'success');
+        loadSettings();
+      } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+    }
+
+    function openNewRoleModal() {
+      editingRole.value = { id: null, name: '', code: '', description: '', permissions: {
+        can_access_settings: false,
+        can_see_salaries: false,
+        can_edit_salaries: false,
+        can_approve_offers: false,
+        can_manage_users: false,
+        can_export_data: false,
+        can_blacklist: false,
+        can_view_reports: false
+      }, is_custom: true };
+      showRoleModal.value = true;
+    }
+    function editRole(role) {
+      const perms = {
+        can_access_settings: false,
+        can_see_salaries: false,
+        can_edit_salaries: false,
+        can_approve_offers: false,
+        can_manage_users: false,
+        can_export_data: false,
+        can_blacklist: false,
+        can_view_reports: false,
+        ...(role.permissions || {})
+      };
+      editingRole.value = { ...role, permissions: perms };
+      showRoleModal.value = true;
+    }
+    async function saveRole() {
+      try {
+        if (editingRole.value.id) {
+          await api('PUT', `/api/settings/roles/${editingRole.value.id}`, editingRole.value);
+          showToast('Rol güncellendi.', 'success');
+        } else {
+          await api('POST', '/api/settings/roles', editingRole.value);
+          showToast('Rol oluşturuldu.', 'success');
+        }
+        showRoleModal.value = false;
+        loadSettings();
+      } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+    }
+
+    async function saveConfig(c) {
+      try {
+        let val = c.value;
+        if (Array.isArray(c.value) && c.valueRaw !== undefined) {
+          val = c.valueRaw.split('\n').map(x => x.trim()).filter(x => x !== '');
+        }
+        await api('PUT', `/api/settings/configs/${c.key}`, { value: val });
+        showToast('Parametre kaydedildi.', 'success');
+        loadSettings();
+      } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+    }
+
+    async function subscribeToWaitingList(candidateId) {
+      try {
+        const res = await api('POST', '/api/ownership/waiting-list', { candidate_id: candidateId });
+        showToast(res.message, 'success');
+      } catch (e) {
+        showToast('Bekleme listesine kaydolurken hata: ' + e.message, 'error');
+      }
+    }
+
+    async function forceReleaseLock(candidateId) {
+      if (!candidateLockStatus.value.application_id) return;
+      if (!confirm("Bu adayın sahiplik kilidini kaldırmak ve ortak havuza aktarmak istediğinizden emin misiniz?")) return;
+      try {
+        const res = await api('POST', `/api/ownership/release/${candidateLockStatus.value.application_id}`);
+        showToast(res.message, 'success');
+        candidateLockStatus.value = await api('GET', `/api/ownership/candidate-lock-status/${candidateId}`);
+      } catch (e) {
+        showToast('Kilit kaldırılırken hata: ' + e.message, 'error');
+      }
+    }
+
+    function openExtensionRequestModal(candidateId) {
+      if (!candidateLockStatus.value.application_id) return;
+      newExtensionRequest.value = {
+        application_id: candidateLockStatus.value.application_id,
+        reason_category: 'Candidate requested a later interview date',
+        custom_explanation: ''
+      };
+      showExtensionModal.value = true;
+    }
+
+    async function submitExtensionRequest() {
+      try {
+        const res = await api('POST', '/api/ownership/extension-request', newExtensionRequest.value);
+        showToast('Uzatma talebi başarıyla Merkez İK\'ya iletildi.', 'success');
+        showExtensionModal.value = false;
+        if (candidateProfile.value?.id) {
+          candidateLockStatus.value = await api('GET', `/api/ownership/candidate-lock-status/${candidateProfile.value.id}`);
+        }
+      } catch (e) {
+        showToast('Talep gönderilemedi: ' + e.message, 'error');
+      }
+    }
+
+    async function resolveExtension(requestId, status) {
+      const statusText = status === 'APPROVED' ? 'onaylamak' : 'reddetmek';
+      if (!confirm(`Bu uzatma talebini ${statusText} istediğinizden emin misiniz?`)) return;
+      try {
+        const res = await api('PUT', `/api/ownership/extension-requests/${requestId}/resolve`, { status: status });
+        showToast(status === 'APPROVED' ? 'Talep onaylandı.' : 'Talep reddedildi. Aday havuza aktarıldı.', 'success');
+        loadSettings();
+      } catch (e) {
+        showToast('İşlem başarısız: ' + e.message, 'error');
+      }
+    }
+
+
+    // ─── PHASE 3 WORKFORCE BUDGET & PUBLIC PORTAL METHODS ────────────────
+
+    async function loadPublicJobDetails(id) {
+      try {
+        const res = await fetch(`/api/portal/job/${id}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Pozisyon yüklenemedi.');
+        publicJob.value = data;
+      } catch (err) {
+        showToast('Pozisyon detayları yüklenemedi: ' + err.message, 'error');
+      }
+    }
+
+    async function loadPublicWalkinDetails(hotelId) {
+      try {
+        const res = await fetch(`/api/portal/walk-in/${hotelId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Walk-in bilgileri yüklenemedi.');
+        publicBranding.value = data;
+        walkinForm.value.position_title = '';
+      } catch (err) {
+        showToast('Otel walk-in bilgileri yüklenemedi: ' + err.message, 'error');
+      }
+    }
+
+    function onPublicCvSelected(event) {
+      publicApplyCv.value = event.target.files[0];
+    }
+
+    async function submitPublicApplication() {
+      if (!publicApplyCv.value) {
+        showToast('Lütfen özgeçmişinizi PDF olarak yükleyin.', 'error');
+        return;
+      }
+      submittingPublic.value = true;
+      try {
+        const formData = new FormData();
+        formData.append('name', publicApplyForm.value.name);
+        formData.append('email', publicApplyForm.value.email);
+        formData.append('phone', publicApplyForm.value.phone);
+        if (publicApplyForm.value.cover_letter) {
+          formData.append('cover_letter', publicApplyForm.value.cover_letter);
+        }
+        formData.append('cv_file', publicApplyCv.value);
+
+        const url = `/api/portal/job/${publicJob.value.id}/apply`;
+        const res = await fetch(url, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Başvuru gönderilemedi.');
+        }
+        showToast('Başvurunuz başarıyla alındı. Teşekkür ederiz!', 'success');
+        publicApplyForm.value = { name: '', email: '', phone: '', cover_letter: '' };
+        publicApplyCv.value = null;
+      } catch (err) {
+        showToast('Başvuru hatası: ' + err.message, 'error');
+      } finally {
+        submittingPublic.value = false;
+      }
+    }
+
+    function onWalkinCvSelected(event) {
+      walkinCv.value = event.target.files[0];
+    }
+
+    async function submitWalkinApplication() {
+      if (!walkinCv.value) {
+        showToast('Lütfen özgeçmişinizi PDF olarak yükleyin.', 'error');
+        return;
+      }
+      if (!walkinForm.value.kvkk_consent) {
+        showToast('KVKK metnini onaylamanız zorunludur.', 'error');
+        return;
+      }
+      submittingWalkin.value = true;
+      try {
+        const formData = new FormData();
+        formData.append('name', walkinForm.value.name);
+        formData.append('email', walkinForm.value.email);
+        formData.append('phone', walkinForm.value.phone);
+        formData.append('position_title', walkinForm.value.position_title);
+        formData.append('kvkk_consent', walkinForm.value.kvkk_consent);
+        formData.append('cv_file', walkinCv.value);
+
+        const url = `/api/portal/walk-in/${publicBranding.value.hotel_id}/apply`;
+        const res = await fetch(url, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Başvuru gönderilemedi.');
+        }
+        showToast('Hızlı başvurunuz başarıyla alındı. Teşekkür ederiz!', 'success');
+        walkinForm.value = { name: '', email: '', phone: '', position_title: '', kvkk_consent: false };
+        walkinCv.value = null;
+      } catch (err) {
+        showToast('Başvuru hatası: ' + err.message, 'error');
+      } finally {
+        submittingWalkin.value = false;
+      }
+    }
+
+    function getJobShareUrl(id) {
+      return `${window.location.origin}/portal/job/${id}`;
+    }
+
+    function getWalkinShareUrl(id) {
+      return `${window.location.origin}/portal/walk-in/${id}`;
+    }
+
+    function shareJobPosting(job) {
+      sharingJob.value = job;
+      showShareModal.value = true;
+    }
+
+    function shareHotelWalkIn(hotel) {
+      sharingHotel.value = hotel;
+      showWalkinModal.value = true;
+    }
+
+    function copyShareLink(url) {
+      navigator.clipboard.writeText(url);
+      showToast('Paylaşım linki panoya kopyalandı.', 'success');
+    }
+
+    async function loadHeadcountBudgets() {
+      try {
+        const data = await api('GET', '/api/settings/headcount-budget');
+        settingsData.value.headcountBudgets = data;
+      } catch (err) {
+        showToast('Kadro bütçeleri yüklenemedi: ' + (err.detail || err.message), 'error');
+      }
+    }
+
+    async function uploadBudgetExcel(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      try {
+        const res = await fetch('/api/settings/headcount-budget/import', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token.value}`
+          },
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Excel yükleme hatası.');
+        }
+        showToast(data.message || 'Bütçe tablosu başarıyla yüklendi.', 'success');
+        await loadHeadcountBudgets();
+      } catch (err) {
+        showToast('Yükleme hatası: ' + err.message, 'error');
+      }
+    }
+
+    async function loadRoutingSuggestions() {
+      try {
+        const data = await api('GET', '/api/settings/routing-suggestions');
+        settingsData.value.routingSuggestions = data;
+      } catch (err) {
+        showToast('Yönlendirmeler yüklenemedi: ' + (err.detail || err.message), 'error');
+      }
+    }
+
+    async function resolveRoutingSuggestion(id, status) {
+      try {
+        const res = await api('PUT', `/api/settings/routing-suggestions/${id}/resolve`, { status });
+        showToast(res.message || 'Yönlendirme kararı kaydedildi.', 'success');
+        await loadRoutingSuggestions();
+        if (status === 'ACCEPTED') {
+          await loadCandidates();
+          await loadPipeline();
+        }
+      } catch (err) {
+        showToast('Karar kaydedilemedi: ' + (err.detail || err.message), 'error');
+      }
+    }
+
+    async function loadPendingApprovals() {
+      try {
+        const data = await api('GET', '/api/offers/approvals/pending');
+        pendingApprovals.value = data;
+      } catch (err) {
+        pendingApprovals.value = [];
+      }
+    }
+
+    async function resolveApproval(reqId, decision, notes = '') {
+      try {
+        const res = await api('POST', `/api/offers/approvals/${reqId}/resolve`, { status: decision, notes });
+        showToast(res.message || 'Karar kaydedildi.', 'success');
+        await loadPendingApprovals();
+        await loadPipeline();
+      } catch (err) {
+        showToast('Karar kaydedilemedi: ' + (err.detail || err.message), 'error');
+      }
+    }
+
+    async function uploadSalaryPolicyExcel(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      try {
+        const res = await fetch('/api/settings/salary-policy/import', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token.value}`
+          },
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Maaş tablosu yüklenemedi.');
+        }
+        showToast(data.message || 'Maaş tablosu başarıyla yüklendi.', 'success');
+        await loadSettings();
+      } catch (err) {
+        showToast('Yükleme hatası: ' + err.message, 'error');
+      }
+    }
   }
 }).mount('#app');

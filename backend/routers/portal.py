@@ -225,3 +225,331 @@ def get_notifications(
     db.commit()
 
     return [schemas.NotificationOut.model_validate(n) for n in notifications]
+
+
+# ─── PUBLIC PORTAL ENDPOINTS (Phase 3) ────────────────────────────────────────
+
+from fastapi import UploadFile, File, Form
+from datetime import datetime, timezone, timedelta
+import os, re, base64
+from services import pdf_parser, ai_analyzer
+from services.budget_service import check_headcount_budget, trigger_scoped_routing
+
+@router.get("/public/positions")
+def get_public_positions(db: Session = Depends(get_db)):
+    """Public access to list of active job postings."""
+    positions = db.query(models.Position).filter(models.Position.is_active == True).all()
+    return [{
+        "id": p.id,
+        "title": p.title,
+        "department": p.department,
+        "description": p.description,
+        "location": p.location,
+        "required_skills": p.required_skills,
+        "hotel_id": p.hotel_id
+    } for p in positions]
+
+
+@router.get("/public/positions/{pos_id}")
+def get_public_position_details(pos_id: int, db: Session = Depends(get_db)):
+    """Public access to specific job posting details."""
+    p = db.query(models.Position).filter(models.Position.id == pos_id, models.Position.is_active == True).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Pozisyon bulunamadı")
+    return {
+        "id": p.id,
+        "title": p.title,
+        "department": p.department,
+        "description": p.description,
+        "location": p.location,
+        "required_skills": p.required_skills,
+        "hotel_id": p.hotel_id
+    }
+
+
+@router.post("/public/positions/{pos_id}/apply")
+async def apply_public_position(
+    pos_id: int,
+    name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    cover_letter: str = Form(default=""),
+    cv_file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Public candidate apply endpoint for shareable job posting links."""
+    position = db.query(models.Position).filter(models.Position.id == pos_id, models.Position.is_active == True).first()
+    if not position:
+        raise HTTPException(status_code=404, detail="Pozisyon bulunamadı")
+
+    cfg_simul = db.query(models.SystemConfiguration).filter_by(key="simultaneous_applications_allowed").first()
+    simultaneous_allowed = cfg_simul.value if cfg_simul else False
+
+    if not simultaneous_allowed:
+        active_app = db.query(models.Application).filter(
+            models.Application.lock_status == 'LOCKED',
+            models.Application.status.notin_(['hired', 'rejected', 'withdrawn'])
+        ).join(models.Candidate).filter(
+            (models.Candidate.email == email) | (models.Candidate.phone == phone)
+        ).first()
+        if active_app and active_app.hotel_id != position.hotel_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Bu adayın başka bir otelde kilitli aktif başvurusu bulunmaktadır. Süreç başlatılamaz."
+            )
+
+    content = await cv_file.read()
+    text = pdf_parser.extract_text_from_pdf(content)
+    analysis = {}
+    if text and text.strip():
+        try:
+            analysis = ai_analyzer.analyze_cv(text)
+        except Exception:
+            pass
+
+    bl = db.query(models.Candidate).filter(
+        ((models.Candidate.email == email) & (models.Candidate.is_blacklisted == True)) |
+        ((models.Candidate.phone == phone) & (models.Candidate.is_blacklisted == True))
+    ).first()
+    if bl:
+        raise HTTPException(status_code=403, detail=f"Aday kara listededir: {bl.blacklist_reason or 'Sebep belirtilmemiş'}")
+
+    candidate = db.query(models.Candidate).filter(
+        (models.Candidate.email == email) | (models.Candidate.phone == phone)
+    ).first()
+
+    if not candidate:
+        candidate = models.Candidate(
+            name=name,
+            full_name=name,
+            email=email,
+            phone=phone,
+            position_id=position.id,
+            tenant_id=1,
+            summary=analysis.get("summary", ""),
+            skills=analysis.get("skills", []),
+            experience=analysis.get("experience", []),
+            education=analysis.get("education", []),
+            certifications=analysis.get("certifications", []),
+            projects=analysis.get("projects", []),
+            seniority_level=analysis.get("seniority_level"),
+            seniority_score=analysis.get("seniority_score"),
+            strengths=analysis.get("strengths", []),
+            areas_for_improvement=analysis.get("areas_for_improvement", [])
+        )
+        db.add(candidate)
+        db.commit()
+        db.refresh(candidate)
+
+        try:
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            safe_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', cv_file.filename)
+            dest_filename = f"{candidate.id}_{safe_filename}"
+            file_path = os.path.join(upload_dir, dest_filename)
+            with open(file_path, "wb") as f:
+                f.write(content)
+            candidate.cv_file_data = base64.b64encode(content).decode('utf-8')
+            candidate.cv_file_path = f"/static/uploads/{dest_filename}"
+            db.commit()
+            db.refresh(candidate)
+        except Exception:
+            pass
+
+    existing_app = db.query(models.Application).filter_by(candidate_id=candidate.id, position_id=position.id).first()
+    if existing_app:
+        raise HTTPException(status_code=400, detail="Bu pozisyona daha önce başvuruda bulundunuz.")
+
+    cfg_days = db.query(models.SystemConfiguration).filter_by(key="ownership_duration_days").first()
+    days = int(cfg_days.value) if cfg_days else 10
+
+    now_utc = datetime.now(timezone.utc)
+    app = models.Application(
+        candidate_id=candidate.id,
+        position_id=position.id,
+        status="applied",
+        status_history=[{"status": "applied", "date": now_utc.isoformat(), "note": "Başvuru oluşturuldu"}],
+        cover_letter=cover_letter,
+        source="Public Link",
+        hotel_id=position.hotel_id,
+        ownership_started_at=now_utc,
+        ownership_expires_at=now_utc + timedelta(days=days),
+        lock_status='LOCKED'
+    )
+    db.add(app)
+    db.commit()
+    db.refresh(app)
+
+    budget_status = check_headcount_budget(position.hotel_id, position.department_id, position.title, db)
+    if budget_status["violates"]:
+        audit = models.ImmutableAuditLog(
+            user_id=0,
+            user_name="SYSTEM",
+            action="budget_violation_warning",
+            target_type="application",
+            target_id=app.id,
+            details={
+                "message": f"{position.title} pozisyonunda bütçe sınırı ({budget_status['budget']}) aşılmıştır. Mevcut aktif aday sayısı: {budget_status['active_count']}.",
+                "hotel_id": position.hotel_id,
+                "position_title": position.title
+            }
+        )
+        db.add(audit)
+        db.commit()
+        trigger_scoped_routing(candidate.id, position.hotel_id, position.title, db)
+
+    return {"message": "Başvurunuz başarıyla alındı.", "application_id": app.id}
+
+
+@router.get("/public/walk-in/hotel/{hotel_id}")
+def get_walkin_hotel_branding(hotel_id: int, db: Session = Depends(get_db)):
+    """Fetch branding and department mapping info for walk-in QR application form."""
+    hotel = db.query(models.Hotel).filter_by(id=hotel_id, is_active=True).first()
+    if not hotel:
+        raise HTTPException(status_code=404, detail="Otel bulunamadı")
+    
+    positions = db.query(models.Position).filter(models.Position.hotel_id == hotel_id, models.Position.is_active == True).all()
+    titles = list(set([p.title for p in positions]))
+
+    return {
+        "hotel_name": hotel.name,
+        "branding_settings": hotel.branding_settings or {},
+        "active_position_titles": titles
+    }
+
+
+@router.post("/public/walk-in/hotel/{hotel_id}/apply")
+async def apply_walkin_qr(
+    hotel_id: int,
+    name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    position_title: str = Form(...),
+    kvkk_consent: bool = Form(...),
+    cv_file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Submit walk-in application from hotel QR code form."""
+    if not kvkk_consent:
+        raise HTTPException(status_code=400, detail="KVKK rıza onay metnini kabul etmeniz zorunludur.")
+
+    hotel = db.query(models.Hotel).filter_by(id=hotel_id, is_active=True).first()
+    if not hotel:
+        raise HTTPException(status_code=404, detail="Otel bulunamadı")
+
+    position = db.query(models.Position).filter(
+        models.Position.hotel_id == hotel_id,
+        models.Position.title.collate("NOCASE") == position_title,
+        models.Position.is_active == True
+    ).first()
+
+    if not position:
+        position = db.query(models.Position).filter(
+            models.Position.hotel_id == hotel_id,
+            models.Position.is_active == True
+        ).first()
+        if not position:
+            raise HTTPException(status_code=400, detail="Otelde aktif iş ilanı bulunmuyor.")
+
+    content = await cv_file.read()
+    text = pdf_parser.extract_text_from_pdf(content)
+    analysis = {}
+    if text and text.strip():
+        try:
+            analysis = ai_analyzer.analyze_cv(text)
+        except Exception:
+            pass
+
+    bl = db.query(models.Candidate).filter(
+        ((models.Candidate.email == email) & (models.Candidate.is_blacklisted == True)) |
+        ((models.Candidate.phone == phone) & (models.Candidate.is_blacklisted == True))
+    ).first()
+    if bl:
+        raise HTTPException(status_code=403, detail=f"Aday kara listededir: {bl.blacklist_reason or 'Sebep belirtilmemiş'}")
+
+    candidate = db.query(models.Candidate).filter(
+        (models.Candidate.email == email) | (models.Candidate.phone == phone)
+    ).first()
+
+    if not candidate:
+        candidate = models.Candidate(
+            name=name,
+            full_name=name,
+            email=email,
+            phone=phone,
+            position_id=position.id,
+            tenant_id=1,
+            summary=analysis.get("summary", ""),
+            skills=analysis.get("skills", []),
+            experience=analysis.get("experience", []),
+            education=analysis.get("education", []),
+            certifications=analysis.get("certifications", []),
+            projects=analysis.get("projects", []),
+            seniority_level=analysis.get("seniority_level"),
+            seniority_score=analysis.get("seniority_score"),
+            strengths=analysis.get("strengths", []),
+            areas_for_improvement=analysis.get("areas_for_improvement", [])
+        )
+        db.add(candidate)
+        db.commit()
+        db.refresh(candidate)
+
+        try:
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            safe_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', cv_file.filename)
+            dest_filename = f"{candidate.id}_{safe_filename}"
+            file_path = os.path.join(upload_dir, dest_filename)
+            with open(file_path, "wb") as f:
+                f.write(content)
+            candidate.cv_file_data = base64.b64encode(content).decode('utf-8')
+            candidate.cv_file_path = f"/static/uploads/{dest_filename}"
+            db.commit()
+            db.refresh(candidate)
+        except Exception:
+            pass
+
+    existing_app = db.query(models.Application).filter_by(candidate_id=candidate.id, position_id=position.id).first()
+    if existing_app:
+        raise HTTPException(status_code=400, detail="Bu pozisyona daha önce başvuruda bulundunuz.")
+
+    cfg_days = db.query(models.SystemConfiguration).filter_by(key="ownership_duration_days").first()
+    days = int(cfg_days.value) if cfg_days else 10
+
+    now_utc = datetime.now(timezone.utc)
+    app = models.Application(
+        candidate_id=candidate.id,
+        position_id=position.id,
+        status="applied",
+        status_history=[{"status": "applied", "date": now_utc.isoformat(), "note": "Başvuru oluşturuldu"}],
+        source="QR Walk-In",
+        hotel_id=hotel_id,
+        ownership_started_at=now_utc,
+        ownership_expires_at=now_utc + timedelta(days=days),
+        lock_status='LOCKED'
+    )
+    db.add(app)
+    db.commit()
+    db.refresh(app)
+
+    budget_status = check_headcount_budget(hotel_id, position.department_id, position_title, db)
+    if budget_status["violates"]:
+        audit = models.ImmutableAuditLog(
+            user_id=0,
+            user_name="SYSTEM",
+            action="budget_violation_warning",
+            target_type="application",
+            target_id=app.id,
+            details={
+                "message": f"{position_title} pozisyonunda bütçe sınırı ({budget_status['budget']}) aşılmıştır. Mevcut aktif aday sayısı: {budget_status['active_count']}.",
+                "hotel_id": hotel_id,
+                "position_title": position_title
+            }
+        )
+        db.add(audit)
+        db.commit()
+        trigger_scoped_routing(candidate.id, hotel_id, position_title, db)
+
+    return {"message": "Walk-in başvurunuz başarıyla alındı.", "application_id": app.id}

@@ -149,6 +149,8 @@ class PositionBase(BaseModel):
     priority: Optional[str] = "Orta"
     hiring_manager: Optional[str] = None
     target_date: Optional[str] = None
+    hotel_id: Optional[int] = None
+    department_id: Optional[int] = None
 
     @field_validator('required_skills', 'preferred_skills', mode='before')
     @classmethod
@@ -292,6 +294,8 @@ class OfferCreate(BaseModel):
     position_title: Optional[str] = None
     benefits: List[str] = []
     notes: Optional[str] = None
+    deviation_reason: Optional[str] = None
+    deviation_explanation: Optional[str] = None
 
 class OfferOut(BaseModel):
     id: int
@@ -306,6 +310,10 @@ class OfferOut(BaseModel):
     notes: Optional[str] = None
     negotiation_history: Optional[List[Any]] = []
     letter_content: Optional[str] = None
+    deviation_reason: Optional[str] = None
+    deviation_explanation: Optional[str] = None
+    approved_by: Optional[List[int]] = []
+    approval_status: Optional[str] = 'APPROVED'
     sent_at: Optional[datetime] = None
     responded_at: Optional[datetime] = None
     created_at: datetime
@@ -721,5 +729,57 @@ class CalendarEventOut(BaseModel):
     created_at: datetime
     class Config:
         from_attributes = True
+
+
+class NotificationOut(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    message: str
+    is_read: bool
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class SalaryPolicyBase(BaseModel):
+    hotel_id: Optional[int] = None
+    department_id: Optional[int] = None
+    position_title: str
+    seniority_level: Optional[str] = None
+    min_salary: int
+    target_salary: int
+    max_salary: int
+    accommodation: Optional[bool] = False
+    transportation: Optional[bool] = False
+    meal: Optional[bool] = False
+    bonus: Optional[str] = None
+    currency: Optional[str] = 'TRY'
+
+class SalaryPolicyCreate(SalaryPolicyBase):
+    pass
+
+class SalaryPolicyOut(SalaryPolicyBase):
+    id: int
+    version: int
+    is_active: bool
+    status: str
+    class Config:
+        from_attributes = True
+
+class OfferApprovalRequestOut(BaseModel):
+    id: int
+    offer_id: int
+    approver_role: str
+    sequence_number: int
+    status: str
+    decision_notes: Optional[str] = None
+    resolved_by_id: Optional[int] = None
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+
 
 
