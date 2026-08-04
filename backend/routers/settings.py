@@ -10,20 +10,13 @@ from auth import get_current_user, check_permission, get_db
 
 router = APIRouter()
 
-# Helper to log audit actions
 def log_audit(db: Session, user: models.User, action: str, target_type: str, target_id: Optional[int], details: dict, request: Optional[Request] = None):
+    from config import settings
+    if not settings.ENABLE_AUDIT_LOGGING:
+        return
     ip_addr = request.client.host if request and request.client else None
-    audit = models.ImmutableAuditLog(
-        user_id=user.id,
-        user_name=user.full_name,
-        action=action,
-        target_type=target_type,
-        target_id=target_id,
-        details=details,
-        ip_address=ip_addr
-    )
-    db.add(audit)
-    db.commit()
+    from services.audit_service import audit_service
+    audit_service.log(db, user, action, target_type, target_id, details, ip_addr)
 
 # ─── PYDANTIC SCHEMAS ────────────────────────────────────────────────────────
 

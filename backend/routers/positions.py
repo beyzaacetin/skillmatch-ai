@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
-import models, schemas, database
+import models, schemas, database, auth
 import json
 from datetime import datetime
 from services.gemini_service import call_gemini
@@ -37,11 +37,17 @@ def get_pdf_font():
 
 
 @router.post("/", response_model=schemas.Position)
-def create_position(position: schemas.PositionCreate, db: Session = Depends(database.get_db)):
+def create_position(
+    position: schemas.PositionCreate, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     db_position = models.Position(**position.dict())
     db.add(db_position)
     db.commit()
     db.refresh(db_position)
+    from services.audit_service import audit_service
+    audit_service.log(db, current_user, "position_created", "position", db_position.id, {"title": db_position.title})
     return db_position
 
 
@@ -60,7 +66,12 @@ def read_position(position_id: int, db: Session = Depends(database.get_db)):
 
 
 @router.put("/{position_id}", response_model=schemas.Position)
-def update_position(position_id: int, position_data: schemas.PositionCreate, db: Session = Depends(database.get_db)):
+def update_position(
+    position_id: int, 
+    position_data: schemas.PositionCreate, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     position = db.query(models.Position).filter(models.Position.id == position_id).first()
     if position is None:
         raise HTTPException(status_code=404, detail="Position not found")
@@ -70,16 +81,26 @@ def update_position(position_id: int, position_data: schemas.PositionCreate, db:
         
     db.commit()
     db.refresh(position)
+    from services.audit_service import audit_service
+    audit_service.log(db, current_user, "position_updated", "position", position.id, {"title": position.title})
     return position
 
 
 @router.delete("/{position_id}", status_code=204)
-def delete_position(position_id: int, db: Session = Depends(database.get_db)):
+def delete_position(
+    position_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     position = db.query(models.Position).filter(models.Position.id == position_id).first()
     if position is None:
         raise HTTPException(status_code=404, detail="Position not found")
+    pos_id = position.id
+    pos_title = position.title
     db.delete(position)
     db.commit()
+    from services.audit_service import audit_service
+    audit_service.log(db, current_user, "position_deleted", "position", pos_id, {"title": pos_title})
     return None
 
 

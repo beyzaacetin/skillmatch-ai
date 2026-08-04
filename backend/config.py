@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     APP_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = "http://localhost:8000"
 
+    # Feature Flags
+    ENABLE_CAMPAIGN_QR: bool = True
+    ENABLE_OCR_ONBOARDING: bool = True
+    ENABLE_SALARY_APPROVAL: bool = True
+    ENABLE_AUDIT_LOGGING: bool = True
+
     class Config:
         env_file = ".env"
         extra = "ignore"

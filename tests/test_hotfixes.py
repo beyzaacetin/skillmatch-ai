@@ -451,3 +451,68 @@ def test_dashboard_settings():
             del app.dependency_overrides[get_current_user]
         db.close()
 
+
+def test_audit_logging():
+    db = TestingSessionLocal()
+    
+    # 1. Direct logging test
+    test_user = models.User(
+        email="test_audit_user@example.com",
+        full_name="Audit Tester",
+        hashed_password="mocked_password",
+        role="ADMIN",
+        is_active=True
+    )
+    db.add(test_user)
+    db.commit()
+    db.refresh(test_user)
+
+    from services.audit_service import audit_service
+    entry = audit_service.log(
+        db=db,
+        user=test_user,
+        action="manual_test",
+        target_type="system",
+        target_id=999,
+        details={"test": True}
+    )
+    assert entry is not None
+    assert entry.action == "manual_test"
+    assert entry.user_name == "Audit Tester"
+    assert entry.user_id == test_user.id
+    
+    # 2. Endpoint client post test
+    payload = {
+        "title": "Audited Barista",
+        "department": "F&B",
+        "description": "Brew coffee",
+        "required_skills": ["Coffee"],
+        "preferred_skills": ["Latte Art"],
+        "min_experience_years": 1,
+        "seniority_level": "Mid",
+        "salary_min": 30000,
+        "salary_max": 40000,
+        "salary_currency": "TRY",
+        "is_active": True,
+        "location": "Antalya",
+        "headcount": 1,
+        "priority": "Orta",
+        "hiring_manager": "Mert Koç",
+        "target_date": "2026-09-01"
+    }
+    res = client.post("/api/positions/", json=payload)
+    assert res.status_code == 200
+    pos_id = res.json()["id"]
+
+    logs = db.query(models.ImmutableAuditLog).filter(
+        models.ImmutableAuditLog.action == "position_created",
+        models.ImmutableAuditLog.target_type == "position",
+        models.ImmutableAuditLog.target_id == pos_id
+    ).all()
+    
+    assert len(logs) == 1
+    assert logs[0].action == "position_created"
+    
+    db.close()
+
+

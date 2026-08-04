@@ -7,13 +7,19 @@ from services import pdf_parser, ai_analyzer
 
 router = APIRouter()
 
-def _log(db: Session, action: str, target_type: str, target_id: int, details: dict = {}):
+def _log(db: Session, action: str, target_type: str, target_id: int, details: dict = {}, user: models.User = None):
     log = models.Log(action=action, target_type=target_type, target_id=target_id, details=details)
     db.add(log)
     db.commit()
+    from services.audit_service import audit_service
+    audit_service.log(db, user, action, target_type, target_id, details)
 
 @router.post("/upload", response_model=schemas.Candidate)
-async def upload_cv(file: UploadFile = File(...), db: Session = Depends(database.get_db)):
+async def upload_cv(
+    file: UploadFile = File(...), 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     content = await file.read()
     text = pdf_parser.extract_text_from_pdf(content)
     
@@ -59,19 +65,14 @@ async def upload_cv(file: UploadFile = File(...), db: Session = Depends(database
     
     # Save CV file to static/uploads
     try:
-        import os, re
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        upload_dir = os.path.join(BASE_DIR, "static", "uploads")
+        import os, uuid, base64
+        ext = os.path.splitext(file.filename)[1] or ".pdf"
+        dest_filename = f"{db_candidate.id}_{uuid.uuid4().hex}{ext}"
+        upload_dir = "backend/static/uploads"
         os.makedirs(upload_dir, exist_ok=True)
-        
-        safe_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename)
-        dest_filename = f"{db_candidate.id}_{safe_filename}"
-        file_path = os.path.join(upload_dir, dest_filename)
-        
-        with open(file_path, "wb") as f:
+        dest_path = os.path.join(upload_dir, dest_filename)
+        with open(dest_path, "wb") as f:
             f.write(content)
-            
-        import base64
         db_candidate.cv_file_data = base64.b64encode(content).decode('utf-8')
         db_candidate.cv_file_path = f"/static/uploads/{dest_filename}"
         db.commit()
@@ -79,7 +80,7 @@ async def upload_cv(file: UploadFile = File(...), db: Session = Depends(database
     except Exception as save_err:
         print(f"[Upload] Failed to save CV file to disk: {save_err}")
     
-    _log(db, "candidate_added", "candidate", db_candidate.id, {"name": db_candidate.name})
+    _log(db, "candidate_added", "candidate", db_candidate.id, {"name": db_candidate.name}, current_user)
     
     return db_candidate
 
@@ -161,55 +162,87 @@ def read_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
     return c
 
 @router.patch("/{candidate_id}/rating")
-def update_rating(candidate_id: int, data: schemas.CandidateRatingUpdate, db: Session = Depends(database.get_db)):
+def update_rating(
+    candidate_id: int, 
+    data: schemas.CandidateRatingUpdate, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.rating = max(1, min(5, data.rating))
     db.commit()
+    _log(db, "candidate_rating_updated", "candidate", c.id, {"rating": c.rating}, current_user)
     return {"rating": c.rating}
 
 @router.patch("/{candidate_id}/notes")
-def update_notes(candidate_id: int, data: schemas.CandidateNotesUpdate, db: Session = Depends(database.get_db)):
+def update_notes(
+    candidate_id: int, 
+    data: schemas.CandidateNotesUpdate, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.notes = data.notes
     db.commit()
+    _log(db, "candidate_notes_updated", "candidate", c.id, {"notes": c.notes}, current_user)
     return {"notes": c.notes}
 
 @router.patch("/{candidate_id}/favorite")
-def toggle_favorite(candidate_id: int, db: Session = Depends(database.get_db)):
+def toggle_favorite(
+    candidate_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.is_favorite = not c.is_favorite
     db.commit()
+    _log(db, "candidate_favorite_toggled", "candidate", c.id, {"is_favorite": c.is_favorite}, current_user)
     return {"is_favorite": c.is_favorite}
 
 @router.patch("/{candidate_id}/blacklist")
-def toggle_blacklist(candidate_id: int, reason: str = Body(None, embed=True), db: Session = Depends(database.get_db)):
+def toggle_blacklist(
+    candidate_id: int, 
+    reason: str = Body(None, embed=True), 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c: raise HTTPException(status_code=404, detail="Aday bulunamadı")
     c.is_blacklisted = not c.is_blacklisted
     c.blacklist_reason = reason if c.is_blacklisted else None
     db.commit()
+    _log(db, "candidate_blacklist_toggled", "candidate", c.id, {"is_blacklisted": c.is_blacklisted, "reason": c.blacklist_reason}, current_user)
     return {"is_blacklisted": c.is_blacklisted, "reason": c.blacklist_reason}
 
 @router.delete("/{candidate_id}")
-def delete_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
+def delete_candidate(
+    candidate_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
     from datetime import datetime
     c.is_deleted = True
     c.deleted_at = datetime.utcnow()
-    c.deleted_by = "admin"
+    c.deleted_by = current_user.full_name if current_user else "admin"
     db.commit()
+    _log(db, "candidate_soft_deleted", "candidate", c.id, {}, current_user)
     return {"ok": True}
 
 @router.put("/{candidate_id}/restore")
-def restore_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
+def restore_candidate(
+    candidate_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
@@ -217,10 +250,15 @@ def restore_candidate(candidate_id: int, db: Session = Depends(database.get_db))
     c.deleted_at = None
     c.deleted_by = None
     db.commit()
+    _log(db, "candidate_restored", "candidate", c.id, {}, current_user)
     return {"ok": True, "message": "Aday başarıyla geri yüklendi"}
 
 @router.delete("/{candidate_id}/hard-delete")
-def hard_delete_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
+def hard_delete_candidate(
+    candidate_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Aday bulunamadı")
@@ -236,6 +274,7 @@ def hard_delete_candidate(candidate_id: int, db: Session = Depends(database.get_
     # Cascade delete (applications, interviews, offers) is handled via relationship cascade
     db.delete(c)
     db.commit()
+    _log(db, "candidate_hard_deleted", "candidate", candidate_id, {}, current_user)
     return {"ok": True, "message": "Aday ve tüm ilişkili veriler kalıcı olarak silindi"}
 
 @router.post("/compare", response_model=schemas.CandidateComparisonResponse)

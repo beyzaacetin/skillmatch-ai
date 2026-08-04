@@ -20,7 +20,11 @@ def _push_history(app, status, note=None):
     app.status = status
 
 @router.post("/", response_model=schemas.ApplicationOut, status_code=201)
-def create_application(data: schemas.ApplicationCreate, db: Session = Depends(database.get_db)):
+def create_application(
+    data: schemas.ApplicationCreate, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     exists = db.query(models.Application).filter(
         models.Application.candidate_id == data.candidate_id,
         models.Application.position_id == data.position_id
@@ -101,6 +105,8 @@ def create_application(data: schemas.ApplicationCreate, db: Session = Depends(da
         logger.error(f"Error creating application: {e}")
         raise HTTPException(status_code=500, detail=f"Başvuru oluşturulurken hata oluştu: {str(e)}")
         
+    from routers.candidates import _log
+    _log(db, "application_created", "application", app.id, {"candidate_id": app.candidate_id, "position_id": app.position_id}, current_user)
     return _load(app.id, db)
 
 @router.get("/", response_model=List[schemas.ApplicationOut])
@@ -238,7 +244,12 @@ def get_application(app_id: int, db: Session = Depends(database.get_db)):
     return a
 
 @router.patch("/{app_id}/status")
-def update_status(app_id: int, data: schemas.ApplicationStatusUpdate, db: Session = Depends(database.get_db)):
+def update_status(
+    app_id: int, 
+    data: schemas.ApplicationStatusUpdate, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     a = db.query(models.Application).filter(models.Application.id == app_id).first()
     if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
     old_status = a.status
@@ -253,24 +264,40 @@ def update_status(app_id: int, data: schemas.ApplicationStatusUpdate, db: Sessio
     
     # Log the transition
     from routers.candidates import _log
-    _log(db, "status_changed", "application", a.id, {"from": old_status, "to": a.status, "candidate_id": a.candidate_id})
+    _log(db, "status_changed", "application", a.id, {"from": old_status, "to": a.status, "candidate_id": a.candidate_id}, current_user)
     
     return {"status": a.status}
 
 @router.put("/{app_id}/notes")
-def update_hr_notes(app_id: int, notes: str, db: Session = Depends(database.get_db)):
+def update_hr_notes(
+    app_id: int, 
+    notes: str, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     a = db.query(models.Application).filter(models.Application.id == app_id).first()
     if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
     a.hr_notes = notes
     db.commit()
+    from routers.candidates import _log
+    _log(db, "application_notes_updated", "application", a.id, {"notes": notes}, current_user)
     return {"ok": True}
 
 @router.delete("/{app_id}", status_code=204)
-def delete_application(app_id: int, db: Session = Depends(database.get_db)):
+def delete_application(
+    app_id: int, 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     a = db.query(models.Application).filter(models.Application.id == app_id).first()
     if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+    app_id_val = a.id
+    candidate_id = a.candidate_id
+    position_id = a.position_id
     db.delete(a)
     db.commit()
+    from routers.candidates import _log
+    _log(db, "application_deleted", "application", app_id_val, {"candidate_id": candidate_id, "position_id": position_id}, current_user)
 
 @router.get("/{app_id}/match-score", response_model=schemas.MatchScoreOut)
 def get_application_match_score(app_id: int, db: Session = Depends(database.get_db)):
@@ -295,7 +322,12 @@ def get_application_match_score(app_id: int, db: Session = Depends(database.get_
 
 
 @router.patch("/{app_id}/stage")
-def update_application_stage(app_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+def update_application_stage(
+    app_id: int, 
+    payload: dict = Body(...), 
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user_optional)
+):
     stage = payload.get("stage")
     if not stage:
         raise HTTPException(status_code=400, detail="Stage value is required")
@@ -314,6 +346,8 @@ def update_application_stage(app_id: int, payload: dict = Body(...), db: Session
         reset_ownership_timer(a.id, db, "status_changed")
     except Exception:
         pass
+    from routers.candidates import _log
+    _log(db, "stage_changed", "application", a.id, {"from": old_status, "to": a.status, "candidate_id": a.candidate_id}, current_user)
     return {"status": a.status}
 
 

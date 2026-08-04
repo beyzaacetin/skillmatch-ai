@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -84,6 +84,24 @@ def get_current_active_user(
     current_user: models.User = Depends(get_current_user)
 ) -> models.User:
     return current_user
+
+
+def get_current_user_optional(
+    request: Request,
+    db: Session = Depends(get_db)
+) -> Optional[models.User]:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ")[1]
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id:
+            return db.query(models.User).filter(models.User.id == int(user_id)).first()
+    except Exception:
+        pass
+    return None
 
 
 # ─── Rol Tabanlı Erişim Kontrolü (RBAC) ───────────────────────────────────────
