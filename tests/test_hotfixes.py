@@ -756,6 +756,13 @@ def test_recruitment_campaign_and_utm_apply():
         db.close()
 
 
+def test_chatbot_assistant():
+    res = client.post("/api/chat", json={"message": "Merhaba Asistan!"})
+    assert res.status_code == 200
+    assert "response" in res.json()
+
+
+
 
 
 
