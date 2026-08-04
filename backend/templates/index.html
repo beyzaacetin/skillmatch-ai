@@ -196,26 +196,18 @@
       </button>
 
       <div class="nav-sec" style="margin-top:8px">İşe Alım</div>
-      <button class="nav-item" :class="{active: page==='talent'}" @click="page='talent'">
+      <button class="nav-item" :class="{active: page==='talent'}" @click="page='talent'; talentSubTab='pool'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Aday Havuzu
+        Aday Yönetimi
         <span v-if="candidates.length" class="nav-badge">{{ candidates.length }}</span>
-      </button>
-      <button class="nav-item" :class="{active: page==='pipeline'}" @click="page='pipeline';loadPipeline()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
-        Pipeline
       </button>
       <button class="nav-item" :class="{active: page==='jobs'}" @click="page='jobs'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
         Pozisyonlar
       </button>
-      <button class="nav-item" :class="{active: page==='interviews'}" @click="page='interviews'">
+      <button class="nav-item" :class="{active: page==='interviews'}" @click="page='interviews'; interviewSubTab='list'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        Mülakatlar
-      </button>
-      <button class="nav-item" :class="{active: page==='tasks'}" @click="page='tasks';loadRecruitmentTasks()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
-        Görevler & Takvim
+        Mülakat & Planlama
       </button>
 
       <div class="nav-sec" style="margin-top:8px">AI Araçları</div>
@@ -233,10 +225,6 @@
       </button>
 
       <div v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" class="nav-sec" style="margin-top:8px">Sistem</div>
-      <button v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN')" class="nav-item" :class="{active: page==='users'}" @click="page='users';loadUsers()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
-        Yetki Alanı
-      </button>
       <button v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" class="nav-item" :class="{active: page==='settings'}" @click="page='settings';loadSettings()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Sistem Ayarları
@@ -367,33 +355,50 @@
 
     <!-- TALENT POOL -->
     <template v-if="page==='talent'">
-      <div class="page-hdr">
+      <div class="page-hdr" style="background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px">
         <div>
-          <div class="page-hdr-title">Aday Havuzu <span style="font-size:14px;color:var(--g500);font-weight:400">{{ candidates.length }}</span></div>
-          <div class="page-hdr-sub">Tüm adayları takip edin</div>
+          <div class="page-hdr-title">
+            <span v-if="talentSubTab==='pool'">Aday Havuzu</span>
+            <span v-else-if="talentSubTab==='pipeline'">Aday Pipeline</span>
+            <span v-else-if="talentSubTab==='suggestions'">Gelen Yönlendirmeler</span>
+            <span v-else-if="talentSubTab==='approvals'">Teklif Onayları</span>
+            <span v-if="talentSubTab==='pool'" style="font-size:14px;color:var(--g500);font-weight:400;margin-left:8px">{{ candidates.length }} Aday</span>
+          </div>
+          <div class="page-hdr-sub">
+            <span v-if="talentSubTab==='pool'">Tüm adayları ve yetenek havuzunu takip edin</span>
+            <span v-else-if="talentSubTab==='pipeline'">İşe alım aşamalarını ve aday süreçlerini sürükle-bırak yöntemiyle yönetin</span>
+            <span v-else-if="talentSubTab==='suggestions'">Kardeş otellerden yönlendirilen aday önerileri ve detayları</span>
+            <span v-else-if="talentSubTab==='approvals'">Bütçe ve maaş politikası dışında kalan teklif onayları</span>
+          </div>
         </div>
-        <div class="search-bar" style="margin-left:auto">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input v-model="candidateSearch" placeholder="Aday veya yetenek ara...">
+
+        <!-- Pool Controls -->
+        <div v-if="talentSubTab==='pool'" style="margin-left:auto; display:flex; gap:10px; align-items:center">
+          <div class="search-bar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input v-model="candidateSearch" placeholder="Aday veya yetenek ara...">
+          </div>
+          <div class="view-toggle">
+            <button class="view-btn" :class="{active:talentView==='list'}" @click="talentView='list'">Liste</button>
+            <button class="view-btn" :class="{active:talentView==='grid'}" @click="talentView='grid'">Grid</button>
+          </div>
+          <button class="btn btn-primary" @click="showUpload=true">CV Yükle</button>
         </div>
-        <div class="view-toggle">
-          <button class="view-btn" :class="{active:talentView==='list'}" @click="talentView='list'">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            Liste
-          </button>
-          <button class="view-btn" :class="{active:talentView==='grid'}" @click="talentView='grid'">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-            Grid
-          </button>
+
+        <!-- Pipeline Controls -->
+        <div v-if="talentSubTab==='pipeline'" style="margin-left:auto; display:flex; gap:10px; align-items:center">
+          <select v-model="pipelinePositionFilter" @change="loadPipeline()" class="fs" style="width:auto;padding:6px 10px;font-size:12.5px">
+            <option value="">Tüm Pozisyonlar</option>
+            <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.title }}</option>
+          </select>
+          <button class="btn btn-primary" @click="showNewAppModal=true">+ Başvuru Ekle</button>
         </div>
-        <button class="btn btn-primary" @click="showUpload=true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          CV Yükle
-        </button>
       </div>
+
       <!-- Talent sub-navigation tabs -->
       <div style="background:#fff; border-bottom:1px solid var(--g200); padding:0 24px; display:flex; gap:16px; margin-bottom:12px">
         <button class="tab-btn" :class="{active: talentSubTab==='pool'}" @click="talentSubTab='pool'" style="background:none; border:none; padding:12px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="talentSubTab==='pool' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Tüm Adaylar</button>
+        <button class="tab-btn" :class="{active: talentSubTab==='pipeline'}" @click="talentSubTab='pipeline';loadPipeline()" style="background:none; border:none; padding:12px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="talentSubTab==='pipeline' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Aday Pipeline (Kanban)</button>
         <button class="tab-btn" :class="{active: talentSubTab==='suggestions'}" @click="talentSubTab='suggestions';loadRoutingSuggestions()" style="background:none; border:none; padding:12px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="talentSubTab==='suggestions' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">
           Gelen Yönlendirmeler
           <span v-if="settingsData.routingSuggestions?.filter(s => s.status==='PENDING').length" class="badge b-rejected" style="padding:2px 6px; font-size:10px; margin-left:4px">
@@ -744,84 +749,69 @@
             </div>
           </div>
         </div>
-      </div>
-    </template>
 
-    <!-- PIPELINE (KANBAN) -->
-    <template v-if="page==='pipeline'">
-      <div class="page-hdr">
-        <div>
-          <div class="page-hdr-title">Pipeline</div>
-          <div class="page-hdr-sub">İşe alım sürecini yönetin</div>
-        </div>
-        <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
-          <select v-model="pipelinePositionFilter" @change="loadPipeline()" class="fs" style="width:auto;padding:6px 10px;font-size:12.5px">
-            <option value="">Tüm Pozisyonlar</option>
-            <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.title }}</option>
-          </select>
-          <button class="btn btn-primary" @click="showNewAppModal=true">+ Başvuru Ekle</button>
-        </div>
-      </div>
-      <div class="page-body">
-        <!-- Bulk Action Bar for Pipeline -->
-        <div v-if="selectedApplicationIds.length > 0" class="card" style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; border-radius:8px">
-          <div style="font-weight:600; color:#166534; font-size:13px">
-            {{ selectedApplicationIds.length }} başvuru seçildi. Toplu İşlemler:
-          </div>
-          <div style="display:flex; gap:8px">
-            <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('change_stage', 'hr_interview')">Aşama Değiştir (İK Mülakatı)</button>
-            <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('change_stage', 'tech_interview')">Aşama Değiştir (Teknik Mülakat)</button>
-            <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('reject')">Toplu Reddet</button>
-            <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="const tag = prompt('Eklenecek etiket:'); if(tag) submitBulkAction('add_tag', tag)">Etiket Ekle</button>
-            <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('add_note', '')">Not Ekle</button>
-          </div>
-        </div>
-
-        <div v-if="pipelineLoading" style="text-align:center;padding:60px"><div class="loading-spin"></div></div>
-        <div v-else class="kanban">
-          <div v-for="col in pipeline" :key="col.status" class="kb-col"
-               @dragover.prevent @dragover="dragOverCol=col.status"
-               :class="{'drag-over': dragOverCol===col.status && draggedApp}"
-               @drop="dropOnCol(col.status)">
-            <div class="kb-col-hdr">
-              <div class="kb-col-title">
-                <span :style="`width:8px;height:8px;border-radius:50%;background:${stageColor(col.status)};display:inline-block`"></span>
-                {{ col.label }}
-                <span class="kb-count">{{ col.count }}</span>
-              </div>
+        <!-- PIPELINE SUB-TAB -->
+        <div v-if="talentSubTab==='pipeline'">
+          <!-- Bulk Action Bar for Pipeline -->
+          <div v-if="selectedApplicationIds.length > 0" class="card" style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; border-radius:8px">
+            <div style="font-weight:600; color:#166534; font-size:13px">
+              {{ selectedApplicationIds.length }} başvuru seçildi. Toplu İşlemler:
             </div>
-            <div v-for="app in col.applications" :key="app.id" class="kb-card"
-                 draggable="true" @dragstart="dragApp(app)" @dragend="dragOverCol=null"
-                 @click="openAppDetail(app)">
-              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
-                <div style="display:flex;align-items:center;gap:8px" @click.stop>
-                  <input type="checkbox" :value="app.id" v-model="selectedApplicationIds">
-                  <div>
-                    <div class="kb-name">{{ app.candidate?.name || '?' }}</div>
-                    <div class="kb-pos">{{ app.position?.title || '?' }}</div>
+            <div style="display:flex; gap:8px">
+              <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('change_stage', 'hr_interview')">Aşama Değiştir (İK Mülakatı)</button>
+              <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('change_stage', 'tech_interview')">Aşama Değiştir (Teknik Mülakat)</button>
+              <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('reject')">Toplu Reddet</button>
+              <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="const tag = prompt('Eklenecek etiket:'); if(tag) submitBulkAction('add_tag', tag)">Etiket Ekle</button>
+              <button class="btn btn-outline btn-sm" style="background:#fff; border-color:#bbf7d0" @click="submitBulkAction('add_note', '')">Not Ekle</button>
+            </div>
+          </div>
+
+          <div v-if="pipelineLoading" style="text-align:center;padding:60px"><div class="loading-spin"></div></div>
+          <div v-else class="kanban">
+            <div v-for="col in pipeline" :key="col.status" class="kb-col"
+                 @dragover.prevent @dragover="dragOverCol=col.status"
+                 :class="{'drag-over': dragOverCol===col.status && draggedApp}"
+                 @drop="dropOnCol(col.status)">
+              <div class="kb-col-hdr">
+                <div class="kb-col-title">
+                  <span :style="`width:8px;height:8px;border-radius:50%;background:${stageColor(col.status)};display:inline-block`"></span>
+                  {{ col.label }}
+                  <span class="kb-count">{{ col.count }}</span>
+                </div>
+              </div>
+              <div v-for="app in col.applications" :key="app.id" class="kb-card"
+                   draggable="true" @dragstart="dragApp(app)" @dragend="dragOverCol=null"
+                   @click="openAppDetail(app)">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
+                  <div style="display:flex;align-items:center;gap:8px" @click.stop>
+                    <input type="checkbox" :value="app.id" v-model="selectedApplicationIds">
+                    <div>
+                      <div class="kb-name">{{ app.candidate?.name || '?' }}</div>
+                      <div class="kb-pos">{{ app.position?.title || '?' }}</div>
+                    </div>
+                  </div>
+                  <span v-if="app.match_score" class="score-pill" :class="scoreClass(app.match_score)">%{{ Math.round(app.match_score) }}</span>
+                </div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+                  <span v-for="s in (app.matching_skills||[]).slice(0,3)" :key="s" class="skill-tag" style="font-size:10px">{{ s }}</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div class="stars">
+                    <svg v-for="i in 5" :key="i" class="star" :class="{on:i<=(app.candidate?.rating||0)}" viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  </div>
+                  <div style="display:flex;gap:4px;align-items:center" @click.stop>
+                    <button class="btn btn-ghost btn-sm btn-icon" style="padding:1px; width:18px; height:18px" :disabled="!app.candidate?.phone || isViewer" @click="openCommunication(app.candidate, 'whatsapp')" :title="app.candidate?.phone ? 'WhatsApp Taslağı' : 'Telefon numarası bulunamadı.'">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    </button>
+                    <button class="btn btn-ghost btn-sm btn-icon" style="padding:1px; width:18px; height:18px" :disabled="!app.candidate?.email || isViewer" @click="openCommunication(app.candidate, 'email')" :title="app.candidate?.email ? 'E-posta Taslağı' : 'E-posta adresi bulunamadı.'">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </button>
+                    <span v-if="app.source" style="font-size:10px;color:var(--g400)">{{ app.source }}</span>
                   </div>
                 </div>
-                <span v-if="app.match_score" class="score-pill" :class="scoreClass(app.match_score)">%{{ Math.round(app.match_score) }}</span>
               </div>
-              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
-                <span v-for="s in (app.matching_skills||[]).slice(0,3)" :key="s" class="skill-tag" style="font-size:10px">{{ s }}</span>
-              </div>
-              <div style="display:flex;align-items:center;justify-content:space-between">
-                <div class="stars">
-                  <svg v-for="i in 5" :key="i" class="star" :class="{on:i<=(app.candidate?.rating||0)}" viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                </div>
-                <div style="display:flex;gap:4px;align-items:center" @click.stop>
-                  <button class="btn btn-ghost btn-sm btn-icon" style="padding:1px; width:18px; height:18px" :disabled="!app.candidate?.phone || isViewer" @click="openCommunication(app.candidate, 'whatsapp')" :title="app.candidate?.phone ? 'WhatsApp Taslağı' : 'Telefon numarası bulunamadı.'">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                  </button>
-                  <button class="btn btn-ghost btn-sm btn-icon" style="padding:1px; width:18px; height:18px" :disabled="!app.candidate?.email || isViewer" @click="openCommunication(app.candidate, 'email')" :title="app.candidate?.email ? 'E-posta Taslağı' : 'E-posta adresi bulunamadı.'">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                  </button>
-                  <span v-if="app.source" style="font-size:10px;color:var(--g400)">{{ app.source }}</span>
-                </div>
-              </div>
+              <button class="kb-add-btn" @click="openNewAppForStage(col.status)">+ Ekle</button>
             </div>
-            <button class="kb-add-btn" @click="openNewAppForStage(col.status)">+ Ekle</button>
           </div>
         </div>
       </div>
@@ -1629,6 +1619,7 @@
         <!-- Sub Tabs -->
         <div style="display: flex; border-bottom: 1px solid var(--g200); width: 100%; margin-top: 10px;">
           <div class="modal-tab" :class="{active: interviewTab === 'list'}" @click="interviewTab = 'list'">Mülakat Listesi</div>
+          <div class="modal-tab" :class="{active: interviewTab === 'calendar'}" @click="interviewTab = 'calendar'; loadRecruitmentTasks()">Takvim & Görevler</div>
           <div class="modal-tab" :class="{active: interviewTab === 'questions'}" @click="interviewTab = 'questions'">AI Soru Üretimi</div>
           <div class="modal-tab" :class="{active: interviewTab === 'analysis'}" @click="interviewTab = 'analysis'">Mülakat Notu Analizi</div>
         </div>
@@ -1662,6 +1653,108 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Sub-Tab: Takvim & Görevler -->
+        <div v-if="interviewTab === 'calendar'">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+            <div style="font-weight:700; font-size:16px; color:var(--primary)">Takvim & Görev Yönetimi</div>
+            <div style="display:flex; gap:10px">
+              <button class="btn btn-secondary btn-sm" @click="openNewEventModal(null)">+ Etkinlik Ekle</button>
+              <button class="btn btn-primary btn-sm" @click="openNewTaskModal">+ Yeni Görev Ekle</button>
+            </div>
+          </div>
+          
+          <div style="display:grid; grid-template-columns: 1.8fr 1.2fr; gap:24px; min-height:500px">
+            <!-- LEFT: Calendar Grid -->
+            <div class="card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between">
+              <!-- Calendar Header -->
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+                <div style="display:flex; gap:8px; align-items:center">
+                  <button class="btn btn-outline btn-sm" @click="navigateCalendarMonth(-1)">&lt; Önceki</button>
+                  <span style="font-size:16px; font-weight:700; color:var(--g800); min-width:140px; text-align:center">
+                    {{ turkishMonthNames[calendarMonth] }} {{ calendarYear }}
+                  </span>
+                  <button class="btn btn-outline btn-sm" @click="navigateCalendarMonth(1)">Sonraki &gt;</button>
+                </div>
+                <!-- Month/Week Switch -->
+                <div style="display:flex; background:var(--g100); border-radius:6px; padding:2px">
+                  <button class="btn btn-sm" :class="calendarViewType === 'month' ? 'btn-primary' : 'btn-ghost'" @click="calendarViewType = 'month'" style="padding:4px 12px; font-size:12px">Ay</button>
+                  <button class="btn btn-sm" :class="calendarViewType === 'week' ? 'btn-primary' : 'btn-ghost'" @click="calendarViewType = 'week'" style="padding:4px 12px; font-size:12px">Hafta</button>
+                </div>
+              </div>
+
+              <!-- Calendar Grid Header -->
+              <div style="display:grid; grid-template-columns: repeat(7, 1fr); text-align:center; font-weight:700; font-size:12px; color:var(--g500); border-bottom:1px solid var(--g200); padding-bottom:8px">
+                <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+              </div>
+
+              <!-- Calendar Cells Grid -->
+              <div style="display:grid; grid-template-rows: repeat(5, 1fr); grid-template-columns: repeat(7, 1fr); gap:1px; background:var(--g200); flex-grow:1; margin-top:8px; border-radius:8px; overflow:hidden">
+                <div v-for="cell in calendarDays" :key="cell.dateString" 
+                     class="calendar-cell" :class="{'other-month': !cell.isCurrentMonth, 'today': cell.dateString === todayDateString}"
+                     @click="openNewEventModal(cell.dateString)"
+                     style="background:#fff; padding:6px; min-height:80px; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer; transition:background 0.2s">
+                  <div style="font-weight:600; font-size:12px; text-align:right" :style="!cell.isCurrentMonth ? 'color:var(--g300)' : 'color:var(--g700)'">
+                    {{ cell.day }}
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:4px; overflow-y:auto; max-height:60px">
+                    <div v-for="evt in getEventsForDate(cell.dateString)" :key="evt.id" 
+                         class="calendar-event-tag" :class="evt.event_type"
+                         @click.stop="viewEventDetails(evt)"
+                         :title="evt.title">
+                      {{ evt.title }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Panels -->
+            <div style="display:flex; flex-direction:column; gap:20px; overflow-y:auto">
+              <!-- Tasks list panel -->
+              <div class="card" style="padding:16px; flex-grow:1">
+                <div style="font-weight:700; font-size:14px; color:var(--g800); margin-bottom:12px; border-bottom:1px solid var(--g100); padding-bottom:8px">
+                  Görevlerim
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; max-height:220px">
+                  <div v-for="t in recruitmentTasks" :key="t.id" 
+                       style="border:1px solid var(--g200); border-radius:8px; padding:10px; background:#fff; display:flex; align-items:center; justify-content:space-between">
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <input type="checkbox" :checked="t.status === 'done'" @change="toggleTaskStatus(t)">
+                      <div>
+                        <div style="font-size:13px; font-weight:600" :style="t.status === 'done' ? 'text-decoration:line-through; color:var(--g400)' : ''">{{ t.title }}</div>
+                        <div style="font-size:11px; color:var(--g400)" v-if="t.due_date">Süre: {{ t.due_date }}</div>
+                      </div>
+                    </div>
+                    <div style="display:flex; gap:4px">
+                      <button class="btn btn-ghost btn-sm" style="padding:2px 6px" @click="editRecruitmentTask(t)">✏</button>
+                      <button class="btn btn-ghost btn-sm" style="padding:2px 6px; color:var(--red)" @click="deleteRecruitmentTask(t)">✕</button>
+                    </div>
+                  </div>
+                  <div v-if="!recruitmentTasks.length" style="font-size:12px; color:var(--g400); text-align:center; padding:10px">Aktif görev bulunmuyor.</div>
+                </div>
+              </div>
+
+              <!-- Upcoming interviews panel -->
+              <div class="card" style="padding:16px">
+                <div style="font-weight:700; font-size:14px; color:var(--g800); margin-bottom:12px; border-bottom:1px solid var(--g100); padding-bottom:8px">
+                  Yaklaşan Mülakatlar
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px; max-height:180px; overflow-y:auto">
+                  <div v-for="evt in calendarEvents.filter(e => e.event_type === 'interview')" :key="evt.id" 
+                       style="padding:10px; border:1px solid var(--g100); border-radius:6px; background:#fff; display:flex; justify-content:space-between; align-items:center">
+                    <div>
+                      <div style="font-size:13px; font-weight:600">{{ evt.title }}</div>
+                      <div style="font-size:11px; color:var(--g400)">{{ formatDate(evt.start_time) }}</div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" @click="viewEventDetails(evt)">Detay</button>
+                  </div>
+                  <div v-if="!calendarEvents.filter(e => e.event_type === 'interview').length" style="font-size:12px; color:var(--g400); text-align:center">Yaklaşan mülakat yok.</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Sub-Tab 2: AI Soru Üretimi -->
@@ -2102,8 +2195,9 @@
       <div class="page-body" style="padding:24px">
         <div class="card" style="margin-bottom: 20px; background:#fff">
           <div class="card-hdr" style="padding: 10px 20px; border-bottom:none">
-            <div class="tabs" style="display:flex; gap:16px;">
+            <div class="tabs" style="display:flex; gap:16px; flex-wrap:wrap">
               <button class="tab-btn" :class="{active: settingsSubTab==='org'}" @click="settingsSubTab='org'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='org' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Organizasyon Yapısı</button>
+              <button class="tab-btn" :class="{active: settingsSubTab==='users'}" @click="settingsSubTab='users';loadUsers()" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='users' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Kullanıcı Yönetimi</button>
               <button class="tab-btn" :class="{active: settingsSubTab==='roles'}" @click="settingsSubTab='roles'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='roles' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Roller ve Yetkiler</button>
               <button class="tab-btn" :class="{active: settingsSubTab==='configs'}" @click="settingsSubTab='configs'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='configs' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Sistem Parametreleri</button>
               <button class="tab-btn" :class="{active: settingsSubTab==='audit'}" @click="settingsSubTab='audit'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='audit' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Denetim Günlüğü (Audit)</button>
@@ -2249,6 +2343,176 @@
             </div>
           </div>
         </div>
+
+        <!-- USERS TAB -->
+        <div v-if="settingsSubTab==='users'">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="font-weight:700; font-size:16px;">Kullanıcı Yetkilendirme & Erişim Yönetimi</div>
+            <button class="btn btn-primary btn-sm" @click="openNewUserModal">+ Yeni Kullanıcı Ekle</button>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="grid-4" style="margin-bottom:24px; display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;">
+            <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
+              <div style="font-size:12px; font-weight:600; color:var(--g500)">Toplam Kullanıcı</div>
+              <div style="font-size:24px; font-weight:700; color:#0B4A3A; margin-top:8px">{{ allUsers.length }}</div>
+            </div>
+            <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
+              <div style="font-size:12px; font-weight:600; color:var(--g500)">Aktif Kullanıcı</div>
+              <div style="font-size:24px; font-weight:700; color:var(--primary); margin-top:8px">{{ allUsers.filter(u => u.is_active).length }}</div>
+            </div>
+            <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
+              <div style="font-size:12px; font-weight:600; color:var(--g500)">Beklemede / Pasif</div>
+              <div style="font-size:24px; font-weight:700; color:#b91c1c; margin-top:8px">{{ allUsers.filter(u => !u.is_active).length }}</div>
+            </div>
+            <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
+              <div style="font-size:12px; font-weight:600; color:var(--g500)">Tanımlı Rol</div>
+              <div style="font-size:24px; font-weight:700; color:#2563eb; margin-top:8px">3 Farklı Rol</div>
+            </div>
+          </div>
+
+          <!-- Sub-tabs for user management -->
+          <div class="modal-tabs" style="background:#fff; border-radius:8px 8px 0 0; border:1px solid var(--g200); border-bottom:none; margin-bottom:0">
+            <div class="modal-tab" :class="{active: userSubTab === 'users'}" @click="userSubTab = 'users'">Kullanıcılar</div>
+            <div class="modal-tab" :class="{active: userSubTab === 'roles'}" @click="userSubTab = 'roles'">Rol Tanımları</div>
+            <div class="modal-tab" :class="{active: userSubTab === 'matrix'}" @click="userSubTab = 'matrix'">Yetki Matrisi</div>
+          </div>
+
+          <div class="card" style="border-radius:0 0 8px 8px; border-top:none; padding:20px; background:#fff">
+            <!-- TAB 1: Kullanıcılar -->
+            <div v-if="userSubTab === 'users'">
+              <!-- Filters -->
+              <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center">
+                <input v-model="userSearchQuery" type="text" class="fi" placeholder="Kullanıcı ara (ad, e-posta...)" style="flex:1">
+                <select v-model="userRoleFilter" class="fselect fs" style="min-width:140px">
+                  <option value="">Tüm Roller</option>
+                  <option value="ADMIN">ADMIN</option>
+                  <option value="RECRUITER">RECRUITER</option>
+                  <option value="VIEWER">VIEWER</option>
+                </select>
+                <select v-model="userStatusFilter" class="fselect fs" style="min-width:140px">
+                  <option value="">Tüm Durumlar</option>
+                  <option value="active">Aktif</option>
+                  <option value="passive">Pasif</option>
+                </select>
+              </div>
+
+              <!-- Users Table -->
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Kullanıcı</th>
+                    <th>E-posta</th>
+                    <th>Departman</th>
+                    <th>Rol</th>
+                    <th>Durum</th>
+                    <th>Son Giriş</th>
+                    <th>Oluşturma</th>
+                    <th>İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="u in filteredUsers" :key="u.id">
+                    <td>
+                      <div style="display:flex; align-items:center; gap:10px">
+                        <div class="cand-av" style="background:var(--primary-light); color:var(--primary); font-size:12px; width:32px; height:32px">
+                          {{ (u.full_name||'?')[0].toUpperCase() }}
+                        </div>
+                        <div style="font-weight:600">{{ u.full_name }}</div>
+                      </div>
+                    </td>
+                    <td style="font-size:13px; color:var(--g600)">{{ u.email }}</td>
+                    <td style="font-size:13px">{{ u.department || '—' }}</td>
+                    <td>
+                      <span class="badge" style="padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;"
+                            :style="u.role === 'ADMIN' ? 'background:#fef3c7; color:#b45309;' : (u.role === 'RECRUITER' ? 'background:#d1fae5; color:#065f46;' : 'background:#e0f2fe; color:#0369a1;')">
+                        {{ u.role }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" :style="u.is_active ? 'background:#d1fae5; color:#065f46;' : 'background:#fee2e2; color:#991b1b;'">
+                        {{ u.is_active ? 'Aktif' : 'Pasif' }}
+                      </span>
+                    </td>
+                    <td style="font-size:12px; color:var(--g500)">{{ u.last_login ? formatDate(u.last_login) : 'Hiç giriş yapmadı' }}</td>
+                    <td style="font-size:12px; color:var(--g500)">{{ u.created_at ? formatDate(u.created_at) : '—' }}</td>
+                    <td>
+                      <div style="display:flex; gap:6px">
+                        <button class="btn btn-outline btn-sm" @click="editUser(u)">Düzenle</button>
+                        <button class="btn btn-outline btn-sm" @click="openPasswordReset(u)">Şifre Sıfırla</button>
+                        <button v-if="u.is_active" class="btn btn-danger btn-sm" @click="toggleUserStatus(u, false)" :disabled="u.id === currentUser.id">Pasifleştir</button>
+                        <button v-else class="btn btn-secondary btn-sm" @click="toggleUserStatus(u, true)">Aktifleştir</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- TAB 2: Roller -->
+            <div v-if="userSubTab === 'roles'">
+              <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px">
+                <div class="card" style="padding:16px; border:1px solid #fef3c7">
+                  <div style="font-weight:700; font-size:15px; color:#b45309; margin-bottom:8px">ADMIN</div>
+                  <p style="font-size:13px; color:var(--g600); line-height:1.5">Sistemdeki tüm yetkilere sahiptir. Kullanıcı tanımlama, yetki yönetimi, ilan açma, aday değerlendirme, AI asistanı ve tüm raporlara tam erişim hakkı vardır.</p>
+                </div>
+                <div class="card" style="padding:16px; border:1px solid #d1fae5">
+                  <div style="font-weight:700; font-size:15px; color:#065f46; margin-bottom:8px">RECRUITER</div>
+                  <p style="font-size:13px; color:var(--g600); line-height:1.5">İşe alım danışmanıdır. Aday havuzunu yönetebilir, mülakat planlayıp puanlayabilir, not ekleyebilir ve rapor oluşturabilir. Sistem yönetici yetkileri yoktur.</p>
+                </div>
+                <div class="card" style="padding:16px; border:1px solid #e0f2fe">
+                  <div style="font-weight:700; font-size:15px; color:#0369a1; margin-bottom:8px">VIEWER</div>
+                  <p style="font-size:13px; color:var(--g600); line-height:1.5">İzleyici rolündedir. Mülakat süreçlerini, aday notlarını ve raporları salt-okunur (read-only) modda görebilir. Veri ekleme, puanlama veya silme yetkileri kısıtlanmıştır.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: Yetki Matrisi -->
+            <div v-if="userSubTab === 'matrix'">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th>Modül / İşlem</th>
+                    <th style="text-align:center">ADMIN</th>
+                    <th style="text-align:center">RECRUITER</th>
+                    <th style="text-align:center">VIEWER</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Kullanıcı Ekleme / Silme / Şifre Sıfırlama</td>
+                    <td style="text-align:center; color:var(--green)">✓ (Tam Erişim)</td>
+                    <td style="text-align:center; color:var(--red)">✗ (Yetki Yok)</td>
+                    <td style="text-align:center; color:var(--red)">✗ (Yetki Yok)</td>
+                  </tr>
+                  <tr>
+                    <td>Pozisyon / İlan Oluşturma ve Düzenleme</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--g400)">👁 Salt Okunur</td>
+                  </tr>
+                  <tr>
+                    <td>Aday CV Yükleme ve Akıllı Eşleştirme</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--red)">✗ (Yetki Yok)</td>
+                  </tr>
+                  <tr>
+                    <td>Mülakat Değerlendirme &amp; Puanlama</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--g400)">👁 Salt Okunur</td>
+                  </tr>
+                  <tr>
+                    <td>Değerlendirme Raporu PDF İndirme</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                    <td style="text-align:center; color:var(--green)">✓</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
         <!-- ROLES TAB -->
         <div v-if="settingsSubTab==='roles'" class="card" style="padding:20px; background:#fff">
@@ -2471,181 +2735,7 @@
       </div>
     </template>
 
-    <!-- USER MANAGEMENT (YETKİ ALANI) -->
-    <template v-if="page==='users'">
-      <div class="page-hdr" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px">
-        <div>
-          <div class="page-hdr-title" style="font-family:'Georgia', serif; font-size:24px; font-weight:700; color:var(--primary)">Yetki & Erişim Yönetimi</div>
-          <div class="page-hdr-sub" style="font-size:13px; color:var(--g500)">Kullanıcı rollerini, departmanları ve yetki matrisini yönetin</div>
-        </div>
-        <button class="btn btn-primary" @click="openNewUserModal">+ Yeni Kullanıcı Ekle</button>
-      </div>
-
-      <!-- KPI Cards -->
-      <div class="grid-4" style="margin:24px; display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;">
-        <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
-          <div style="font-size:12px; font-weight:600; color:var(--g500)">Toplam Kullanıcı</div>
-          <div style="font-size:24px; font-weight:700; color:#0B4A3A; margin-top:8px">{{ allUsers.length }}</div>
-        </div>
-        <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
-          <div style="font-size:12px; font-weight:600; color:var(--g500)">Aktif Kullanıcı</div>
-          <div style="font-size:24px; font-weight:700; color:var(--primary); margin-top:8px">{{ allUsers.filter(u => u.is_active).length }}</div>
-        </div>
-        <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
-          <div style="font-size:12px; font-weight:600; color:var(--g500)">Beklemede / Pasif</div>
-          <div style="font-size:24px; font-weight:700; color:#b91c1c; margin-top:8px">{{ allUsers.filter(u => !u.is_active).length }}</div>
-        </div>
-        <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
-          <div style="font-size:12px; font-weight:600; color:var(--g500)">Tanımlı Rol</div>
-          <div style="font-size:24px; font-weight:700; color:#2563eb; margin-top:8px">3 Farklı Rol</div>
-        </div>
-      </div>
-
-      <div class="page-body" style="padding:0 24px 24px 24px">
-        <!-- Sub-tabs for user management -->
-        <div class="modal-tabs" style="background:#fff; border-radius:8px 8px 0 0; border:1px solid var(--g200); border-bottom:none; margin-bottom:0">
-          <div class="modal-tab" :class="{active: userSubTab === 'users'}" @click="userSubTab = 'users'">Kullanıcılar</div>
-          <div class="modal-tab" :class="{active: userSubTab === 'roles'}" @click="userSubTab = 'roles'">Rol Tanımları</div>
-          <div class="modal-tab" :class="{active: userSubTab === 'matrix'}" @click="userSubTab = 'matrix'">Yetki Matrisi</div>
-        </div>
-
-        <div class="card" style="border-radius:0 0 8px 8px; border-top:none; padding:20px; background:#fff">
-          <!-- TAB 1: Kullanıcılar -->
-          <div v-if="userSubTab === 'users'">
-            <!-- Filters -->
-            <div style="display:flex; gap:12px; margin-bottom:16px; align-items:center">
-              <input v-model="userSearchQuery" type="text" class="fi" placeholder="Kullanıcı ara (ad, e-posta...)" style="flex:1">
-              <select v-model="userRoleFilter" class="fselect fs" style="min-width:140px">
-                <option value="">Tüm Roller</option>
-                <option value="ADMIN">ADMIN</option>
-                <option value="RECRUITER">RECRUITER</option>
-                <option value="VIEWER">VIEWER</option>
-              </select>
-              <select v-model="userStatusFilter" class="fselect fs" style="min-width:140px">
-                <option value="">Tüm Durumlar</option>
-                <option value="active">Aktif</option>
-                <option value="passive">Pasif</option>
-              </select>
-            </div>
-
-            <!-- Users Table -->
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Kullanıcı</th>
-                  <th>E-posta</th>
-                  <th>Departman</th>
-                  <th>Rol</th>
-                  <th>Durum</th>
-                  <th>Son Giriş</th>
-                  <th>Oluşturma</th>
-                  <th>İşlem</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="u in filteredUsers" :key="u.id">
-                  <td>
-                    <div style="display:flex; align-items:center; gap:10px">
-                      <div class="cand-av" style="background:var(--primary-light); color:var(--primary); font-size:12px; width:32px; height:32px">
-                        {{ (u.full_name||'?')[0].toUpperCase() }}
-                      </div>
-                      <div style="font-weight:600">{{ u.full_name }}</div>
-                    </div>
-                  </td>
-                  <td style="font-size:13px; color:var(--g600)">{{ u.email }}</td>
-                  <td style="font-size:13px">{{ u.department || '—' }}</td>
-                  <td>
-                    <span class="badge" style="padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;"
-                          :style="u.role === 'ADMIN' ? 'background:#fef3c7; color:#b45309;' : (u.role === 'RECRUITER' ? 'background:#d1fae5; color:#065f46;' : 'background:#e0f2fe; color:#0369a1;')">
-                      {{ u.role }}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="badge" :style="u.is_active ? 'background:#d1fae5; color:#065f46;' : 'background:#fee2e2; color:#991b1b;'">
-                      {{ u.is_active ? 'Aktif' : 'Pasif' }}
-                    </span>
-                  </td>
-                  <td style="font-size:12px; color:var(--g500)">{{ u.last_login ? formatDate(u.last_login) : 'Hiç giriş yapmadı' }}</td>
-                  <td style="font-size:12px; color:var(--g500)">{{ u.created_at ? formatDate(u.created_at) : '—' }}</td>
-                  <td>
-                    <div style="display:flex; gap:6px">
-                      <button class="btn btn-outline btn-sm" @click="editUser(u)">Düzenle</button>
-                      <button class="btn btn-outline btn-sm" @click="openPasswordReset(u)">Şifre Sıfırla</button>
-                      <button v-if="u.is_active" class="btn btn-danger btn-sm" @click="toggleUserStatus(u, false)" :disabled="u.id === currentUser.id">Pasifleştir</button>
-                      <button v-else class="btn btn-secondary btn-sm" @click="toggleUserStatus(u, true)">Aktifleştir</button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- TAB 2: Roller -->
-          <div v-if="userSubTab === 'roles'">
-            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px">
-              <div class="card" style="padding:16px; border:1px solid #fef3c7">
-                <div style="font-weight:700; font-size:15px; color:#b45309; margin-bottom:8px">ADMIN</div>
-                <p style="font-size:13px; color:var(--g600); line-height:1.5">Sistemdeki tüm yetkilere sahiptir. Kullanıcı tanımlama, yetki yönetimi, ilan açma, aday değerlendirme, AI asistanı ve tüm raporlara tam erişim hakkı vardır.</p>
-              </div>
-              <div class="card" style="padding:16px; border:1px solid #d1fae5">
-                <div style="font-weight:700; font-size:15px; color:#065f46; margin-bottom:8px">RECRUITER</div>
-                <p style="font-size:13px; color:var(--g600); line-height:1.5">İşe alım danışmanıdır. Aday havuzunu yönetebilir, mülakat planlayıp puanlayabilir, not ekleyebilir ve rapor oluşturabilir. Sistem yönetici yetkileri yoktur.</p>
-              </div>
-              <div class="card" style="padding:16px; border:1px solid #e0f2fe">
-                <div style="font-weight:700; font-size:15px; color:#0369a1; margin-bottom:8px">VIEWER</div>
-                <p style="font-size:13px; color:var(--g600); line-height:1.5">İzleyici rolündedir. Mülakat süreçlerini, aday notlarını ve raporları salt-okunur (read-only) modda görebilir. Veri ekleme, puanlama veya silme yetkileri kısıtlanmıştır.</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 3: Yetki Matrisi -->
-          <div v-if="userSubTab === 'matrix'">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Modül / İşlem</th>
-                  <th style="text-align:center">ADMIN</th>
-                  <th style="text-align:center">RECRUITER</th>
-                  <th style="text-align:center">VIEWER</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Kullanıcı Ekleme / Silme / Şifre Sıfırlama</td>
-                  <td style="text-align:center; color:var(--green)">✓ (Tam Erişim)</td>
-                  <td style="text-align:center; color:var(--red)">✗ (Yetki Yok)</td>
-                  <td style="text-align:center; color:var(--red)">✗ (Yetki Yok)</td>
-                </tr>
-                <tr>
-                  <td>Pozisyon / İlan Oluşturma ve Düzenleme</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--g400)">👁 Salt Okunur</td>
-                </tr>
-                <tr>
-                  <td>Aday CV Yükleme ve Akıllı Eşleştirme</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--red)">✗ (Yetki Yok)</td>
-                </tr>
-                <tr>
-                  <td>Mülakat Değerlendirme &amp; Puanlama</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--g400)">👁 Salt Okunur</td>
-                </tr>
-                <tr>
-                  <td>Değerlendirme Raporu PDF İndirme</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                  <td style="text-align:center; color:var(--green)">✓</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </template>
+    <!-- User Management has been consolidated into System Settings under settingsSubTab === 'users' -->
 
     <!-- AI TALENT SEARCH PAGE -->
     <template v-if="page==='ai_search'">
@@ -2714,129 +2804,7 @@
       </div>
     </template>
 
-    <!-- CALENDAR & TASKS PAGE -->
-    <template v-if="page==='tasks'">
-      <div class="page-hdr" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px">
-        <div>
-          <div class="page-hdr-title" style="font-family:'Georgia', serif; font-size:24px; font-weight:700; color:var(--primary)">Takvim & Görev Yönetimi</div>
-          <div class="page-hdr-sub" style="font-size:13px; color:var(--g500)">İşe alım mülakatlarını planlayın ve görevlerinizi takip edin</div>
-        </div>
-        <div style="display:flex; gap:10px">
-          <button class="btn btn-secondary" @click="openNewEventModal(null)">+ Etkinlik Ekle</button>
-          <button class="btn btn-primary" @click="openNewTaskModal">+ Yeni Görev Ekle</button>
-        </div>
-      </div>
-
-      <div class="page-body" style="padding:24px; background:var(--g50); display:grid; grid-template-columns: 1.8fr 1.2fr; gap:24px; height:calc(100vh - 180px)">
-        <!-- LEFT: Calendar Grid -->
-        <div class="card" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between; height:100%">
-          <!-- Calendar Header -->
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
-            <div style="display:flex; gap:8px; align-items:center">
-              <button class="btn btn-outline btn-sm" @click="navigateCalendarMonth(-1)">&lt; Önceki</button>
-              <span style="font-size:16px; font-weight:700; color:var(--g800); min-width:140px; text-align:center">
-                {{ turkishMonthNames[calendarMonth] }} {{ calendarYear }}
-              </span>
-              <button class="btn btn-outline btn-sm" @click="navigateCalendarMonth(1)">Sonraki &gt;</button>
-            </div>
-            <!-- Month/Week Switch -->
-            <div style="display:flex; background:var(--g100); border-radius:6px; padding:2px">
-              <button class="btn btn-sm" :class="calendarViewType === 'month' ? 'btn-primary' : 'btn-ghost'" @click="calendarViewType = 'month'" style="padding:4px 12px; font-size:12px">Ay</button>
-              <button class="btn btn-sm" :class="calendarViewType === 'week' ? 'btn-primary' : 'btn-ghost'" @click="calendarViewType = 'week'" style="padding:4px 12px; font-size:12px">Hafta</button>
-            </div>
-          </div>
-
-          <!-- Calendar Grid Header -->
-          <div style="display:grid; grid-template-columns: repeat(7, 1fr); text-align:center; font-weight:700; font-size:12px; color:var(--g500); border-bottom:1px solid var(--g200); padding-bottom:8px">
-            <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
-          </div>
-
-          <!-- Calendar Cells Grid -->
-          <div style="display:grid; grid-template-rows: repeat(5, 1fr); grid-template-columns: repeat(7, 1fr); gap:1px; background:var(--g200); flex-grow:1; margin-top:8px; border-radius:8px; overflow:hidden">
-            <div v-for="cell in calendarDays" :key="cell.dateString" 
-                 class="calendar-cell" :class="{'other-month': !cell.isCurrentMonth, 'today': cell.dateString === todayDateString}"
-                 @click="openNewEventModal(cell.dateString)"
-                 style="background:#fff; padding:6px; min-height:80px; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer; transition:background 0.2s">
-              <div style="font-weight:600; font-size:12px; text-align:right" :style="!cell.isCurrentMonth ? 'color:var(--g300)' : 'color:var(--g700)'">
-                {{ cell.day }}
-              </div>
-              <div style="display:flex; flex-direction:column; gap:4px; overflow-y:auto; max-height:60px">
-                <div v-for="evt in getEventsForDate(cell.dateString)" :key="evt.id" 
-                     class="calendar-event-tag" :class="evt.event_type"
-                     @click.stop="viewEventDetails(evt)"
-                     :title="evt.title">
-                  {{ evt.title }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- RIGHT: Panels -->
-        <div style="display:flex; flex-direction:column; gap:20px; overflow-y:auto; height:100%">
-          <!-- Tasks list panel -->
-          <div class="card" style="padding:16px; flex-grow:1">
-            <div style="font-weight:700; font-size:14px; color:var(--g800); margin-bottom:12px; border-bottom:1px solid var(--g100); padding-bottom:8px">
-              Görevlerim
-            </div>
-            <div style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; max-height:200px">
-              <div v-for="t in recruitmentTasks" :key="t.id" 
-                   style="border:1px solid var(--g200); border-radius:8px; padding:10px; background:#fff; display:flex; align-items:center; justify-content:space-between">
-                <div style="display:flex; align-items:center; gap:8px">
-                  <input type="checkbox" :checked="t.status === 'done'" @change="toggleTaskStatus(t)">
-                  <div>
-                    <div style="font-size:13px; font-weight:600" :style="t.status === 'done' ? 'text-decoration:line-through; color:var(--g400)' : ''">{{ t.title }}</div>
-                    <div style="font-size:11px; color:var(--g400)" v-if="t.due_date">Süre: {{ t.due_date }}</div>
-                  </div>
-                </div>
-                <div style="display:flex; gap:4px">
-                  <button class="btn btn-ghost btn-sm" style="padding:2px 6px" @click="editRecruitmentTask(t)">✏</button>
-                  <button class="btn btn-ghost btn-sm" style="padding:2px 6px; color:var(--red)" @click="deleteRecruitmentTask(t)">✕</button>
-                </div>
-              </div>
-              <div v-if="!recruitmentTasks.length" style="font-size:12px; color:var(--g400); text-align:center; padding:10px">Aktif görev bulunmuyor.</div>
-            </div>
-          </div>
-
-          <!-- Upcoming interviews panel -->
-          <div class="card" style="padding:16px">
-            <div style="font-weight:700; font-size:14px; color:var(--g800); margin-bottom:12px; border-bottom:1px solid var(--g100); padding-bottom:8px">
-              Yaklaşan Mülakatlar
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px; max-height:180px; overflow-y:auto">
-              <div v-for="evt in calendarEvents.filter(e => e.event_type === 'interview')" :key="evt.id" 
-                   style="padding:10px; border:1px solid var(--g100); border-radius:6px; background:#fff; display:flex; justify-content:space-between; align-items:center">
-                <div>
-                  <div style="font-size:13px; font-weight:600">{{ evt.title }}</div>
-                  <div style="font-size:11px; color:var(--g400)">{{ formatDate(evt.start_time) }}</div>
-                </div>
-                <button class="btn btn-secondary btn-sm" @click="viewEventDetails(evt)">Detay</button>
-              </div>
-              <div v-if="!calendarEvents.filter(e => e.event_type === 'interview').length" style="font-size:12px; color:var(--g400); text-align:center">Yaklaşan mülakat yok.</div>
-            </div>
-          </div>
-
-          <!-- Important dates panel -->
-          <div class="card" style="padding:16px">
-            <div style="font-weight:700; font-size:14px; color:var(--g800); margin-bottom:12px; border-bottom:1px solid var(--g100); padding-bottom:8px">
-              Hatırlatıcılar & Son Tarihler
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px; max-height:180px; overflow-y:auto">
-              <div v-for="evt in calendarEvents.filter(e => e.event_type !== 'interview')" :key="evt.id" 
-                   style="padding:10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center"
-                   :style="evt.event_type === 'deadline' ? 'background:#fef2f2; border:1px solid #fee2e2; color:#991b1b' : 'background:#fff; border:1px solid var(--g100)'">
-                <div>
-                  <div style="font-size:13px; font-weight:600">{{ evt.title }}</div>
-                  <div style="font-size:11px; color:var(--g500)">{{ formatDate(evt.start_time) }}</div>
-                </div>
-                <button class="btn btn-ghost btn-sm" @click="deleteCalendarEvent(evt.id)">✕</button>
-              </div>
-              <div v-if="!calendarEvents.filter(e => e.event_type !== 'interview').length" style="font-size:12px; color:var(--g400); text-align:center">Bekleyen hatırlatıcı yok.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
+    <!-- Tasks and calendar views have been consolidated into Interviews page -->
     
     <!-- TIMELINE TAB / OTHER STUFF MOVED TO DETAILS -->
     

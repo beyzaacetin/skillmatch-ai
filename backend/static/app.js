@@ -64,6 +64,7 @@ createApp({
     const pipelineLoading = ref(false);
     const pipelinePositionFilter = ref('');
     const allInterviews = ref([]);
+    const interviewSubTab = ref('list');
     const pipelineStats = ref({});
 
     // Workforce Headcount Budget & Suggestions (Phase 3)
@@ -602,7 +603,7 @@ createApp({
         const apps = await api('GET', '/api/applications/');
         const candIds = selectedCandidateIds.value;
         appIds = apps.filter(a => candIds.includes(a.candidate_id)).map(a => a.id);
-      } else if (page.value === 'pipeline') {
+      } else if (page.value === 'talent' && talentSubTab.value === 'pipeline') {
         appIds = [...selectedApplicationIds.value];
       }
 
@@ -627,7 +628,7 @@ createApp({
         selectedCandidateIds.value = [];
         selectedApplicationIds.value = [];
         loadInitialData();
-        if (page.value === 'pipeline') loadPipeline();
+        if (page.value === 'talent' && talentSubTab.value === 'pipeline') loadPipeline();
       } catch (e) {
         alert('Toplu işlem hatası: ' + e.message);
       }
@@ -2257,7 +2258,7 @@ createApp({
       resolveExtension,
 
       // Phase 3 portal state & methods
-      talentSubTab, sharingJob, sharingHotel, showShareModal, showWalkinModal,
+      talentSubTab, interviewSubTab, sharingJob, sharingHotel, showShareModal, showWalkinModal,
       publicJob, publicBranding, publicApplyForm, publicApplyCv, submittingPublic,
       walkinForm, walkinCv, submittingWalkin,
       loadPublicJobDetails, loadPublicWalkinDetails, submitPublicApplication, onPublicCvSelected,
