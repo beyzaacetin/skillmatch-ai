@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import models
 import database
 import auth
+import schemas
 from auth import get_current_user, check_permission, get_db
 
 router = APIRouter()
