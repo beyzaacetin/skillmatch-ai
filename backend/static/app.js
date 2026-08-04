@@ -67,6 +67,23 @@ createApp({
     const interviewSubTab = ref('list');
     const pipelineStats = ref({});
 
+    // Dashboard Specific State (Mockup Matcher)
+    const dashboardHotelFilter = ref('');
+    const dashboardViewMode = ref('merkez');
+    const dashboardTestRole = ref('ADMIN');
+    const dashboardStatsData = ref({
+      user_name: 'Şule',
+      open_headcount: 0,
+      active_candidates: 0,
+      today_interviews: 0,
+      pending_offers: 0,
+      active_positions: [],
+      schedule: [],
+      new_candidates: [],
+      action_items: []
+    });
+    const dashboardLoading = ref(false);
+
     // Workforce Headcount Budget & Suggestions (Phase 3)
     const talentSubTab = ref('pool');
     const sharingJob = ref(null);
@@ -372,7 +389,22 @@ createApp({
     // ─── LOAD DATA ────────────────────────────────────────────────────
     async function loadInitialData() {
       if (!currentUser.value) return;
-      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings()]);
+      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats()]);
+    }
+
+    async function loadDashboardStats() {
+      dashboardLoading.value = true;
+      try {
+        const hotel = dashboardHotelFilter.value ? `&hotel_id=${dashboardHotelFilter.value}` : '';
+        const mode = `&view_mode=${dashboardViewMode.value}`;
+        const role = `&test_role=${dashboardTestRole.value}`;
+        const data = await api('GET', `/api/analytics/dashboard-stats?${hotel}${mode}${role}`);
+        dashboardStatsData.value = data;
+      } catch (e) {
+        console.error('Dashboard stats loading error:', e);
+      } finally {
+        dashboardLoading.value = false;
+      }
     }
 
     async function loadCandidates() {
@@ -1457,6 +1489,10 @@ createApp({
       }
     });
 
+    watch([dashboardHotelFilter, dashboardViewMode, dashboardTestRole], () => {
+      loadDashboardStats();
+    });
+
     // --- POSITION WORKSPACE STATE ---
     const workspaceData = ref(null);
     const workspaceLoading = ref(false);
@@ -2268,6 +2304,9 @@ createApp({
       filteredMappingTitles, matchedSalaryPolicy,
       pendingApprovals, loadPendingApprovals, resolveApproval, uploadSalaryPolicyExcel,
       salaryStats,
+
+      // Dashboard State & Methods
+      dashboardHotelFilter, dashboardViewMode, dashboardTestRole, dashboardStatsData, dashboardLoading, loadDashboardStats,
 
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,

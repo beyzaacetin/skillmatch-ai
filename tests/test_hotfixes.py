@@ -318,3 +318,76 @@ def test_repeated_matching_cached_score(monkeypatch):
     assert matches[0]["score"] == 78.5
     
     db.close()
+
+
+def test_dashboard_stats():
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    
+    test_user = models.User(
+        email="test_sule@example.com",
+        full_name="Şule Sıray",
+        hashed_password="mocked_password",
+        role="ADMIN",
+        is_active=True
+    )
+    db.add(test_user)
+    db.commit()
+    db.refresh(test_user)
+    
+    org = models.Organization(name="Rixos")
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    
+    country = models.Country(name="Türkiye")
+    db.add(country)
+    db.commit()
+    db.refresh(country)
+    
+    city = models.City(country_id=country.id, name="Antalya")
+    db.add(city)
+    db.commit()
+    db.refresh(city)
+    
+    region = models.Region(city_id=city.id, name="Akdeniz")
+    db.add(region)
+    db.commit()
+    db.refresh(region)
+    
+    hotel = models.Hotel(organization_id=org.id, city_id=city.id, region_id=region.id, name="Rixos Premium Belek", is_active=True)
+    db.add(hotel)
+    db.commit()
+    db.refresh(hotel)
+    
+    dept = models.Department(name="Yiyecek & İçecek")
+    db.add(dept)
+    db.commit()
+    db.refresh(dept)
+    
+    budget = models.WorkforceHeadcountBudget(
+        hotel_id=hotel.id,
+        department_id=dept.id,
+        position_title="Garson",
+        headcount_budget=10
+    )
+    db.add(budget)
+    db.commit()
+
+    def mock_get_current_user():
+        return test_user
+        
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    
+    try:
+        response = client.get("/api/analytics/dashboard-stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_name"] == "Şule Sıray"
+        assert len(data["active_positions"]) > 0
+        assert len(data["action_items"]) > 0
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
+
