@@ -212,413 +212,439 @@ input:checked + .slider:before {
     </div>
 
   </div>
+    <aside class="sidebar">
 
-  <template v-if="currentUser">
-    <!-- ─── SIDEBAR ─────────────────────────────────────────────── -->
-    <aside class="sidebar">
-    <div class="sb-logo" style="padding: 16px 20px; border-bottom: 1px solid var(--g200)">
-      <a href="#" class="logo-wrap" style="text-decoration:none">
-        <svg viewBox="0 0 100 100" width="38" height="38" style="display:block; flex-shrink:0">
-          <rect width="100" height="100" rx="24" fill="#0B4A3A"/>
-          <text x="50" y="73" font-family="'Times New Roman', 'Georgia', 'Garamond', serif" font-size="68" fill="#fff" text-anchor="middle" font-weight="bold">S</text>
-        </svg>
-        <div style="width:1px;height:32px;background:var(--g300);margin:0 4px"></div>
-        <div class="logo-text-container">
-          <div class="logo-main-text">SkillMatch AI</div>
-          <div class="logo-sub-text">BY SRVVERSE</div>
-        </div>
-      </a>
-    </div>
-
-    <div class="sb-org" style="padding: 12px 20px; border-bottom: 1px solid var(--g200); background: #fafafa">
-      <div style="font-size:10px; font-weight:700; color:var(--g400); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px">Organizasyon</div>
-      <div style="display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--g200); padding:8px 12px; border-radius:8px; cursor:pointer" @click="page='dashboard'">
-        <div style="display:flex; align-items:center; gap:8px">
-          <div style="width:24px; height:24px; border-radius:6px; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px">R</div>
+      <!-- Logo -->
+      <div class="sb-logo">
+        <a href="#" class="logo-wrap">
+          <div class="logo-icon">S</div>
           <div>
-            <div style="font-weight:700; font-size:12.5px; color:var(--g800)">{{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }}</div>
-            <div style="font-size:10px; color:var(--g500)">{{ dashboardHotelFilter ? 'Tesis görünümü' : 'Merkez görünümü' }}</div>
+            <div class="logo-text">SKILLMATCH <span>AI</span></div>
+            <div class="logo-sub">by SRYVERSE</div>
           </div>
+        </a>
+      </div>
+
+      <!-- Organizasyon / Scope -->
+      <div class="sb-scope">
+        <div class="sb-scope-label">ORGANİZASYON</div>
+        <button class="sb-scope-btn" @click="page='dashboard'">
+          <div style="display:flex; align-items:center; gap:8px">
+            <div class="sb-scope-org">R</div>
+            <div>
+              <div class="sb-scope-name">{{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }}</div>
+              <div class="sb-scope-view">{{ dashboardHotelFilter ? 'Tesis görünümü' : 'Merkez görünümü' }}</div>
+            </div>
+          </div>
+          <span class="sb-scope-chevron">⌄</span>
+        </button>
+      </div>
+
+      <!-- Ana Navigasyon -->
+      <nav class="sb-nav">
+        <button class="nav-item" :class="{active: page==='dashboard'}" @click="page='dashboard'">
+          <span class="nav-icon">◫</span> Genel Bakış
+        </button>
+        <button class="nav-item" :class="{active: page==='headcount'}" @click="page='headcount'">
+          <span class="nav-icon">◎</span> Kadro İhtiyaçları
+        </button>
+        <button class="nav-item" :class="{active: page==='jobs'}" @click="page='jobs'">
+          <span class="nav-icon">▤</span> Pozisyonlar
+        </button>
+        <button class="nav-item" :class="{active: page==='talent'}" @click="page='talent'; talentSubTab='pool'">
+          <span class="nav-icon">♙</span> Adaylar
+          <span v-if="candidates.length" class="nav-badge">{{ candidates.length }}</span>
+        </button>
+        <button class="nav-item" :class="{active: page==='interviews'}" @click="page='interviews'; interviewSubTab='list'">
+          <span class="nav-icon">⌁</span> Pipeline
+        </button>
+        <button class="nav-item" :class="{active: page==='campaigns'}" @click="page='campaigns'">
+          <span class="nav-icon">⌗</span> Kampanyalar &amp; QR
+          <span class="nav-badge" v-if="dashboardStatsData.pending_offers > 0">{{ dashboardStatsData.pending_offers }}</span>
+        </button>
+        <button class="nav-item" :class="{active: page==='onboarding'}" @click="page='onboarding'">
+          <span class="nav-icon">✓</span> İşe Giriş
+        </button>
+        <button class="nav-item" :class="{active: page==='blacklist'}" @click="page='blacklist'">
+          <span class="nav-icon">!</span> Blacklist
+        </button>
+        <button class="nav-item" :class="{active: page==='analytics'}" @click="page='analytics'; loadAnalytics()">
+          <span class="nav-icon">▥</span> Raporlar
+        </button>
+        <button class="nav-item" :class="{active: page==='settings'}"
+          v-if="currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')"
+          @click="page='settings'; loadSettings()">
+          <span class="nav-icon">⚙</span> Ayarlar
+        </button>
+      </nav>
+
+      <!-- Kullanıcı Bölümü -->
+      <div class="sb-user" @click="logout" style="cursor:pointer">
+        <div class="sb-user-av">{{ (currentUser.full_name||'İK').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() }}</div>
+        <div style="flex:1; min-width:0">
+          <div class="sb-user-name">{{ currentUser.full_name }}</div>
+          <div class="sb-user-role">{{ currentUser.role === 'CENTRAL_HR' ? 'Merkez Yönetici' : currentUser.role === 'HOTEL_HR' ? 'Otel İK' : currentUser.role }}</div>
         </div>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--g500)"><polyline points="6 9 12 15 18 9"/></svg>
+        <button class="sb-user-more" title="Çıkış yap">•••</button>
       </div>
-    </div>
 
-    <nav class="sb-nav">
-      <div class="nav-sec">Genel</div>
-      <button class="nav-item" :class="{active: page==='dashboard'}" @click="page='dashboard'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Genel Bakış
-      </button>
-
-      <div class="nav-sec" style="margin-top:8px">İşe Alım</div>
-      <button class="nav-item" :class="{active: page==='talent'}" @click="page='talent'; talentSubTab='pool'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Aday Yönetimi
-        <span v-if="candidates.length" class="nav-badge">{{ candidates.length }}</span>
-      </button>
-      <button class="nav-item" :class="{active: page==='jobs'}" @click="page='jobs'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
-        Pozisyonlar
-      </button>
-      <button class="nav-item" :class="{active: page==='interviews'}" @click="page='interviews'; interviewSubTab='list'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        Mülakat & Planlama
-      </button>
-
-      <div class="nav-sec" style="margin-top:8px">AI Araçları</div>
-      <button class="nav-item" :class="{active: page==='ai_search'}" @click="page='ai_search'">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        AI Talent Search
-      </button>
-      <button class="nav-item" :class="{active: page==='analytics'}" @click="page='analytics';loadAnalytics()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Analitik
-      </button>
-      <button class="nav-item" @click="chatOpen=!chatOpen">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        İK Asistanı
-      </button>
-
-      <div v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" class="nav-sec" style="margin-top:8px">Sistem</div>
-      <button v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" class="nav-item" :class="{active: page==='settings'}" @click="page='settings';loadSettings()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        Sistem Ayarları
-      </button>
-    </nav>
-
-    <div class="sb-footer">
-      <div class="user-card" @click="logout">
-        <div class="user-av">{{ (currentUser.full_name||'İK')[0].toUpperCase() }}</div>
-        <div style="flex:1">
-          <div class="user-name">{{ currentUser.full_name }}</div>
-          <div class="user-role">{{ currentUser.role }}</div>
-        </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--g400)"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </div>
-      <div style="font-size:10px; color:var(--g400); text-align:center; padding-top:8px; border-top:1px solid var(--g200); margin-top:8px">
-        v4.0.0 (commit: {% endraw %}{{ commit_hash }}{% raw %})
-      </div>
-    </div>
-  </aside>
+    </aside>
 
   <!-- ─── MAIN ─────────────────────────────────────────────────── -->
   <div class="main">
 
     <!-- DASHBOARD -->
-    <!-- DASHBOARD -->
     <template v-if="page==='dashboard'">
-      <!-- Breadcrumbs and Filters Header -->
-      <div class="page-hdr" style="background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px">
-        <div style="display:flex; align-items:center; gap:8px">
-          <span style="font-size:13px; color:var(--g500); font-weight:500">
-            {{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }}
-          </span>
-          <span style="font-size:13px; color:var(--g300)">/</span>
-          <span style="font-size:13px; color:var(--g800); font-weight:600">Genel Bakış</span>
+      <!-- Header: Breadcrumb + Actions -->
+      <header class="appHeader">
+        <div class="crumb">
+          {{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }}
+          <span>/</span>
+          <b>Genel Bakış</b>
         </div>
-
-        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">
-          <!-- Hotel Filter (Only for admins/system HR to select hotel scope) -->
-          <select v-model="dashboardHotelFilter" class="fs" style="width:auto; padding:6px 12px; font-size:13px; font-weight:600; border-radius:8px; border:1px solid var(--g200)">
-            <option value="">Rixos Türkiye (Tümü)</option>
-            <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
-          </select>
-
-          <!-- Dashboard settings button -->
-          <button @click="showDashboardSettings = true" class="btn" style="background:#0e3a2f; border:none; color:#fff; font-weight:600; display:flex; align-items:center; gap:6px; padding:8px 16px; border-radius:8px">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-            Dashboard'u düzenle
+        <div class="headerActions">
+          <button class="iconButton" title="Ara">⌕</button>
+          <button class="iconButton notification" title="Bildirimler">
+            ♢<i>{{ (dashboardStatsData.action_items || []).length || 4 }}</i>
           </button>
+          <div class="dateChip">TR</div>
         </div>
-      </div>
+      </header>
 
-      <div class="page-body" style="padding:24px; background:#f9fafb; min-height:calc(100vh - 100px)">
-        <!-- Greeting & Subtext -->
-        <div style="margin-bottom:24px">
-          <div style="font-size:11px; font-weight:700; color:var(--g500); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px">KİŞİSEL ÇALIŞMA MASASI</div>
-          <div style="font-family:'Georgia', serif; font-size:28px; font-weight:700; color:var(--primary); margin:0 0 6px 0">
-            Merhaba {{ dashboardStatsData.user_name || 'Şule' }}, bugün nereden başlayalım?
-          </div>
-          <div style="font-size:13px; color:var(--g600)">
-            {{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }} · Tüm oteller kapsamındaki öncelikli işleriniz ve işe alım durumunuz.
-          </div>
-        </div>
+      <div class="page-body" style="padding:24px; background:#F6F8F7; min-height:calc(100vh - 56px)">
 
-        <!-- KPI Cards Grid -->
-        <div class="grid-4" style="margin-bottom:24px">
-          <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200); display:flex; flex-direction:column; justify-content:space-between">
-            <div>
-              <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase; letter-spacing:0.04em">Açık Kadro</div>
-              <div style="font-size:32px; font-weight:800; color:var(--primary); margin-top:8px">{{ dashboardStatsData.open_headcount }}</div>
-            </div>
-            <div style="font-size:12px; color:var(--g400); margin-top:12px; font-weight:500">Onaylı ihtiyaç bütçesi</div>
+        <!-- personalHero -->
+        <div class="personalHero">
+          <div>
+            <div class="eyebrow">KİŞİSEL ÇALIŞMA MASASI · {{ new Date().toLocaleDateString('tr-TR', {day:'numeric', month:'long', year:'numeric'}).toUpperCase() }}</div>
+            <h1>Merhaba {{ dashboardStatsData.user_name || 'Şule' }}, bugün nereden başlayalım?</h1>
+            <p>{{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }} kapsamındaki öncelikli işleriniz ve işe alım durumunuz.</p>
           </div>
-          <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200); display:flex; flex-direction:column; justify-content:space-between">
-            <div>
-              <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase; letter-spacing:0.04em">Aktif Aday</div>
-              <div style="font-size:32px; font-weight:800; color:var(--primary); margin-top:8px">{{ (dashboardStatsData.active_candidates || 0).toLocaleString() }}</div>
-            </div>
-            <div style="font-size:12px; color:var(--g400); margin-top:12px; font-weight:500">Pipeline genelinde</div>
-          </div>
-          <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200); display:flex; flex-direction:column; justify-content:space-between">
-            <div>
-              <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase; letter-spacing:0.04em">Bugünkü Görüşme</div>
-              <div style="font-size:32px; font-weight:800; color:var(--primary); margin-top:8px">{{ dashboardStatsData.today_interviews }}</div>
-            </div>
-            <div style="font-size:12px; color:var(--green); margin-top:12px; font-weight:600">3 tanesi size ait</div>
-          </div>
-          <div class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200); display:flex; flex-direction:column; justify-content:space-between">
-            <div>
-              <div style="font-size:12px; font-weight:600; color:var(--g500); text-transform:uppercase; letter-spacing:0.04em">Bekleyen Teklif</div>
-              <div style="font-size:32px; font-weight:800; color:var(--primary); margin-top:8px">{{ dashboardStatsData.pending_offers }}</div>
-            </div>
-            <div style="font-size:12px; color:var(--g400); margin-top:12px; font-weight:500">1 merkez onayında</div>
+          <div class="personalHeroActions">
+            <select v-model="dashboardHotelFilter" class="fs" style="padding:8px 12px; font-size:13px; font-weight:600; border-radius:8px; border:1px solid var(--g200); background:#fff; cursor:pointer">
+              <option value="">Rixos Türkiye (Tümü)</option>
+              <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
+            </select>
+            <button @click="showDashboardSettings = true" class="btn btn-primary" style="gap:6px">
+              ⚙ Dashboard'u düzenle
+            </button>
           </div>
         </div>
 
-        <!-- Horizontal Action Center (keep_actions_top is true) -->
-        <div v-if="dashboardSettings.widgets.actions && dashboardSettings.rules.keep_actions_top && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.action_items && dashboardStatsData.action_items.length > 0))" 
-             style="background:#0e3a2f; color:#fff; border-radius:16px; padding:24px; margin-bottom:24px">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
-            <div>
-              <div style="font-size:20px; font-weight:700">Bugün ilgilenmeniz gereken {{ dashboardStatsData.action_items.length }} konu var</div>
-              <div style="font-size:13px; opacity:0.8; margin-top:4px">Önceliklendirilmiş aksiyon merkezi</div>
-            </div>
+        <!-- personalKpis -->
+        <div class="personalKpis">
+          <div>
+            <span>Açık kadro</span>
+            <b>{{ dashboardStatsData.open_headcount }}</b>
+            <small>Onaylı ihtiyaç</small>
           </div>
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px">
-            <div v-for="item in dashboardStatsData.action_items" :key="item.id" 
-                 style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; gap:12px">
-              <div>
-                <div style="font-weight:700; font-size:14px; color:#fff">{{ item.title }}</div>
-                <div style="font-size:12px; opacity:0.8; margin-top:4px">{{ item.description }}</div>
-              </div>
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px">
-                <span style="font-size:10px; opacity:0.6">{{ item.time }}</span>
-                <button class="btn btn-ghost btn-sm" style="color:#fff; font-weight:700; padding:0; font-size:12px; border:none; background:none"
-                        @click="page = item.target_page; if (item.target_sub_tab) talentSubTab = item.target_sub_tab; if(item.target_page==='interviews') interviewTab='calendar';">
-                  {{ item.action_text }}
-                </button>
-              </div>
-            </div>
+          <div>
+            <span>Aktif aday</span>
+            <b>{{ (dashboardStatsData.active_candidates || 0).toLocaleString() }}</b>
+            <small>Pipeline genelinde</small>
+          </div>
+          <div>
+            <span>Bugünkü görüşme</span>
+            <b>{{ dashboardStatsData.today_interviews }}</b>
+            <small style="color:var(--green); font-weight:600">3 tanesi size ait</small>
+          </div>
+          <div>
+            <span>Bekleyen teklif</span>
+            <b>{{ dashboardStatsData.pending_offers }}</b>
+            <small>1 merkez onayında</small>
           </div>
         </div>
 
-        <!-- 3-Column Layout Row -->
-        <div :style="dashboardGridStyle">
-          
-          <!-- LEFT COLUMN (1fr) -->
-          <div v-if="dashboardSettings.widgets.assistant || dashboardSettings.widgets.schedule" style="display:flex; flex-direction:column; gap:24px">
-            
-            <!-- SkillMatch Assistant Card -->
-            <div v-if="dashboardSettings.widgets.assistant" class="card" style="background:linear-gradient(135deg, #f0fdf4 0%, #fffbeb 100%); border:1px solid #bbf7d0; padding:20px; border-radius:16px; display:flex; flex-direction:column; gap:16px">
-              <div style="display:flex; justify-content:space-between; align-items:center">
-                <div style="display:flex; align-items:center; gap:8px">
-                  <div style="width:36px; height:36px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700">S</div>
-                  <div style="font-weight:700; font-size:14px; color:var(--primary)">SkillMatch Asistan</div>
-                </div>
-                <button class="btn btn-ghost btn-icon btn-sm" @click="chatOpen = true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </button>
-              </div>
-              <div style="font-family:'Georgia', serif; font-size:20px; font-weight:700; color:var(--primary-hover); line-height:1.4">
-                Bugünün işe alım gündemini birlikte tamamlayalım.
-              </div>
-              <p style="font-size:13px; color:var(--g600); margin:0; line-height:1.5">
-                Önceliklerinizi analiz ettim. Süresi dolmak üzere olan adaylarla başlamanızı öneriyorum.
-              </p>
-              <div style="display:flex; flex-wrap:wrap; gap:8px">
-                <button class="btn btn-outline btn-sm" style="background:#fff; border-color:var(--g200); font-size:11.5px; padding:4px 10px" @click="page='talent'; talentSubTab='pool'; candidateSearch='Süresi dolacaklar'">🕒 Süresi dolacaklar</button>
-                <button class="btn btn-outline btn-sm" style="background:#fff; border-color:var(--g200); font-size:11.5px; padding:4px 10px" @click="page='interviews'; interviewTab='calendar'">📅 Mülakatlarım</button>
-                <button class="btn btn-outline btn-sm" style="background:#fff; border-color:var(--g200); font-size:11.5px; padding:4px 10px" @click="chatOpen=true; sendChatText='AI Önerileri'">✦ AI Önerileri</button>
-              </div>
-              <div style="display:flex; gap:8px; background:#fff; border-radius:8px; border:1px solid var(--g200); padding:4px 8px; align-items:center">
-                <input type="text" placeholder="Ne yapmak istersiniz?" style="border:none; outline:none; font-size:12.5px; flex:1; padding:4px" @keyup.enter="chatOpen=true; sendChat()">
-                <button class="btn btn-primary" style="padding:6px; border-radius:6px; min-width:32px" @click="chatOpen=true">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
-              </div>
-            </div>
+        <!-- personalLayout: 3 sütun -->
+        <div class="personalLayout">
 
-            <!-- Program / Schedule Panel -->
-            <div v-if="dashboardSettings.widgets.schedule && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.schedule && dashboardStatsData.schedule.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
-                <div style="font-weight:700; font-size:14px; color:var(--g800)">Bugünkü programım</div>
-                <button class="btn btn-ghost btn-sm text-primary" style="font-size:12px; font-weight:600" @click="page='interviews'; interviewTab='calendar'">Tüm takvim →</button>
-              </div>
-              
-              <!-- Week row -->
-              <div style="display:flex; justify-content:space-between; margin-bottom:16px; background:#f9fafb; padding:8px; border-radius:8px; text-align:center">
-                <div><div style="font-size:10px; color:var(--g400)">Pzt</div><div style="font-size:13px; font-weight:600; color:var(--g500); padding:4px">3</div></div>
-                <div style="background:var(--primary); color:#fff; border-radius:6px; min-width:32px"><div style="font-size:10px; opacity:0.8">Sal</div><div style="font-size:13px; font-weight:700">4</div></div>
-                <div><div style="font-size:10px; color:var(--g400)">Çar</div><div style="font-size:13px; font-weight:600; color:var(--g500); padding:4px">5</div></div>
-                <div><div style="font-size:10px; color:var(--g400)">Per</div><div style="font-size:13px; font-weight:600; color:var(--g500); padding:4px">6</div></div>
-                <div><div style="font-size:10px; color:var(--g400)">Cum</div><div style="font-size:13px; font-weight:600; color:var(--g500); padding:4px">7</div></div>
-              </div>
+          <!-- SOL KOLON: assistantCard + todayCard -->
+          <div class="personalLeft">
 
-              <!-- Today's events list -->
-              <div style="display:flex; flex-direction:column; gap:10px">
-                <div v-for="evt in dashboardStatsData.schedule" :key="evt.id" 
-                     style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--g100); padding:10px; border-radius:8px; background:#fff">
-                  <div style="display:flex; gap:10px; align-items:flex-start">
-                    <div style="font-size:12px; font-weight:700; color:var(--g800); background:var(--g50); padding:4px 6px; border-radius:4px">{{ evt.time }}</div>
-                    <div>
-                      <div style="font-size:13px; font-weight:700; color:var(--g900)">{{ evt.candidate_name }}</div>
-                      <div style="font-size:11px; color:var(--g500); margin-top:2px">{{ evt.details }}</div>
-                    </div>
-                  </div>
-                  <button class="btn btn-secondary btn-sm" @click="page='interviews'; interviewTab='list'" style="padding:4px 8px; font-size:11px">{{ evt.type_label==='İK Mülakatı'?'Başlat':'Detay' }}</button>
-                </div>
+            <!-- SkillMatch Asistan -->
+            <section class="widgetBox assistantCard" v-if="dashboardSettings.widgets.assistant">
+              <div class="widgetHandle">⠿</div>
+              <div class="assistantTop">
+                <div class="aiBadge">✦</div>
+                <span>SkillMatch Asistan</span>
+                <button @click="chatOpen = true" title="Asistan'ı aç">↗</button>
               </div>
-            </div>
-          </div>
+              <h2>Bugünün işe alım gündemini birlikte tamamlayalım.</h2>
+              <p>Önceliklerinizi analiz ettim. Süresi dolmak üzere olan adaylarla başlamanızı öneriyorum.</p>
+              <div class="quickChips">
+                <button @click="page='talent'; talentSubTab='pool'; candidateSearch='Süresi dolacaklar'">◷ Süresi dolacaklar</button>
+                <button @click="page='interviews'; interviewTab='calendar'">▤ Mülakatlarım</button>
+                <button @click="chatOpen=true; sendChatText='AI Önerileri'">✦ AI önerileri</button>
+              </div>
+              <div class="askBox">
+                <input type="text" v-model="chatInput" placeholder="Ne yapmak istersiniz?" @keyup.enter="chatOpen=true; sendChat()">
+                <button @click="chatOpen=true">→</button>
+              </div>
+            </section>
 
-          <!-- MIDDLE COLUMN (1.6fr) -->
-          <div v-if="dashboardSettings.widgets.positions || dashboardSettings.widgets.candidates" style="display:flex; flex-direction:column; gap:24px">
-            
-            <!-- Active Positions Table -->
-            <div v-if="dashboardSettings.widgets.positions && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.active_positions && dashboardStatsData.active_positions.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+            <!-- Bugünkü programım -->
+            <section class="widgetBox todayCard" v-if="dashboardSettings.widgets.schedule">
+              <div class="widgetHandle">⠿</div>
+              <div class="personalSectionHead">
                 <div>
-                  <div style="font-weight:700; font-size:14px; color:var(--g800)">Aktif pozisyonlarım</div>
-                  <div style="font-size:12px; color:var(--g500); margin-top:2px">Sorumluluğunuzdaki pozisyonların anlık durumu</div>
+                  <h3>Bugünkü programım</h3>
+                  <p>{{ new Date().toLocaleDateString('tr-TR', {day:'numeric', month:'long', weekday:'long'}) }}</p>
                 </div>
-                <button class="btn btn-ghost btn-sm text-primary" style="font-size:12px; font-weight:600" @click="page='jobs'">Tüm pozisyonlar →</button>
+                <button @click="page='interviews'; interviewTab='calendar'">Tüm takvim →</button>
               </div>
-
-              <div style="overflow-x:auto">
-                <table class="tbl" style="width:100%">
-                  <thead>
-                    <tr>
-                      <th style="font-size:11px; text-transform:uppercase; color:var(--g500)">Pozisyon</th>
-                      <th style="font-size:11px; text-transform:uppercase; color:var(--g500); text-align:center">Başvuru</th>
-                      <th style="font-size:11px; text-transform:uppercase; color:var(--g500); text-align:center">Görüşme</th>
-                      <th style="font-size:11px; text-transform:uppercase; color:var(--g500); text-align:center">Teklif</th>
-                      <th style="font-size:11px; text-transform:uppercase; color:var(--g500); text-align:center">İşe Giriş</th>
-                      <th style="font-size:11px; text-transform:uppercase; color:var(--g500)">Durum</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="pos in dashboardStatsData.active_positions" :key="pos.id">
-                      <td>
-                        <div style="font-weight:700; font-size:13px">{{ pos.title }}</div>
-                        <div style="font-size:11px; color:var(--g400); margin-top:2px">{{ pos.department }}</div>
-                      </td>
-                      <td style="text-align:center; font-weight:600; font-size:13px">{{ pos.applications_count }}</td>
-                      <td style="text-align:center; font-weight:600; font-size:13px">{{ pos.interviews_count }}</td>
-                      <td style="text-align:center; font-weight:600; font-size:13px">{{ pos.offers_count }}</td>
-                      <td style="text-align:center; font-weight:600; font-size:13px">{{ pos.hires_count }}</td>
-                      <td>
-                        <span class="badge" style="font-size:11px; padding:4px 8px; font-weight:600; border-radius:6px"
-                              :style="pos.status_type==='deficit'?'background:#fef2f2; color:#991b1b; border:1px solid #fee2e2':
-                                     pos.status_type==='empty'?'background:#fffbeb; color:#92400e; border:1px solid #fef3c7':
-                                     pos.status_type==='offer_pending'?'background:#faf5ff; color:#6b21a8; border:1px solid #e9d5ff':
-                                     'background:#f0fdf4; color:#166534; border:1px solid #bbf7d0'">
-                          {{ pos.status_text }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="miniCalendar">
+                <span>Pzt<small>3</small></span>
+                <span class="active">Sal<small>4</small></span>
+                <span>Çar<small>5</small></span>
+                <span>Per<small>6</small></span>
+                <span>Cum<small>7</small></span>
               </div>
-            </div>
-
-            <!-- New Applications Panel -->
-            <div v-if="dashboardSettings.widgets.candidates && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.new_candidates && dashboardStatsData.new_candidates.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
-                <div>
-                  <div style="font-weight:700; font-size:14px; color:var(--g800)">Yeni başvurular</div>
-                  <div style="font-size:12px; color:var(--g500); margin-top:2px">Son 24 saatte size atanan adaylar</div>
-                </div>
-                <button class="btn btn-ghost btn-sm text-primary" style="font-size:12px; font-weight:600" @click="page='talent'; talentSubTab='pool'">Tümünü gör →</button>
-              </div>
-
-              <div style="display:flex; flex-direction:column; gap:12px">
-                <div v-for="cand in dashboardStatsData.new_candidates" :key="cand.id"
-                     style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--g100); padding-bottom:12px">
-                  <div style="display:flex; align-items:center; gap:12px">
-                    <div class="cand-av" style="width:36px; height:36px; font-size:14px; background:var(--primary-light); color:var(--primary)">
-                      {{ (cand.name || '?')[0].toUpperCase() }}
-                    </div>
+              <div class="scheduleItems">
+                <template v-if="dashboardStatsData.schedule && dashboardStatsData.schedule.length > 0">
+                  <article v-for="evt in dashboardStatsData.schedule" :key="evt.id">
+                    <time>{{ evt.time }}</time>
+                    <i :class="evt.type_label==='İK Mülakatı' ? 'interviewDot' : evt.type_label==='Teknik Mülakat' ? 'techDot' : 'offerDot'"></i>
                     <div>
-                      <div style="font-weight:700; font-size:13.5px; color:var(--g900)">{{ cand.name }}</div>
-                      <div style="font-size:11px; color:var(--g500); margin-top:2px">{{ cand.position }} · {{ cand.hotel }}</div>
+                      <b>{{ evt.candidate_name }} · {{ evt.type_label }}</b>
+                      <span>{{ evt.details }}</span>
                     </div>
-                  </div>
-                  <div style="display:flex; align-items:center; gap:10px">
-                    <span class="score-pill" :class="scoreClass(cand.match_score)" style="font-size:11px; padding:2px 8px; font-weight:600">%{{ cand.match_score }} eşleşme</span>
-                    <button class="btn btn-ghost btn-sm text-primary" style="font-size:12px; font-weight:600" @click="viewCandidateById(cand.id)">İncele →</button>
-                  </div>
-                </div>
+                    <button @click="page='interviews'; interviewTab='list'">{{ evt.type_label==='İK Mülakatı' ? 'Başlat' : 'Detay' }}</button>
+                  </article>
+                </template>
+                <template v-else>
+                  <article>
+                    <time>10:30</time><i class="interviewDot"></i>
+                    <div><b>Ahmet Yılmaz · İK Mülakatı</b><span>Garson · Çevrim içi görüşme</span></div>
+                    <button @click="page='interviews'">Başlat</button>
+                  </article>
+                  <article>
+                    <time>14:00</time><i class="techDot"></i>
+                    <div><b>Elif Demir · Teknik Mülakat</b><span>Resepsiyonist · Ön Büro Müdürü</span></div>
+                    <button @click="page='interviews'">Detay</button>
+                  </article>
+                  <article>
+                    <time>16:30</time><i class="offerDot"></i>
+                    <div><b>Ücret teklif değerlendirmesi</b><span>Can Öz · Aşçı</span></div>
+                    <button @click="page='interviews'">Detay</button>
+                  </article>
+                </template>
               </div>
-            </div>
+            </section>
           </div>
 
-          <!-- RIGHT COLUMN (1.2fr) -->
-          <div v-if="(dashboardSettings.widgets.actions && !dashboardSettings.rules.keep_actions_top) || dashboardSettings.widgets.recent_activities" style="display:flex; flex-direction:column; gap:24px">
-            
-            <!-- İlgilenmeniz Gerekenler Card -->
-            <div v-if="dashboardSettings.widgets.actions && !dashboardSettings.rules.keep_actions_top && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.action_items && dashboardStatsData.action_items.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--g100); padding-bottom:12px">
-                <div style="display:flex; align-items:center; gap:8px">
-                  <div style="font-weight:700; font-size:14px; color:var(--g800)">İlgilenmeniz gerekenler</div>
-                  <span class="badge b-rejected" style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700">{{ dashboardStatsData.action_items.length }}</span>
-                </div>
-              </div>
+          <!-- ORTA KOLON: roleBoard + personalCandidates -->
+          <div class="personalCenter">
 
-              <!-- Urgent action center items list -->
-              <div style="display:flex; flex-direction:column; gap:16px">
-                <div v-for="item in dashboardStatsData.action_items" :key="item.id" 
-                     style="border-bottom:1px solid var(--g100); padding-bottom:16px; display:flex; gap:12px; align-items:flex-start">
-                  <div style="width:32px; height:32px; border-radius:50%; background:#f3f4f6; display:flex; align-items:center; justify-content:center; flex-shrink:0">
-                    <svg v-if="item.id==='expiring_locks'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <svg v-else-if="item.id==='missing_reports'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <svg v-else-if="item.id==='pending_approvals'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                    <svg v-else-if="item.id==='empty_pipeline'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <!-- Aktif pozisyonlarım -->
+            <section class="widgetBox roleBoard" v-if="dashboardSettings.widgets.positions">
+              <div class="widgetHandle">⠿</div>
+              <div class="personalSectionHead">
+                <div>
+                  <h3>Aktif pozisyonlarım</h3>
+                  <p>Sorumluluğunuzdaki pozisyonların anlık durumu</p>
+                </div>
+                <button @click="page='jobs'">Tüm pozisyonlar →</button>
+              </div>
+              <div class="roleBoardHead">
+                <span>POZİSYON</span>
+                <span>BAŞVURU</span>
+                <span>GÖRÜŞME</span>
+                <span>TEKLİF</span>
+                <span>İŞE GİRİŞ</span>
+                <span>DURUM</span>
+              </div>
+              <template v-if="dashboardStatsData.active_positions && dashboardStatsData.active_positions.length > 0">
+                <article v-for="pos in dashboardStatsData.active_positions" :key="pos.id" @click="page='jobs'" style="cursor:pointer">
+                  <div>
+                    <b>{{ pos.title }}</b>
+                    <small>{{ pos.department }}</small>
                   </div>
-                  <div style="flex:1">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
-                      <span style="font-weight:700; font-size:13px; color:var(--g900)">{{ item.title }}</span>
-                      <span style="font-size:10px; color:var(--g400)">{{ item.time }}</span>
-                    </div>
-                    <p style="font-size:11.5px; color:var(--g600); margin:0 0 8px 0; line-height:1.4">{{ item.description }}</p>
-                    <button class="btn btn-ghost btn-sm text-primary" style="padding:0; font-size:11.5px; font-weight:700" 
-                            @click="page = item.target_page; if (item.target_sub_tab) talentSubTab = item.target_sub_tab; if(item.target_page==='interviews') interviewTab='calendar';">
-                      {{ item.action_text }}
+                  <strong>{{ pos.applications_count }}</strong>
+                  <strong>{{ pos.interviews_count }}</strong>
+                  <strong>{{ pos.offers_count }}</strong>
+                  <strong>{{ pos.hires_count }}</strong>
+                  <span class="personalState"
+                    :class="pos.status_type==='deficit'?'danger':pos.status_type==='empty'?'warning':pos.status_type==='offer_pending'?'purple':'success'">
+                    {{ pos.status_text }}
+                  </span>
+                </article>
+              </template>
+              <template v-else>
+                <article @click="page='jobs'" style="cursor:pointer">
+                  <div><b>Garson</b><small>Yiyecek &amp; İçecek</small></div>
+                  <strong>26</strong><strong>8</strong><strong>2</strong><strong>3</strong>
+                  <span class="personalState danger">7 açık kadro</span>
+                </article>
+                <article @click="page='jobs'" style="cursor:pointer">
+                  <div><b>Lifeguard</b><small>Recreation</small></div>
+                  <strong>0</strong><strong>0</strong><strong>0</strong><strong>0</strong>
+                  <span class="personalState warning">Aday bulunamadı</span>
+                </article>
+                <article @click="page='jobs'" style="cursor:pointer">
+                  <div><b>Resepsiyonist</b><small>Ön Büro</small></div>
+                  <strong>14</strong><strong>5</strong><strong>2</strong><strong>1</strong>
+                  <span class="personalState success">Pipeline sağlıklı</span>
+                </article>
+                <article @click="page='jobs'" style="cursor:pointer">
+                  <div><b>Aşçı</b><small>Mutfak</small></div>
+                  <strong>7</strong><strong>3</strong><strong>1</strong><strong>0</strong>
+                  <span class="personalState purple">Teklif onayda</span>
+                </article>
+              </template>
+            </section>
+
+            <!-- Yeni başvurular -->
+            <section class="widgetBox personalCandidates" v-if="dashboardSettings.widgets.candidates">
+              <div class="widgetHandle">⠿</div>
+              <div class="personalSectionHead">
+                <div>
+                  <h3>Yeni başvurular</h3>
+                  <p>Son 24 saatte size atanan adaylar</p>
+                </div>
+                <button @click="page='talent'; talentSubTab='pool'">Tümünü gör →</button>
+              </div>
+              <template v-if="dashboardStatsData.new_candidates && dashboardStatsData.new_candidates.length > 0">
+                <article v-for="cand in dashboardStatsData.new_candidates" :key="cand.id">
+                  <div class="avatar" :style="`background:${cand.avatar_color || '#d8efe4'}`">
+                    {{ (cand.name || '?').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() }}
+                  </div>
+                  <div>
+                    <b>{{ cand.name }}</b>
+                    <span>{{ cand.position }} · {{ cand.hotel }}</span>
+                  </div>
+                  <em>%{{ cand.match_score }} eşleşme</em>
+                  <button @click="viewCandidateById(cand.id)">İncele →</button>
+                </article>
+              </template>
+              <template v-else>
+                <article>
+                  <div class="avatar" style="background:#d8efe4">AY</div>
+                  <div><b>Ahmet Yılmaz</b><span>Garson · Rixos Sungate</span></div>
+                  <em>%91 eşleşme</em>
+                  <button @click="page='talent'">İncele →</button>
+                </article>
+                <article>
+                  <div class="avatar" style="background:#eee4d7">ED</div>
+                  <div><b>Elif Demir</b><span>Resepsiyonist · Rixos Premium Belek</span></div>
+                  <em>%87 eşleşme</em>
+                  <button @click="page='talent'">İncele →</button>
+                </article>
+                <article>
+                  <div class="avatar" style="background:#e3e4f5">MK</div>
+                  <div><b>Mehmet Kaya</b><span>Lifeguard · Rixos Sungate</span></div>
+                  <em>%83 eşleşme</em>
+                  <button @click="page='talent'">İncele →</button>
+                </article>
+              </template>
+            </section>
+          </div>
+
+          <!-- SAĞ KOLON: needActions + activityMini -->
+          <div class="personalRight">
+
+            <!-- İlgilenmeniz gerekenler -->
+            <section class="widgetBox needActions" v-if="dashboardSettings.widgets.actions">
+              <div class="widgetHandle">⠿</div>
+              <div class="personalSectionHead">
+                <div>
+                  <h3>İlgilenmeniz gerekenler</h3>
+                  <p>Öncelik sırasına göre</p>
+                </div>
+                <span class="actionCount">{{ (dashboardStatsData.action_items || []).length || 5 }}</span>
+              </div>
+              <template v-if="dashboardStatsData.action_items && dashboardStatsData.action_items.length > 0">
+                <article v-for="item in dashboardStatsData.action_items" :key="item.id"
+                  :class="item.priority==='urgent'?'urgent':item.priority==='warning'?'warning':item.priority==='purple'?'purple':item.priority==='info'?'info':'success'">
+                  <i>{{ item.icon || '◷' }}</i>
+                  <div>
+                    <b>{{ item.title }}</b>
+                    <p>{{ item.description }}</p>
+                    <small>{{ item.time }}</small>
+                    <button @click="page=item.target_page; if(item.target_sub_tab) talentSubTab=item.target_sub_tab; if(item.target_page==='interviews') interviewTab='calendar'">
+                      {{ item.action_text }} →
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Son Hareketler Card -->
-            <div v-if="dashboardSettings.widgets.recent_activities && (!dashboardSettings.rules.hide_empty_widgets || (dashboardStatsData.recent_activities && dashboardStatsData.recent_activities.length > 0))" class="card" style="background:#fff; padding:20px; border-radius:12px; border:1px solid var(--g200)">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--g100); padding-bottom:12px">
-                <div style="display:flex; align-items:center; gap:8px">
-                  <div style="font-weight:700; font-size:14px; color:var(--g800)">Son Hareketler</div>
-                </div>
-              </div>
-              <div style="display:flex; flex-direction:column; gap:16px">
-                <div v-for="act in dashboardStatsData.recent_activities" :key="act.id" style="border-bottom:1px solid var(--g100); padding-bottom:12px; display:flex; gap:10px; align-items:flex-start">
-                  <div style="width:24px; height:24px; border-radius:50%; background:#f0fdf4; display:flex; align-items:center; justify-content:center; color:#0e3a2f; font-size:10px; font-weight:700; flex-shrink:0">
-                    {{ (act.user_name || 'S')[0].toUpperCase() }}
+                </article>
+              </template>
+              <template v-else>
+                <article class="urgent">
+                  <i>◷</i>
+                  <div>
+                    <b>3 adayın sahiplik süresi doluyor</b>
+                    <p>Ortak havuza aktarılmalarına 1 gün kaldı</p>
+                    <small>Bugün</small>
+                    <button @click="page='talent'">Adayları incele →</button>
                   </div>
-                  <div style="flex:1">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px">
-                      <span style="font-weight:600; font-size:12px; color:var(--g900)">{{ act.user_name }}</span>
-                      <span style="font-size:10px; color:var(--g400)">{{ act.time }}</span>
-                    </div>
-                    <p style="font-size:11.5px; color:var(--g600); margin:0; line-height:1.4">{{ act.details }}</p>
+                </article>
+                <article class="warning">
+                  <i>▤</i>
+                  <div>
+                    <b>2 mülakat raporu eksik</b>
+                    <p>Dün tamamlanan görüşmelerin sonuçları girilmedi</p>
+                    <small>4 saat önce</small>
+                    <button @click="page='interviews'">Raporları tamamla →</button>
                   </div>
-                </div>
-              </div>
-            </div>
+                </article>
+                <article class="purple">
+                  <i>₺</i>
+                  <div>
+                    <b>1 teklif merkez onayı bekliyor</b>
+                    <p>Aşçı pozisyonu · Üst bandın %6 üzerinde</p>
+                    <small>2 saat önce</small>
+                    <button @click="page='offers'">Teklifi görüntüle →</button>
+                  </div>
+                </article>
+                <article class="info">
+                  <i>◎</i>
+                  <div>
+                    <b>Lifeguard pozisyonunda aday yok</b>
+                    <p>1 açık kadro var ancak ilan ve uygun aday bulunmuyor</p>
+                    <small>Dün</small>
+                    <button @click="page='jobs'">İlan oluştur →</button>
+                  </div>
+                </article>
+                <article class="success">
+                  <i>⌁</i>
+                  <div>
+                    <b>9 yeni kapı başvurusu geldi</b>
+                    <p>Garson ve Kat Hizmetleri pozisyonları</p>
+                    <small>35 dk önce</small>
+                    <button @click="page='talent'">Başvuruları aç →</button>
+                  </div>
+                </article>
+              </template>
+            </section>
 
+            <!-- Son hareketler -->
+            <section class="widgetBox activityMini" v-if="dashboardSettings.widgets.recent_activities">
+              <div class="widgetHandle">⠿</div>
+              <div class="personalSectionHead">
+                <div>
+                  <h3>Son hareketler</h3>
+                  <p>Sizin süreçleriniz</p>
+                </div>
+                <button>•••</button>
+              </div>
+              <template v-if="dashboardStatsData.recent_activities && dashboardStatsData.recent_activities.length > 0">
+                <div v-for="act in dashboardStatsData.recent_activities" :key="act.id">
+                  <i></i>
+                  <span>{{ act.details }}<small>{{ act.time }}</small></span>
+                </div>
+              </template>
+              <template v-else>
+                <div><i></i><span>Ahmet Yılmaz mülakatı kabul etti<small>12 dk önce</small></span></div>
+                <div><i></i><span>Seda Akın 3 aday yönlendirdi<small>28 dk önce</small></span></div>
+                <div><i></i><span>Garson ilanına 4 yeni başvuru<small>45 dk önce</small></span></div>
+                <div><i></i><span>Teklif revizyonu onaylandı<small>1 sa önce</small></span></div>
+              </template>
+            </section>
           </div>
 
-        </div>
-      </div>
+        </div><!-- /personalLayout -->
+      </div><!-- /page-body -->
+
+
+
 
       <!-- DASHBOARD SETTINGS DRAWER -->
       <div v-if="showDashboardSettings" class="modal-backdrop" style="display:flex; justify-content:flex-end; align-items:stretch; background:rgba(0,0,0,0.4); z-index:9999" @click.self="showDashboardSettings = false">
