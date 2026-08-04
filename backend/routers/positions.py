@@ -179,6 +179,42 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
     reports = db.query(models.PositionReport).filter(models.PositionReport.position_id == position_id).all()
     reports_list = [{"id": r.id, "report_type": r.report_type, "created_at": r.created_at} for r in reports]
     
+    # Fetch headcount budget
+    budget_entry = db.query(models.WorkforceHeadcountBudget).filter(
+        models.WorkforceHeadcountBudget.hotel_id == position.hotel_id,
+        models.WorkforceHeadcountBudget.department_id == position.department_id,
+        models.WorkforceHeadcountBudget.position_title.collate("NOCASE") == position.title
+    ).first()
+    
+    approved_budget = budget_entry.headcount_budget if budget_entry else position.headcount or 1
+    
+    active_employees = db.query(models.Application).filter(
+        models.Application.position_id == position_id,
+        models.Application.status == "hired"
+    ).count()
+    
+    confirmed_starters = db.query(models.Application).join(models.Offer, isouter=True).filter(
+        models.Application.position_id == position_id,
+        models.Application.status == "offer",
+        models.Offer.status == "accepted"
+    ).count()
+    
+    planned_leavers = 0
+    net_open = max(0, approved_budget - active_employees + planned_leavers - confirmed_starters)
+    
+    # Salary policy
+    sal_policy = db.query(models.SalaryPolicy).filter(
+        models.SalaryPolicy.position_title.collate("NOCASE") == position.title
+    ).first()
+    salary_band = f"{sal_policy.min_salary // 1000}-{sal_policy.max_salary // 1000}K {sal_policy.currency}" if sal_policy else "Belirtilmemiş"
+    
+    # Avg offer salary
+    avg_salary_query = db.query(models.Offer.final_salary).filter(
+        models.Offer.position_id == position_id,
+        models.Offer.status == "accepted"
+    ).all()
+    avg_salary = sum([s[0] for s in avg_salary_query if s[0]]) / len(avg_salary_query) if avg_salary_query else 0.0
+
     return {
         "position": {
             "id": position.id,
@@ -217,7 +253,16 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
             "risks": insights.risks,
             "recruitment_guide": insights.recruitment_guide
         } if insights else None,
-        "reports": reports_list
+        "reports": reports_list,
+        "metrics": {
+            "approved_budget": approved_budget,
+            "active_employees": active_employees,
+            "confirmed_starters": confirmed_starters,
+            "planned_leavers": planned_leavers,
+            "net_open": net_open,
+            "salary_band": salary_band,
+            "avg_salary": avg_salary
+        }
     }
 
 

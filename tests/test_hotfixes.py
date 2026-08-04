@@ -657,5 +657,47 @@ def test_candidate_duplicate_detection_and_locking():
         db.close()
 
 
+def test_workforce_headcount_budget_metrics():
+    db = TestingSessionLocal()
+    
+    # 1. Create hot, dept, pos
+    hot = models.Hotel(organization_id=1, city_id=1, region_id=1, name="Hotel Metric", code="HMC")
+    dept = models.Department(name="F&B", code="FB")
+    db.add(hot)
+    db.add(dept)
+    db.commit()
+    db.refresh(hot)
+    db.refresh(dept)
+    
+    pos = models.Position(title="Barista Chef", is_active=True, hotel_id=hot.id, department_id=dept.id, description="F&B Service", headcount=5)
+    db.add(pos)
+    db.commit()
+    db.refresh(pos)
+    
+    # 2. Create budget record
+    budget = models.WorkforceHeadcountBudget(
+        hotel_id=hot.id,
+        department_id=dept.id,
+        position_title="Barista Chef",
+        headcount_budget=10
+    )
+    db.add(budget)
+    db.commit()
+    
+    # 3. Get position workspace metrics
+    res = client.get(f"/api/positions/{pos.id}/workspace")
+    assert res.status_code == 200
+    data = res.json()
+    
+    # Should resolve approved budget from WorkforceHeadcountBudget (which is 10, overriding pos.headcount = 5)
+    assert data["metrics"]["approved_budget"] == 10
+    assert data["metrics"]["active_employees"] == 0
+    assert data["metrics"]["confirmed_starters"] == 0
+    assert data["metrics"]["net_open"] == 10
+    
+    db.close()
+
+
+
 
 
