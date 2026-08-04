@@ -781,5 +781,32 @@ class OfferApprovalRequestOut(BaseModel):
         from_attributes = True
 
 
+class RecruitmentCampaignCreate(BaseModel):
+    name: str
+    hotel_id: int
+    position_id: int
+    source: Optional[str] = "QR Code"
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+
+
+class RecruitmentCampaignOut(BaseModel):
+    id: int
+    name: str
+    hotel_id: int
+    position_id: int
+    source: str
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    qr_code_path: Optional[str] = None
+    utm_url: Optional[str] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+
 
 

@@ -698,6 +698,65 @@ def test_workforce_headcount_budget_metrics():
     db.close()
 
 
+def test_recruitment_campaign_and_utm_apply():
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    
+    # Create test hotel and position
+    hot = models.Hotel(organization_id=1, city_id=1, region_id=1, name="Campaign Hotel", code="CH1")
+    db.add(hot)
+    db.commit()
+    db.refresh(hot)
+    
+    pos = models.Position(title="Campaign Developer", is_active=True, hotel_id=hot.id, description="Job Desc")
+    db.add(pos)
+    db.commit()
+    db.refresh(pos)
+    
+    test_user = models.User(
+        email="camp_admin@example.com",
+        full_name="admin",
+        hashed_password="mocked_password",
+        role="ADMIN",
+        is_active=True
+    )
+    db.add(test_user)
+    db.commit()
+    db.refresh(test_user)
+
+    def mock_get_current_user():
+        return test_user
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    
+    try:
+        # Create campaign
+        campaign_payload = {
+            "name": "LinkedIn Campaign 2026",
+            "hotel_id": hot.id,
+            "position_id": pos.id,
+            "source": "LinkedIn",
+            "utm_source": "linkedin",
+            "utm_medium": "social",
+            "utm_campaign": "dev_hiring"
+        }
+        res = client.post("/api/campaigns/", json=campaign_payload)
+        assert res.status_code == 201
+        campaign_data = res.json()
+        assert campaign_data["name"] == "LinkedIn Campaign 2026"
+        assert "utm_source=linkedin" in campaign_data["utm_url"]
+        assert campaign_data["qr_code_path"] is not None
+        
+        # Test listing campaigns
+        list_res = client.get("/api/campaigns/")
+        assert list_res.status_code == 200
+        assert len(list_res.json()) >= 1
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
+
+
+
 
 
 

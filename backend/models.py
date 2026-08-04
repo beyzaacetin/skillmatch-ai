@@ -131,6 +131,12 @@ class Application(Base):
     extension_count = Column(Integer, default=0)
     lock_status = Column(String, default="UNLOCKED") # LOCKED, UNLOCKED, WAITING
     
+    # UTM tracking fields
+    utm_source = Column(String, nullable=True)
+    utm_medium = Column(String, nullable=True)
+    utm_campaign = Column(String, nullable=True)
+    utm_content = Column(String, nullable=True)
+    
     # Relations
     candidate = relationship("Candidate", back_populates="applications")
     position = relationship("Position", back_populates="applications")
@@ -630,6 +636,21 @@ class OfferApprovalRequest(Base):
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class RecruitmentCampaign(Base):
+    __tablename__ = "recruitment_campaigns"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    position_id = Column(Integer, ForeignKey("positions.id"), nullable=False)
+    source = Column(String, default="QR Code")
+    utm_source = Column(String, nullable=True)
+    utm_medium = Column(String, nullable=True)
+    utm_campaign = Column(String, nullable=True)
+    qr_code_path = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 
 

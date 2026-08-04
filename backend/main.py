@@ -325,7 +325,7 @@ try:
     templates = Jinja2Templates(directory=templates_dir)
 
     # Routers
-    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, settings, ownership, portal
+    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, settings, ownership, portal, campaigns
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
@@ -343,6 +343,7 @@ try:
     app.include_router(ai_recruitment.router, prefix="/api/ai", tags=["ai"])
     app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
     app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
+    app.include_router(campaigns.router)
 
     from services.chatbot import chatbot_service
     @app.post("/api/chat")

@@ -11,7 +11,7 @@ GET  /api/portal/notifications     — Bildirimler
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 
 import models, schemas
 from database import get_db
@@ -275,7 +275,11 @@ async def apply_public_position(
     phone: str = Form(...),
     cover_letter: str = Form(default=""),
     cv_file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    utm_source: Optional[str] = Query(None),
+    utm_medium: Optional[str] = Query(None),
+    utm_campaign: Optional[str] = Query(None),
+    utm_content: Optional[str] = Query(None)
 ):
     """Public candidate apply endpoint for shareable job posting links."""
     position = db.query(models.Position).filter(models.Position.id == pos_id, models.Position.is_active == True).first()
@@ -371,11 +375,15 @@ async def apply_public_position(
         status="applied",
         status_history=[{"status": "applied", "date": now_utc.isoformat(), "note": "Başvuru oluşturuldu"}],
         cover_letter=cover_letter,
-        source="Public Link",
+        source=utm_source or "Public Link",
         hotel_id=position.hotel_id,
         ownership_started_at=now_utc,
         ownership_expires_at=now_utc + timedelta(days=days),
-        lock_status='LOCKED'
+        lock_status='LOCKED',
+        utm_source=utm_source,
+        utm_medium=utm_medium,
+        utm_campaign=utm_campaign,
+        utm_content=utm_content
     )
     db.add(app)
     db.commit()
