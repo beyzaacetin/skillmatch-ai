@@ -199,6 +199,11 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
         models.Offer.status == "accepted"
     ).count()
     
+    interviews_count = db.query(models.Application).filter(
+        models.Application.position_id == position_id,
+        models.Application.status.in_(["hr_interview", "tech_interview", "manager_interview"])
+    ).count()
+    
     planned_leavers = 0
     net_open = max(0, approved_budget - active_employees + planned_leavers - confirmed_starters)
     
@@ -258,12 +263,48 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
             "approved_budget": approved_budget,
             "active_employees": active_employees,
             "confirmed_starters": confirmed_starters,
+            "interviews_count": interviews_count,
             "planned_leavers": planned_leavers,
             "net_open": net_open,
             "salary_band": salary_band,
             "avg_salary": avg_salary
         }
     }
+
+
+@router.patch("/{position_id}/toggle-active")
+def toggle_position_active(
+    position_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Toggles active state of a position."""
+    position = db.query(models.Position).filter(models.Position.id == position_id).first()
+    if not position:
+        raise HTTPException(status_code=404, detail="Pozisyon bulunamadı")
+        
+    position.is_active = not position.is_active
+    if not position.is_active:
+        position.closed_at = datetime.utcnow()
+    else:
+        position.closed_at = None
+        
+    db.commit()
+    
+    # Log audit action
+    log = models.Log(
+        user_id=current_user.id,
+        user_name=current_user.full_name,
+        action="toggle_position_active",
+        target_type="position",
+        target_id=position.id,
+        details={"title": position.title, "is_active": position.is_active}
+    )
+    db.add(log)
+    db.commit()
+    
+    return {"status": "success", "is_active": position.is_active, "closed_at": position.closed_at}
+
 
 
 # GET CANDIDATES

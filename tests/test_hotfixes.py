@@ -762,6 +762,112 @@ def test_chatbot_assistant():
     assert "response" in res.json()
 
 
+def test_headcount_management_and_toggle_active():
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    
+    test_user = models.User(
+        email="recruiter_hc@example.com",
+        full_name="Recruiter Headcount",
+        hashed_password="mocked_password",
+        role="CENTRAL_HR",
+        is_active=True
+    )
+    db.add(test_user)
+    db.commit()
+    db.refresh(test_user)
+
+    def mock_get_current_user():
+        return test_user
+        
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    
+    try:
+        # Create organization
+        org = models.Organization(name="Rixos Hotels")
+        db.add(org)
+        db.commit()
+        db.refresh(org)
+        
+        # Create hotel
+        hotel = models.Hotel(name="Rixos Sungate", code="SUN", region_id=1, city_id=1, organization_id=org.id)
+        db.add(hotel)
+        db.commit()
+        db.refresh(hotel)
+        
+        # Create department
+        dept = models.Department(name="Yiyecek & İçecek")
+        db.add(dept)
+        db.commit()
+        db.refresh(dept)
+        
+        # Add a position
+        position = models.Position(
+            title="Garson",
+            description="Restoran servisi",
+            required_skills=["Servis"],
+            hotel_id=hotel.id,
+            department_id=dept.id,
+            is_active=True
+        )
+        db.add(position)
+        db.commit()
+        db.refresh(position)
+        
+        # Add a budget record
+        budget = models.WorkforceBudgetRecord(
+            hotel_code="SUN",
+            hotel_sub="Ana Otel",
+            department="Yiyecek & İçecek",
+            sub_department="Servis",
+            position_title="Garson",
+            month_of_year=8,
+            total_fte=12.0,
+            budget_amount=450000.0
+        )
+        db.add(budget)
+        db.commit()
+        
+        # Test Headcount Summary API
+        res = client.get("/api/headcount/summary?month=8&hotel_id=" + str(hotel.id))
+        assert res.status_code == 200
+        summary_data = res.json()
+        assert "rows" in summary_data
+        assert len(summary_data["rows"]) >= 1
+        garson_row = next((r for r in summary_data["rows"] if r["position_title"] == "Garson"), None)
+        assert garson_row is not None
+        assert garson_row["budget"] == 12
+        
+        # Test Headcount Details API
+        res_det = client.get(f"/api/headcount/details?position_title=Garson&hotel_code=SUN")
+        assert res_det.status_code == 200
+        details_data = res_det.json()
+        assert details_data["position_title"] == "Garson"
+        assert details_data["budget"] == 12
+        
+        # Test Toggle Active API
+        res_toggle = client.patch(f"/api/positions/{position.id}/toggle-active")
+        assert res_toggle.status_code == 200
+        assert res_toggle.json()["is_active"] is False
+        assert res_toggle.json()["closed_at"] is not None
+        
+        # Verify db updated
+        db.refresh(position)
+        assert position.is_active is False
+        assert position.closed_at is not None
+        
+        # Toggle back to active
+        res_toggle_back = client.patch(f"/api/positions/{position.id}/toggle-active")
+        assert res_toggle_back.status_code == 200
+        assert res_toggle_back.json()["is_active"] is True
+        assert res_toggle_back.json()["closed_at"] is None
+        
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
+
+
 
 
 

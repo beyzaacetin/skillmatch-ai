@@ -82,6 +82,7 @@ try:
             "ALTER TABLE positions ADD COLUMN priority VARCHAR(50) DEFAULT 'Orta'",
             "ALTER TABLE positions ADD COLUMN hiring_manager VARCHAR(255)",
             "ALTER TABLE positions ADD COLUMN target_date VARCHAR(255)",
+            "ALTER TABLE positions ADD COLUMN closed_at TIMESTAMP",
             
             # users table migration
             "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
@@ -191,6 +192,10 @@ try:
             "ALTER TABLE applications ADD COLUMN ownership_expires_at TIMESTAMP",
             "ALTER TABLE applications ADD COLUMN extension_count INTEGER DEFAULT 0",
             "ALTER TABLE applications ADD COLUMN lock_status VARCHAR(50) DEFAULT 'UNLOCKED'",
+            "ALTER TABLE applications ADD COLUMN utm_source VARCHAR(255)",
+            "ALTER TABLE applications ADD COLUMN utm_medium VARCHAR(255)",
+            "ALTER TABLE applications ADD COLUMN utm_campaign VARCHAR(255)",
+            "ALTER TABLE applications ADD COLUMN utm_content VARCHAR(255)",
 
             # offers table deviations & approvals (v6 Phase 4)
             "ALTER TABLE offers ADD COLUMN deviation_reason VARCHAR(255)",
@@ -325,7 +330,7 @@ try:
     templates = Jinja2Templates(directory=templates_dir)
 
     # Routers
-    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, settings, ownership, portal, campaigns
+    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, settings, ownership, portal, campaigns, headcount
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
@@ -344,6 +349,7 @@ try:
     app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
     app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
     app.include_router(campaigns.router)
+    app.include_router(headcount.router, prefix="/api/headcount", tags=["headcount"])
 
     from services.chatbot import chatbot_service
     @app.post("/api/chat")

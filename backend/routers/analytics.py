@@ -536,8 +536,14 @@ def get_dashboard_stats(
     # --- 4. Recent Applications ---
     recent_cutoff = datetime.utcnow() - timedelta(hours=24)
     recent_apps = db.query(models.Application).filter(models.Application.applied_at >= recent_cutoff).all()
+    recent_candidates = db.query(models.Candidate).filter(
+        models.Candidate.created_at >= recent_cutoff,
+        models.Candidate.is_deleted == False
+    ).all()
     
     new_candidates_list = []
+    seen_candidate_ids = set()
+    
     for ra in recent_apps:
         c = db.query(models.Candidate).filter_by(id=ra.candidate_id).first()
         p = db.query(models.Position).filter_by(id=ra.position_id).first()
@@ -546,16 +552,70 @@ def get_dashboard_stats(
         if active_hotel_id and p.hotel_id != active_hotel_id:
             continue
         
+        seen_candidate_ids.add(c.id)
         hotel_row = db.query(models.Hotel).filter_by(id=p.hotel_id).first()
         hotel_name = hotel_row.name if hotel_row else "Rixos"
+        
+        # Check if there is a higher match score on other positions
+        best_score = int(ra.match_score) if ra.match_score else 85
+        best_pos_title = p.title
+        
+        best_ms = db.query(models.MatchScore).filter(
+            models.MatchScore.candidate_id == c.id
+        ).order_by(models.MatchScore.overall_score.desc()).first()
+        if best_ms and best_ms.overall_score > best_score:
+            alt_p = db.query(models.Position).filter_by(id=best_ms.position_id).first()
+            if alt_p:
+                best_pos_title = alt_p.title
+                best_score = int(best_ms.overall_score)
 
         new_candidates_list.append({
             "id": c.id,
             "name": c.name,
-            "position": p.title,
+            "position": best_pos_title,
             "hotel": hotel_name,
-            "match_score": int(ra.match_score) if ra.match_score else 85
+            "match_score": best_score
         })
+
+    # Scan and map candidates without applications to active positions
+    active_positions = db.query(models.Position).filter(models.Position.is_active == True).all()
+    for c in recent_candidates:
+        if c.id in seen_candidate_ids:
+            continue
+            
+        best_pos = None
+        best_score = 0.0
+        
+        cand_skills = [s.lower() for s in (c.skills or []) if isinstance(s, str)]
+        cand_text = " ".join(cand_skills) + " " + (c.summary or "").lower()
+        
+        for pos in active_positions:
+            if active_hotel_id and pos.hotel_id != active_hotel_id:
+                continue
+            
+            score = 0.0
+            if pos.title.lower() in cand_text:
+                score += 50.0
+            pos_skills = [s.lower() for s in (pos.required_skills or []) if isinstance(s, str)]
+            if pos_skills:
+                overlap = set(pos_skills).intersection(set(cand_skills))
+                score += (len(overlap) / len(pos_skills)) * 50.0
+                
+            if score > best_score:
+                best_score = score
+                best_pos = pos
+                
+        if best_pos and best_score >= 40:
+            hotel_row = db.query(models.Hotel).filter_by(id=best_pos.hotel_id).first()
+            hotel_name = hotel_row.name if hotel_row else "Rixos"
+            
+            new_candidates_list.append({
+                "id": c.id,
+                "name": c.name,
+                "position": best_pos.title,
+                "hotel": hotel_name,
+                "match_score": int(best_score)
+            })
 
     if not new_candidates_list:
         new_candidates_list = [

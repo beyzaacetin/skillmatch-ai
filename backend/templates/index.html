@@ -321,10 +321,6 @@ input:checked + .slider:before {
             <p>{{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }} kapsamındaki öncelikli işleriniz ve işe alım durumunuz.</p>
           </div>
           <div class="personalHeroActions">
-            <select v-model="dashboardHotelFilter" class="fs" style="padding:8px 12px; font-size:13px; font-weight:600; border-radius:8px; border:1px solid var(--g200); background:#fff; cursor:pointer">
-              <option value="">Rixos Türkiye (Tümü)</option>
-              <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
-            </select>
             <button @click="showDashboardSettings = true" class="btn btn-primary" style="gap:6px">
               ⚙ Dashboard'u düzenle
             </button>
@@ -647,7 +643,7 @@ input:checked + .slider:before {
 
 
       <!-- DASHBOARD SETTINGS DRAWER -->
-      <div v-if="showDashboardSettings" class="modal-backdrop" style="display:flex; justify-content:flex-end; align-items:stretch; background:rgba(0,0,0,0.4); z-index:9999" @click.self="showDashboardSettings = false">
+      <div v-if="showDashboardSettings" class="modal-backdrop" style="position:fixed; top:0; left:0; right:0; bottom:0; display:flex; justify-content:flex-end; align-items:stretch; background:rgba(0,0,0,0.4); z-index:9999" @click.self="showDashboardSettings = false">
         <div style="width:480px; background:#fff; box-shadow:-4px 0 24px rgba(0,0,0,0.15); display:flex; flex-direction:column; padding:32px; overflow-y:auto; animation: slideIn 0.3s ease">
           
           <!-- Header -->
@@ -820,6 +816,300 @@ input:checked + .slider:before {
           <div style="display:flex; gap:12px; margin-top:auto; padding-top:20px; border-top:1px solid var(--g200)">
             <button class="btn" style="flex:1; background:#fff; border:1px solid var(--g300); color:var(--g700); font-weight:600" @click="showDashboardSettings = false">Vazgeç</button>
             <button class="btn" style="flex:1; background:#0e3a2f; border:none; color:#fff; font-weight:600" @click="saveDashboardSettings">Düzeni kaydet</button>
+          </div>
+
+        </div>
+      </div>
+    </template>
+
+    <!-- KADRO İHTİYAÇLARI (HEADCOUNT PLANNING) -->
+    <template v-if="page==='headcount'">
+      <!-- Header -->
+      <div class="page-hdr" style="background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px; display:flex; justify-content:space-between; align-items:center">
+        <div>
+          <div style="font-size:11px; font-weight:700; color:var(--g500); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px">İŞ GÜCÜ PLANLAMA</div>
+          <div class="page-hdr-title" style="font-size:24px; font-weight:700; color:var(--g800)">Kadro İhtiyaçları</div>
+          <div class="page-hdr-sub" style="font-size:13px; color:var(--g500); margin-top:4px">Bütçe, aktif çalışan, yaklaşan ayrılış ve net işe alım ihtiyacını dönem bazında yönetin.</div>
+        </div>
+        <button class="btn btn-primary" style="background:var(--primary); color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:6px">
+          + İhtiyaç talebi oluştur
+        </button>
+      </div>
+
+      <div class="page-body" style="padding:24px; background:#F6F8F7; min-height:calc(100vh - 120px)">
+        
+        <!-- KPI Cards Grid (5 cards) -->
+        <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:16px; margin-bottom:24px">
+          <!-- KPI 1 -->
+          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:var(--g500); font-weight:600">Onaylı kadro</span>
+            <b style="font-size:28px; color:var(--g900)">{{ headcountData.kpis?.approved_budget || 2846 }}</b>
+            <small style="font-size:11px; color:var(--g400)">{{ headcountFilter.hotel_id ? 'Tesis genelinde' : '12 otel genelinde' }}</small>
+          </div>
+          <!-- KPI 2 -->
+          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:var(--g500); font-weight:600">Aktif çalışan</span>
+            <b style="font-size:28px; color:var(--g900)">{{ headcountData.kpis?.active_count || 2719 }}</b>
+            <small style="font-size:11px; color:var(--green); font-weight:600">%{{ headcountData.kpis?.occupancy_rate || 95.5 }} doluluk</small>
+          </div>
+          <!-- KPI 3 -->
+          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:var(--g500); font-weight:600">Net açık ihtiyaç</span>
+            <b style="font-size:28px; color:var(--g900)">{{ headcountData.kpis?.net_open || 127 }}</b>
+            <small style="font-size:11px; color:var(--red); font-weight:600">Aksiyon gerekli</small>
+          </div>
+          <!-- KPI 4 -->
+          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:var(--g500); font-weight:600">İlanı olmayan ihtiyaç</span>
+            <b style="font-size:28px; color:var(--g900)">{{ headcountData.kpis?.no_job_ad || 18 }}</b>
+            <small style="font-size:11px; color:var(--amber); font-weight:600">İlan oluşturulmalı</small>
+          </div>
+          <!-- KPI 5 -->
+          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:12px; color:var(--g500); font-weight:600">Kesinleşen giriş</span>
+            <b style="font-size:28px; color:var(--g900)">{{ headcountData.kpis?.confirmed_starters || 36 }}</b>
+            <small style="font-size:11px; color:var(--g400)">Önümüzdeki 30 gün</small>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="card" style="background:#fff; border:1px solid var(--g200); padding:16px 20px; border-radius:12px; display:flex; gap:16px; align-items:center; margin-bottom:20px">
+          <!-- Search input -->
+          <div class="search-bar" style="flex:1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input v-model="headcountFilter.search" @input="loadHeadcount" placeholder="Pozisyon, otel veya departman ara...">
+          </div>
+          
+          <!-- Hotel selector (only visible for Central HR or Admin) -->
+          <select v-if="currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')"
+                  v-model="headcountFilter.hotel_id" @change="loadHeadcount" class="fs" style="width:160px; padding:8px 12px">
+            <option value="">Tüm oteller</option>
+            <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
+          </select>
+          
+          <!-- Department selector -->
+          <select v-model="headcountFilter.department" @change="loadHeadcount" class="fs" style="width:180px; padding:8px 12px">
+            <option value="">Tüm departmanlar</option>
+            <option v-for="d in settingsData.departments" :key="d.id" :value="d.name">{{ d.name }}</option>
+          </select>
+
+          <!-- Month selector -->
+          <select v-model="headcountFilter.month" @change="loadHeadcount" class="fs" style="width:120px; padding:8px 12px">
+            <option :value="1">Ocak</option>
+            <option :value="2">Şubat</option>
+            <option :value="3">Mart</option>
+            <option :value="4">Nisan</option>
+            <option :value="5">Mayıs</option>
+            <option :value="6">Haziran</option>
+            <option :value="7">Temmuz</option>
+            <option :value="8">Ağustos</option>
+            <option :value="9">Eylül</option>
+            <option :value="10">Ekim</option>
+            <option :value="11">Kasım</option>
+            <option :value="12">Aralık</option>
+          </select>
+        </div>
+
+        <!-- Table card -->
+        <div class="card" style="background:#fff; border:1px solid var(--g200); border-radius:12px; overflow:hidden">
+          <div style="padding:20px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center">
+            <h3 style="font-size:16px; font-weight:700; color:var(--g800)">Pozisyon İhtiyaç planı</h3>
+            
+            <div style="display:flex; gap:10px">
+              <!-- Excel Import (reads C:\Users\sule\Desktop\bütçemevcut.xlsx) -->
+              <button @click="uploadHeadcountExcel" class="btn btn-outline" style="padding:6px 12px; display:flex; align-items:center; gap:6px; font-size:12.5px" :disabled="importingHeadcount">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                {{ importingHeadcount ? 'Yükleniyor...' : 'Excel Yükle' }}
+              </button>
+              
+              <!-- Hidden file picker as fallback -->
+              <input type="file" id="headcountExcelFile" @change="uploadHeadcountExcel" style="display:none" accept=".xlsx,.xls">
+              
+              <button class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Şablon indir</button>
+              <button class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Kolonlar ⚙</button>
+            </div>
+          </div>
+          
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>POZİSYON / OTEL</th>
+                <th style="text-align:center">BÜTÇE</th>
+                <th style="text-align:center">AKTİF</th>
+                <th style="text-align:center">KESİN GİRİŞ</th>
+                <th style="text-align:center">NET AÇIK</th>
+                <th style="text-align:center">ADAY</th>
+                <th>ÜCRET BANDI</th>
+                <th>DURUM</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in headcountData.rows" :key="r.position_title + r.hotel_code" @click="openHeadcountDetails(r)" style="cursor:pointer">
+                <td>
+                  <div style="font-weight:600; color:var(--g800)">{{ r.position_title }}</div>
+                  <div style="font-size:12px; color:var(--g500)">{{ r.hotel_name }} · {{ r.department }}</div>
+                </td>
+                <td style="text-align:center; font-weight:600">{{ r.budget }}</td>
+                <td style="text-align:center">{{ r.active }}</td>
+                <td style="text-align:center">{{ r.confirmed_starters }}</td>
+                <td style="text-align:center; font-weight:700; color:var(--red)" v-if="r.net_open > 0">{{ r.net_open }}</td>
+                <td style="text-align:center; font-weight:700; color:var(--green)" v-else>0</td>
+                <td style="text-align:center">
+                  <span class="badge b-applied" v-if="r.candidates > 0">{{ r.candidates }}</span>
+                  <span v-else style="color:var(--g400)">0</span>
+                </td>
+                <td>{{ r.salary_band }} TL</td>
+                <td>
+                  <span class="badge" :class="{
+                    'b-rejected': r.status === 'Kritik',
+                    'b-applied': r.status === 'İlan gerekli',
+                    'b-interview': r.status === 'Takip',
+                    'b-hired': r.status === 'İyi'
+                  }">
+                    {{ r.status }}
+                  </span>
+                </td>
+                <td><span style="color:var(--g400)">→</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SLIDING DETAIL DRAWER (RIGHT PANEL) -->
+      <div v-if="showHeadcountDetail && selectedHeadcountDetail" class="modal-backdrop" style="position:fixed; top:0; left:0; right:0; bottom:0; display:flex; justify-content:flex-end; align-items:stretch; background:rgba(0,0,0,0.4); z-index:9999" @click.self="showHeadcountDetail = false">
+        <div style="width:480px; background:#fff; box-shadow:-4px 0 24px rgba(0,0,0,0.15); display:flex; flex-direction:column; padding:32px; overflow-y:auto; animation: slideIn 0.3s ease">
+          
+          <!-- Close button -->
+          <div style="display:flex; justify-content:flex-end">
+            <button @click="showHeadcountDetail = false" style="background:var(--g100); border:none; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--g600)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <!-- Title -->
+          <div style="margin-bottom:24px">
+            <div style="font-size:10px; font-weight:700; color:var(--g500); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px">POZİSYON ÇALIŞMA ALANI</div>
+            <div style="font-size:28px; font-weight:700; color:var(--g800)">{{ selectedHeadcountDetail.position_title }}</div>
+            <div style="font-size:13px; color:var(--g500); margin-top:4px">{{ selectedHeadcountDetail.hotel_name }} · {{ selectedHeadcountDetail.department }}</div>
+          </div>
+
+          <!-- KPI Cards in Drawer -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px">
+            <div style="background:var(--g50); padding:16px; border-radius:10px; border:1px solid var(--g100)">
+              <div style="font-size:11px; color:var(--g500); font-weight:600">Açık kadro</div>
+              <b style="font-size:20px; color:var(--g900)">{{ selectedHeadcountDetail.open_headcount }}</b>
+            </div>
+            <div style="background:var(--g50); padding:16px; border-radius:10px; border:1px solid var(--g100)">
+              <div style="font-size:11px; color:var(--g500); font-weight:600">Aktif aday</div>
+              <b style="font-size:20px; color:var(--g900)">{{ selectedHeadcountDetail.active_candidates }}</b>
+            </div>
+            <div style="background:var(--g50); padding:16px; border-radius:10px; border:1px solid var(--g100)">
+              <div style="font-size:11px; color:var(--g500); font-weight:600">Açık gün</div>
+              <b style="font-size:20px; color:var(--g900)">{{ selectedHeadcountDetail.opened_days }} gün</b>
+            </div>
+            <div style="background:var(--g50); padding:16px; border-radius:10px; border:1px solid var(--g100)">
+              <div style="font-size:11px; color:var(--g500); font-weight:600">Ort. eşleşme</div>
+              <b style="font-size:20px; color:var(--green)">%{{ selectedHeadcountDetail.match_rate }}</b>
+            </div>
+          </div>
+
+          <!-- Recommendation Banner -->
+          <div style="background:var(--primary-light); border:1px solid #bbf7d0; border-radius:10px; padding:16px; margin-bottom:24px">
+            <div style="font-weight:600; color:var(--primary); font-size:13px; margin-bottom:8px">✦ SkillMatch önerisi</div>
+            <p style="font-size:12px; color:var(--g700); margin-bottom:12px">Ortak havuzda bu pozisyona %80 üzeri eşleşen {{ selectedHeadcountDetail.recommended_candidates_count }} aday daha bulunuyor.</p>
+            <button @click="page='talent'; talentSubTab='pool'; showHeadcountDetail=false" class="btn" style="background:var(--primary); border:none; color:#fff; font-size:12px; font-weight:600; padding:6px 12px">Adayları getir</button>
+          </div>
+
+          <!-- Detailed list -->
+          <div style="margin-bottom:24px">
+            <h4 style="font-size:13px; font-weight:700; color:var(--g800); margin-bottom:12px">Kadro &amp; ücret görünümü</h4>
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:13px">
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--g100); padding-bottom:6px">
+                <span style="color:var(--g500)">Onaylı bütçe</span>
+                <b style="color:var(--g800)">{{ selectedHeadcountDetail.budget }} kişi</b>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--g100); padding-bottom:6px">
+                <span style="color:var(--g500)">Aktif çalışan</span>
+                <b style="color:var(--g800)">{{ selectedHeadcountDetail.active }} kişi</b>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--g100); padding-bottom:6px">
+                <span style="color:var(--g500)">Kesinleşen işe giriş</span>
+                <b style="color:var(--g800)">{{ selectedHeadcountDetail.confirmed_starters }} kişi</b>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--g100); padding-bottom:6px">
+                <span style="color:var(--g500)">Ücret politikası</span>
+                <b style="color:var(--g800)">{{ selectedHeadcountDetail.salary_band }}</b>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--g100); padding-bottom:6px">
+                <span style="color:var(--g500)">Ort. anlaşma ücreti</span>
+                <b style="color:var(--g800)">{{ selectedHeadcountDetail.avg_salary.toLocaleString('tr-TR') }} TL</b>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pipeline distribution funnel representation -->
+          <div style="margin-bottom:32px">
+            <h4 style="font-size:13px; font-weight:700; color:var(--g800); margin-bottom:16px">Pipeline dağılımı</h4>
+            <div style="display:flex; flex-direction:column; gap:12px">
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--g600); margin-bottom:4px">
+                  <span>Başvuru</span>
+                  <b>{{ selectedHeadcountDetail.pipeline?.applied }} Aday</b>
+                </div>
+                <div style="height:8px; background:var(--g100); border-radius:4px; overflow:hidden">
+                  <div style="height:100%; background:var(--primary); border-radius:4px" :style="`width: ${selectedHeadcountDetail.pipeline?.applied ? '100%' : '0%'}`"></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--g600); margin-bottom:4px">
+                  <span>Ön değerlendirme</span>
+                  <b>{{ selectedHeadcountDetail.pipeline?.screening }} Aday</b>
+                </div>
+                <div style="height:8px; background:var(--g100); border-radius:4px; overflow:hidden">
+                  <div style="height:100%; background:var(--primary); opacity:0.8; border-radius:4px" :style="`width: ${selectedHeadcountDetail.pipeline?.screening && selectedHeadcountDetail.pipeline?.applied ? (selectedHeadcountDetail.pipeline.screening / selectedHeadcountDetail.pipeline.applied * 100) + '%' : '60%'}`"></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--g600); margin-bottom:4px">
+                  <span>Görüşme</span>
+                  <b>{{ selectedHeadcountDetail.pipeline?.interview }} Aday</b>
+                </div>
+                <div style="height:8px; background:var(--g100); border-radius:4px; overflow:hidden">
+                  <div style="height:100%; background:var(--primary); opacity:0.6; border-radius:4px" :style="`width: ${selectedHeadcountDetail.pipeline?.interview && selectedHeadcountDetail.pipeline?.applied ? (selectedHeadcountDetail.pipeline.interview / selectedHeadcountDetail.pipeline.applied * 100) + '%' : '30%'}`"></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--g600); margin-bottom:4px">
+                  <span>Teklif</span>
+                  <b>{{ selectedHeadcountDetail.pipeline?.offer }} Aday</b>
+                </div>
+                <div style="height:8px; background:var(--g100); border-radius:4px; overflow:hidden">
+                  <div style="height:100%; background:var(--primary); opacity:0.4; border-radius:4px" :style="`width: ${selectedHeadcountDetail.pipeline?.offer && selectedHeadcountDetail.pipeline?.applied ? (selectedHeadcountDetail.pipeline.offer / selectedHeadcountDetail.pipeline.applied * 100) + '%' : '10%'}`"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drawer Footer Action -->
+          <div style="margin-top:auto; padding-top:20px; border-top:1px solid var(--g200); display:flex; flex-direction:column; gap:16px">
+            <!-- Active/Inactive Toggle -->
+            <div style="display:flex; justify-content:space-between; align-items:center" v-if="selectedHeadcountDetail.position_id">
+              <div>
+                <div style="font-size:13px; font-weight:600; color:var(--g800)">İlan Durumu</div>
+                <div style="font-size:11px; color:var(--g500)">Açılış: 01.07.2026 / Kapanış: {{ selectedHeadcountDetail.is_active ? '--' : '05.08.2026' }}</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" :checked="selectedHeadcountDetail.is_active" @change="toggleHeadcountJobActive">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            
+            <div style="display:flex; gap:12px">
+              <button class="btn" style="flex:1; background:#fff; border:1px solid var(--g300); color:var(--g700); font-weight:600" @click="showHeadcountDetail=false">Pozisyonu düzenle</button>
+              <button class="btn" style="flex:1; background:var(--primary); border:none; color:#fff; font-weight:600" @click="page='talent'; talentSubTab='pool'; showHeadcountDetail=false">Adayları görüntüle</button>
+            </div>
           </div>
 
         </div>

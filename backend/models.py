@@ -95,6 +95,7 @@ class Position(Base):
     hiring_manager = Column(String, nullable=True)
     target_date = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    closed_at = Column(DateTime(timezone=True), nullable=True)
     # Multi-hotel configurations
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=True)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
@@ -651,7 +652,17 @@ class RecruitmentCampaign(Base):
     qr_code_path = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-
-
-
+class WorkforceBudgetRecord(Base):
+    __tablename__ = "workforce_budget_records"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, default=1)
+    hotel_code = Column(String, index=True, nullable=False) # Otel (PRM, SUN)
+    hotel_sub = Column(String, nullable=True) # Otel_Alt
+    department = Column(String, index=True, nullable=False) # Ana Kategori
+    sub_department = Column(String, nullable=True) # Alt Kategori
+    position_title = Column(String, index=True, nullable=False) # Tanım
+    month_of_year = Column(Integer, nullable=False) # MonthOfYear 1-12
+    total_fte = Column(Float, default=0.0) # Toplam FTE
+    budget_amount = Column(Float, nullable=True) # Bütçe
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 

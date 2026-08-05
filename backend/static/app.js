@@ -16,6 +16,13 @@ createApp({
     };
     const page = ref(pathMap[window.location.pathname] || 'dashboard');
     
+    // Headcount Refs
+    const headcountData = ref({ kpis: {}, rows: [] });
+    const headcountFilter = ref({ hotel_id: '', department: '', month: 8, search: '' });
+    const selectedHeadcountDetail = ref(null);
+    const showHeadcountDetail = ref(false);
+    const importingHeadcount = ref(false);
+
     // Custom Redesign Refs
     const workspaceInterviewType = ref('HR');
     const hrInterviewAnswers = ref([]);
@@ -424,7 +431,11 @@ createApp({
     // ─── LOAD DATA ────────────────────────────────────────────────────
     async function loadInitialData() {
       if (!currentUser.value) return;
-      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings()]);
+      if (currentUser.value.role === 'HOTEL_HR' && currentUser.value.hotel_access_ids && currentUser.value.hotel_access_ids.length > 0) {
+        dashboardHotelFilter.value = currentUser.value.hotel_access_ids[0];
+        headcountFilter.value.hotel_id = currentUser.value.hotel_access_ids[0];
+      }
+      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings(), loadHeadcount()]);
     }
 
     async function loadDashboardSettings() {
@@ -501,6 +512,58 @@ createApp({
 
     async function loadPositions() {
       positions.value = await api('GET', '/api/positions/');
+    }
+
+    async function loadHeadcount() {
+      try {
+        const hotel = headcountFilter.value.hotel_id ? `&hotel_id=${headcountFilter.value.hotel_id}` : '';
+        const dept = headcountFilter.value.department ? `&department=${encodeURIComponent(headcountFilter.value.department)}` : '';
+        const m = `&month=${headcountFilter.value.month}`;
+        const search = headcountFilter.value.search ? `&search=${encodeURIComponent(headcountFilter.value.search)}` : '';
+        const data = await api('GET', `/api/headcount/summary?${hotel}${dept}${m}${search}`);
+        headcountData.value = data;
+      } catch (e) {
+        console.error('Headcount loading error:', e);
+      }
+    }
+
+    async function uploadHeadcountExcel(event) {
+      const file = event?.target?.files?.[0];
+      const fd = new FormData();
+      if (file) {
+        fd.append('file', file);
+      }
+      importingHeadcount.value = true;
+      try {
+        const res = await apiForm('/api/headcount/upload-excel', fd);
+        alert('Excel başarıyla yüklendi! Toplam ' + res.imported + ' kayıt veritabanına işlendi.');
+        await loadHeadcount();
+      } catch (e) {
+        alert('Excel yükleme hatası: ' + (e.message || e));
+      } finally {
+        importingHeadcount.value = false;
+      }
+    }
+
+    async function openHeadcountDetails(row) {
+      try {
+        const data = await api('GET', `/api/headcount/details?position_title=${encodeURIComponent(row.position_title)}&hotel_code=${row.hotel_code}`);
+        selectedHeadcountDetail.value = data;
+        showHeadcountDetail.value = true;
+      } catch (e) {
+        console.error('Headcount details error:', e);
+      }
+    }
+
+    async function toggleHeadcountJobActive() {
+      if (!selectedHeadcountDetail.value || !selectedHeadcountDetail.value.position_id) return;
+      try {
+        const res = await api('PATCH', `/api/positions/${selectedHeadcountDetail.value.position_id}/toggle-active`);
+        selectedHeadcountDetail.value.is_active = res.is_active;
+        await loadHeadcount();
+      } catch (e) {
+        alert('İlan durumu değiştirilemedi: ' + (e.message || e));
+      }
     }
 
     async function loadAnalytics() {
@@ -1550,6 +1613,7 @@ createApp({
       if (p === 'pipeline') loadPipeline();
       if (p === 'analytics' || p === 'tracking') loadAnalytics();
       if (p === 'interviews') loadAllInterviews();
+      if (p === 'headcount') loadHeadcount();
 
       // Synchronize browser URL history with current page state
       const reversePathMap = {
@@ -1561,7 +1625,8 @@ createApp({
         interviews: '/interviews',
         tasks: '/tasks',
         ai_search: '/ai_search',
-        users: '/users'
+        users: '/users',
+        headcount: '/headcount'
       };
       const targetPath = reversePathMap[p] || '/';
       if (window.location.pathname !== targetPath) {
@@ -2296,6 +2361,10 @@ createApp({
       workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
       posSearchQuery, selectedDepPill, filteredPositions,
       
+      // Headcount state and methods
+      headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,
+      loadHeadcount, uploadHeadcountExcel, openHeadcountDetails, toggleHeadcountJobActive,
+
       // New v2 states
       aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
       recruitmentTasks, selectedTask, showTaskModal, newTask,
