@@ -107,99 +107,101 @@ input:checked + .slider:before {
   </div>
 
   <!-- PUBLIC PORTAL PAGES -->
-  <div v-if="!currentUser && (page === 'public_job' || page === 'public_walkin')" style="background:#f3f4f6; min-height:100vh; width:100%; overflow-y:auto; padding-bottom:40px">
+  <div v-if="!currentUser && (page === 'public_job' || page === 'public_walkin')" style="background:#F6F8F7; min-height:100vh; width:100%; display:flex; flex-direction:column">
     
-    <!-- 1. PUBLIC JOB APPLY PAGE (PREMIUM STYLING) -->
-    <div v-if="page==='public_job'" style="max-width:720px; margin:60px auto; padding:0 24px">
+    <!-- 1. PUBLIC JOB APPLY PAGE (PREMIUM SPLIT LAYOUT) -->
+    <div v-if="page==='public_job'" style="display:grid; grid-template-columns:1.05fr 0.95fr; min-height:100vh; width:100%">
       
-      <!-- Brand Card -->
-      <div style="text-align:center; margin-bottom:32px">
-        <div style="font-size:12px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px">SKILLMATCH KANALIYLA</div>
-        <div style="font-size:32px; font-weight:800; color:var(--g900); font-family:'Inter', sans-serif; letter-spacing:-0.02em">Açık Pozisyon Başvurusu</div>
-      </div>
-
-      <div class="card" style="padding:40px; background:#fff; border-radius:16px; border:1px solid var(--g200); box-shadow:0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.04)">
-        
-        <!-- Job Header Details -->
-        <div style="text-align:center; margin-bottom:36px; border-bottom:1px solid var(--g100); padding-bottom:28px">
-          <h1 style="font-size:26px; font-weight:800; color:var(--primary); margin:0">{{ publicJob.title }}</h1>
-          <div style="display:flex; justify-content:center; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap">
-            <span style="background:var(--g100); color:var(--g700); font-size:12px; font-weight:600; padding:4px 10px; border-radius:100px">
-              {{ publicJob.department || 'Departman Belirtilmemiş' }}
+      <!-- Left Column: Job Description & Details -->
+      <div style="background:#FFFFFF; padding:60px 50px; display:flex; flex-direction:column; justify-content:center; gap:28px; overflow-y:auto; border-right:1px solid #DFE7E3">
+        <div style="display:flex; flex-direction:column; gap:8px">
+          <div style="font-size:9px; font-weight:800; color:#87938E; letter-spacing:0.13em; text-transform:uppercase">
+            {{ publicBranding.hotel_name || 'RIXOS HOTELS' }} · AÇIK POZİSYON
+          </div>
+          <h1 style="font-family:Georgia, serif; font-size:48px; font-weight:500; color:#173D34; line-height:1.15; margin:0">
+            {{ publicJob.title }}
+          </h1>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:8px">
+            <span class="badge b-interview" style="font-size:11px; padding:4px 10px; border-radius:100px">
+              {{ publicJob.department || 'Genel Başvuru' }}
             </span>
-            <span style="background:var(--primary-light); color:var(--primary); font-size:12px; font-weight:600; padding:4px 10px; border-radius:100px">
-              {{ publicJob.location || 'Otelde / Yerinde' }}
+            <span class="badge b-hired" style="font-size:11px; padding:4px 10px; border-radius:100px">
+              {{ publicJob.location || 'Rixos Hotels' }}
             </span>
           </div>
         </div>
-        
-        <!-- Job Details Segment -->
-        <div style="margin-bottom:32px">
-          <h3 style="font-weight:700; font-size:15px; color:var(--g800); margin-bottom:10px; display:flex; align-items:center; gap:6px">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+
+        <div style="border-top:1px solid #DFE7E3; padding-top:20px">
+          <h3 style="font-size:13px; font-weight:700; color:#20342E; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em">
             Pozisyon Tanımı & Kapsamı
           </h3>
-          <p style="font-size:14.5px; color:var(--g600); line-height:1.7; margin:0; white-space:pre-line">{{ publicJob.description }}</p>
+          <p style="font-size:12.5px; color:#6B7A74; line-height:1.6; margin:0; white-space:pre-line">
+            {{ publicJob.description }}
+          </p>
         </div>
-        
-        <!-- Skills Segment -->
-        <div style="margin-bottom:36px" v-if="publicJob.required_skills?.length">
-          <h3 style="font-weight:700; font-size:15px; color:var(--g800); margin-bottom:12px; display:flex; align-items:center; gap:6px">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+
+        <div style="border-top:1px solid #DFE7E3; padding-top:20px" v-if="publicJob.required_skills?.length">
+          <h3 style="font-size:13px; font-weight:700; color:#20342E; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em">
             Aranan Yetenekler
           </h3>
           <div style="display:flex; gap:8px; flex-wrap:wrap">
-            <span v-for="s in publicJob.required_skills" :key="s" class="skill-tag" style="background:#eef2ff; color:#4f46e5; border:1px solid #c7d2fe; font-size:12px; font-weight:600; padding:6px 12px; border-radius:8px">
+            <span v-for="s in publicJob.required_skills" :key="s" class="skill-tag" style="background:#EAF3EF; color:#173D34; font-size:11px; font-weight:700; padding:6px 12px; border-radius:8px; border:1px solid #DFE7E3">
               {{ s }}
             </span>
           </div>
         </div>
+      </div>
 
-        <!-- Application Form Header -->
-        <div style="margin-bottom:24px; border-top:1px solid var(--g200); padding-top:28px">
-          <h2 style="font-size:18px; font-weight:800; color:var(--g800); margin:0">Hızlı Aday Başvuru Formu</h2>
-          <p style="font-size:13px; color:var(--g500); margin-top:4px">Lütfen aşağıdaki alanları eksiksiz doldurup güncel özgeçmişinizi yükleyin.</p>
-        </div>
-        
-        <form @submit.prevent="submitPublicApplication" style="display:flex; flex-direction:column; gap:20px">
-          <div class="fg">
-            <label class="fl" style="font-weight:600; color:var(--g700)">Ad Soyad *</label>
-            <input type="text" v-model="publicApplyForm.name" required class="fi" placeholder="Adınızı ve soyadınızı girin" style="padding:10px 14px; border-radius:8px">
-          </div>
-          
-          <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
-            <div class="fg">
-              <label class="fl" style="font-weight:600; color:var(--g700)">E-posta Adresi *</label>
-              <input type="email" v-model="publicApplyForm.email" required class="fi" placeholder="ad@domain.com" style="padding:10px 14px; border-radius:8px">
+      <!-- Right Column: Application Form Container -->
+      <div style="background:#173D34; color:#FFFFFF; padding:7vh 6vw; display:flex; align-items:center; justify-content:center">
+        <div class="card" style="background:#FFFFFF; border:1px solid #DFE7E3; border-radius:18px; padding:27px 31px; min-height:720px; width:100%; max-width:600px; color:#20342E; display:flex; flex-direction:column; justify-content:space-between">
+          <div>
+            <div style="margin-bottom:24px">
+              <h2 style="font-family:Georgia, serif; font-size:24px; font-weight:700; color:#173D34; margin:0">Başvuru Yap</h2>
+              <p style="font-size:11.5px; color:#6B7A74; margin-top:4px">Özgeçmişinizi yükleyerek başvurunuzu anında tamamlayın.</p>
             </div>
-            <div class="fg">
-              <label class="fl" style="font-weight:600; color:var(--g700)">Telefon Numarası *</label>
-              <input type="tel" v-model="publicApplyForm.phone" required class="fi" placeholder="+90 5xx xxx xx xx" style="padding:10px 14px; border-radius:8px">
-            </div>
-          </div>
-          
-          <div class="fg">
-            <label class="fl" style="font-weight:600; color:var(--g700)">Ön Yazı / Notlar</label>
-            <textarea v-model="publicApplyForm.cover_letter" class="fi" placeholder="Varsa pozisyona özel belirtmek istediklerinizi yazın..." style="height:100px; padding:10px 14px; border-radius:8px; resize:none"></textarea>
-          </div>
-          
-          <div class="fg">
-            <label class="fl" style="font-weight:600; color:var(--g700)">Özgeçmiş Yükle (PDF Formatında) *</label>
-            <div style="border:2px dashed var(--g300); padding:20px; border-radius:8px; text-align:center; background:#fafafa; position:relative; transition:all 0.2s">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--g400); margin-bottom:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <div style="font-size:13px; font-weight:600; color:var(--g700)">
-                {{ publicApplyCv ? publicApplyCv.name : 'Dosya seçmek için tıklayın' }}
+
+            <form @submit.prevent="submitPublicApplication" style="display:flex; flex-direction:column; gap:16px">
+              <div class="fg">
+                <label class="fl">Ad Soyad *</label>
+                <input type="text" v-model="publicApplyForm.name" required class="fi" placeholder="Adınızı ve soyadınızı girin">
               </div>
-              <div style="font-size:11px; color:var(--g400); margin-top:2px">Sadece PDF dosyaları kabul edilir (maks. 5MB)</div>
-              <input type="file" @change="onPublicCvSelected" required accept=".pdf" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer">
-            </div>
+
+              <div class="form-row">
+                <div class="fg">
+                  <label class="fl">E-posta Adresi *</label>
+                  <input type="email" v-model="publicApplyForm.email" required class="fi" placeholder="ad@domain.com">
+                </div>
+                <div class="fg">
+                  <label class="fl">Telefon Numarası *</label>
+                  <input type="tel" v-model="publicApplyForm.phone" required class="fi" placeholder="+90 5xx xxx xx xx">
+                </div>
+              </div>
+
+              <div class="fg">
+                <label class="fl">Ön Yazı / Notlar</label>
+                <textarea v-model="publicApplyForm.cover_letter" class="fta" placeholder="Varsa pozisyona özel belirtmek istediklerinizi yazın..."></textarea>
+              </div>
+
+              <div class="fg">
+                <label class="fl">Özgeçmiş Yükle (PDF Formatında) *</label>
+                <div style="border:1.5px dashed #9FB9AE; background:#F5FAF7; border-radius:13px; padding:22px; text-align:center; position:relative; transition:all 0.2s">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#2D7661; margin-bottom:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <div style="font-size:12px; font-weight:700; color:#173D34">
+                    {{ publicApplyCv ? publicApplyCv.name : 'Dosya seçmek için tıklayın veya sürükleyin' }}
+                  </div>
+                  <div style="font-size:10px; color:#87938E; margin-top:2px">Sadece PDF dosyaları kabul edilir (maks. 5MB)</div>
+                  <input type="file" @change="onPublicCvSelected" required accept=".pdf" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer">
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width:100%; padding:15px 22px; font-size:12px; font-weight:800; border-radius:10px" :disabled="submittingPublic">
+                <span v-if="submittingPublic">Başvurunuz Gönderiliyor...</span>
+                <span v-else>Başvuruyu Tamamla ✦</span>
+              </button>
+            </form>
           </div>
-          
-          <button type="submit" class="btn btn-primary" style="width:100%; padding:14px; font-weight:700; margin-top:16px; border-radius:8px; background:var(--primary); font-size:15px" :disabled="submittingPublic">
-            <span v-if="submittingPublic">Başvurunuz Gönderiliyor...</span>
-            <span v-else>Başvuruyu Tamamla ✦</span>
-          </button>
-        </form>
+        </div>
       </div>
     </div>
 

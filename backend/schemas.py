@@ -825,6 +825,20 @@ class RecruitmentCampaignOut(BaseModel):
         from_attributes = True
 
 
+class RecruitmentPipelineBase(BaseModel):
+    name: str
+    stages: list[str]
+    is_active: Optional[bool] = True
+
+class RecruitmentPipelineCreate(RecruitmentPipelineBase):
+    pass
+
+class RecruitmentPipelineOut(RecruitmentPipelineBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+
 
 
 

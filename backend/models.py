@@ -686,3 +686,11 @@ class WorkforceBudgetRecord(Base):
     budget_amount = Column(Float, nullable=True) # Bütçe
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
+class RecruitmentPipeline(Base):
+    __tablename__ = "recruitment_pipelines"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    stages = Column(JSON, default=[])
+    is_active = Column(Boolean, default=True)
+

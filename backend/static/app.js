@@ -491,7 +491,7 @@ createApp({
         dashboardHotelFilter.value = currentUser.value.hotel_access_ids[0];
         headcountFilter.value.hotel_id = currentUser.value.hotel_access_ids[0];
       }
-      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings(), loadHeadcount(), loadBudgetPositions()]);
+      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings(), loadHeadcount(), loadBudgetPositions(), loadPipelineTemplates()]);
     }
 
     async function loadDashboardSettings() {
@@ -625,43 +625,83 @@ createApp({
     }
 
     // Pipeline Templates management state
-    const pipelineTemplates = ref(JSON.parse(localStorage.getItem('pipeline_templates') || JSON.stringify([
-      {
-        name: 'Mavi Yaka Hızlı Akış',
-        stages: ['Yeni Başvuru', 'Ön Değerlendirme', 'İK Mülakatı', 'Teknik Mülakat', 'Teklif', 'Belge Süreci', 'İşe Giriş']
-      },
-      {
-        name: 'Standart İşe Alım Akışı',
-        stages: ['Yeni Başvuru', 'Aday Tarama', 'Mülakat', 'Referans Kontrolü', 'Teklif', 'İşe Giriş']
-      },
-      {
-        name: 'Yönetici / Executive Süreci',
-        stages: ['Yeni Başvuru', 'İK Ön Görüşme', 'Panel Mülakatı', 'Yönetim Değerlendirmesi', 'Teklif', 'İşe Giriş']
+    const pipelineTemplates = ref([]);
+
+    async function loadPipelineTemplates() {
+      try {
+        const data = await api('GET', '/api/pipelines/');
+        pipelineTemplates.value = data || [];
+        
+        // If empty on client, load defaults
+        if (pipelineTemplates.value.length === 0) {
+          pipelineTemplates.value = [
+            {
+              id: 1,
+              name: 'Mavi Yaka Hızlı Akış',
+              stages: ['Yeni Başvuru', 'Ön Değerlendirme', 'İK Mülakatı', 'Teknik Mülakat', 'Teklif', 'Belge Süreci', 'İşe Giriş']
+            },
+            {
+              id: 2,
+              name: 'Standart İşe Alım Akışı',
+              stages: ['Yeni Başvuru', 'Aday Tarama', 'Mülakat', 'Referans Kontrolü', 'Teklif', 'İşe Giriş']
+            },
+            {
+              id: 3,
+              name: 'Yönetici / Executive Süreci',
+              stages: ['Yeni Başvuru', 'İK Ön Görüşme', 'Panel Mülakatı', 'Yönetim Değerlendirmesi', 'Teklif', 'İşe Giriş']
+            }
+          ];
+        }
+      } catch (err) {
+        console.error('Error loading pipeline templates:', err);
       }
-    ])));
-
-    function createNewPipelineTemplate() {
-      pipelineTemplates.value.push({
-        name: 'Yeni Akış Şablonu',
-        stages: ['Yeni Başvuru', 'Mülakat', 'Teklif', 'İşe Giriş']
-      });
-      savePipelineTemplates();
     }
 
-    function savePipelineTemplates() {
-      localStorage.setItem('pipeline_templates', JSON.stringify(pipelineTemplates.value));
+    async function createNewPipelineTemplate() {
+      try {
+        const payload = {
+          name: 'Yeni Akış Şablonu ' + (pipelineTemplates.value.length + 1),
+          stages: ['Yeni Başvuru', 'Mülakat', 'Teklif', 'İşe Giriş'],
+          is_active: true
+        };
+        const saved = await api('POST', '/api/pipelines/', payload);
+        pipelineTemplates.value.push(saved);
+        showToast('Yeni pipeline şablonu başarıyla eklendi.', 'success');
+      } catch (err) {
+        showToast('Ekleme başarısız: ' + (err.detail || err.message), 'error');
+      }
     }
 
-    function savePipelineTemplate(p) {
-      p.stages = p.stages.map(s => s.trim()).filter(Boolean);
-      savePipelineTemplates();
-      showToast('Pipeline şablonu başarıyla kaydedildi.', 'success');
+    async function savePipelineTemplate(p) {
+      try {
+        p.stages = p.stages.map(s => s.trim()).filter(Boolean);
+        const payload = {
+          name: p.name,
+          stages: p.stages,
+          is_active: p.is_active !== false
+        };
+        const updated = await api('PUT', `/api/pipelines/${p.id}`, payload);
+        const idx = pipelineTemplates.value.findIndex(x => x.id === p.id);
+        if (idx !== -1) {
+          pipelineTemplates.value[idx] = updated;
+        }
+        showToast('Pipeline şablonu başarıyla kaydedildi.', 'success');
+      } catch (err) {
+        showToast('Kaydetme başarısız: ' + (err.detail || err.message), 'error');
+      }
     }
 
-    function deletePipelineTemplate(idx) {
+    async function deletePipelineTemplate(idx) {
+      const p = pipelineTemplates.value[idx];
+      if (!p) return;
       if (confirm('Bu pipeline şablonunu silmek istediğinize emin misiniz?')) {
-        pipelineTemplates.value.splice(idx, 1);
-        savePipelineTemplates();
+        try {
+          await api('DELETE', `/api/pipelines/${p.id}`);
+          pipelineTemplates.value.splice(idx, 1);
+          showToast('Pipeline şablonu silindi.', 'success');
+        } catch (err) {
+          showToast('Silme başarısız: ' + (err.detail || err.message), 'error');
+        }
       }
     }
 

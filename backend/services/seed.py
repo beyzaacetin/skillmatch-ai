@@ -308,8 +308,32 @@ def seed_multi_hotel_foundation(db: Session):
                     u.data_visibility_scope = "HOTEL"
                 db.add(u)
                 
+        # Seed default recruitment pipeline templates
+        pipeline_templates = [
+            {
+                "name": "Mavi Yaka Hızlı Akış",
+                "stages": ["Yeni Başvuru", "Ön Değerlendirme", "İK Mülakatı", "Teknik Mülakat", "Teklif", "Belge Süreci", "İşe Giriş"]
+            },
+            {
+                "name": "Standart İşe Alım Akışı",
+                "stages": ["Yeni Başvuru", "Aday Tarama", "Mülakat", "Referans Kontrolü", "Teklif", "İşe Giriş"]
+            },
+            {
+                "name": "Yönetici / Executive Süreci",
+                "stages": ["Yeni Başvuru", "İK Ön Görüşme", "Panel Mülakatı", "Yönetim Değerlendirmesi", "Teklif", "İşe Giriş"]
+            }
+        ]
+        for pt in pipeline_templates:
+            exists = db.query(models.RecruitmentPipeline).filter(models.RecruitmentPipeline.name == pt["name"]).first()
+            if not exists:
+                new_pipe = models.RecruitmentPipeline(
+                    name=pt["name"],
+                    stages=pt["stages"]
+                )
+                db.add(new_pipe)
+
         db.commit()
-        print("[Startup] Seeded multi-hotel hierarchy successfully.")
+        print("[Startup] Seeded multi-hotel hierarchy and recruitment pipelines successfully.")
     except Exception as e:
         db.rollback()
         print(f"[Startup] Seeding multi-hotel hierarchy failed: {e}")
