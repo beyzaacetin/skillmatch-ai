@@ -2774,7 +2774,7 @@ createApp({
       loadCandidateApps, openMatchModal, runMatch, matchModal,
       aiGeneratePosition, savePosition, deletePosition, openMatchPosition, openPositionDetail, loadPositionApps, loadPositionMatches, bulkAddCandidatesToPosition,
       currentWizardStep, isWizardPrefilled, openNewPositionWizard,
-      pipelineTemplates, createNewPipelineTemplate, savePipelineTemplates, savePipelineTemplate, deletePipelineTemplate, activePipelineStages,
+      pipelineTemplates, createNewPipelineTemplate, savePipelineTemplate, deletePipelineTemplate, activePipelineStages,
       showAddSkillInput, newSkillText, addRequiredSkill, removeRequiredSkill, generatingJobAd,
       openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes,
       dragApp, dropOnCol, createApplicationFromCandidate,

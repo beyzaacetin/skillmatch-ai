@@ -225,9 +225,9 @@ class Offer(Base):
     deviation_reason = Column(String, nullable=True)
     deviation_explanation = Column(Text, nullable=True)
     approved_by = Column(JSON, default=[])
-    approval_status = Column(String, default="APPROVED")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     application = relationship("Application", back_populates="offer")
+    approval_requests = relationship("OfferApprovalRequest", back_populates="offer", cascade="all, delete-orphan")
 
 class OnboardingTask(Base):
     __tablename__ = "onboarding_tasks"
@@ -657,6 +657,9 @@ class OfferApprovalRequest(Base):
     resolved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    offer = relationship("Offer", back_populates="approval_requests")
+    resolved_by = relationship("User")
 
 
 class RecruitmentCampaign(Base):
