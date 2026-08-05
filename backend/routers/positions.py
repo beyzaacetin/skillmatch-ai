@@ -1064,3 +1064,14 @@ def download_pdf_report(report_id: int, db: Session = Depends(database.get_db)):
             "Content-Disposition": f"attachment; filename={filename}"
         }
     )
+
+
+from pydantic import BaseModel
+from services.ai_job_generator import ai_job_generator
+
+class PositionAnalyzeRequest(BaseModel):
+    title: str
+
+@router.post("/analyze")
+def analyze_position(req: PositionAnalyzeRequest):
+    return ai_job_generator.generate_job_specs(req.title)

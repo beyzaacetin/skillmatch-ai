@@ -624,6 +624,78 @@ createApp({
       localStorage.setItem('headcount_actions', JSON.stringify(headcountActionPlans.value));
     }
 
+    // Pipeline Templates management state
+    const pipelineTemplates = ref(JSON.parse(localStorage.getItem('pipeline_templates') || JSON.stringify([
+      {
+        name: 'Mavi Yaka Hızlı Akış',
+        stages: ['Yeni Başvuru', 'Ön Değerlendirme', 'İK Mülakatı', 'Teknik Mülakat', 'Teklif', 'Belge Süreci', 'İşe Giriş']
+      },
+      {
+        name: 'Standart İşe Alım Akışı',
+        stages: ['Yeni Başvuru', 'Aday Tarama', 'Mülakat', 'Referans Kontrolü', 'Teklif', 'İşe Giriş']
+      },
+      {
+        name: 'Yönetici / Executive Süreci',
+        stages: ['Yeni Başvuru', 'İK Ön Görüşme', 'Panel Mülakatı', 'Yönetim Değerlendirmesi', 'Teklif', 'İşe Giriş']
+      }
+    ])));
+
+    function createNewPipelineTemplate() {
+      pipelineTemplates.value.push({
+        name: 'Yeni Akış Şablonu',
+        stages: ['Yeni Başvuru', 'Mülakat', 'Teklif', 'İşe Giriş']
+      });
+      savePipelineTemplates();
+    }
+
+    function savePipelineTemplates() {
+      localStorage.setItem('pipeline_templates', JSON.stringify(pipelineTemplates.value));
+    }
+
+    function savePipelineTemplate(p) {
+      p.stages = p.stages.map(s => s.trim()).filter(Boolean);
+      savePipelineTemplates();
+      showToast('Pipeline şablonu başarıyla kaydedildi.', 'success');
+    }
+
+    function deletePipelineTemplate(idx) {
+      if (confirm('Bu pipeline şablonunu silmek istediğinize emin misiniz?')) {
+        pipelineTemplates.value.splice(idx, 1);
+        savePipelineTemplates();
+      }
+    }
+
+    const activePipelineStages = computed(() => {
+      const selectedName = newPos.value.pipeline_template;
+      const found = pipelineTemplates.value.find(t => t.name === selectedName);
+      return found ? found.stages : [];
+    });
+
+    // Skills tag block state
+    const showAddSkillInput = ref(false);
+    const newSkillText = ref('');
+    const generatingJobAd = ref(false);
+
+    function removeRequiredSkill(index) {
+      if (Array.isArray(newPos.value.required_skills)) {
+        newPos.value.required_skills.splice(index, 1);
+      }
+    }
+
+    function addRequiredSkill() {
+      const val = newSkillText.value.trim();
+      if (val) {
+        if (!Array.isArray(newPos.value.required_skills)) {
+          newPos.value.required_skills = [];
+        }
+        if (!newPos.value.required_skills.includes(val)) {
+          newPos.value.required_skills.push(val);
+        }
+      }
+      newSkillText.value = '';
+      showAddSkillInput.value = false;
+    }
+
     async function loadBudgetPositions() {
       try {
         const data = await api('GET', '/api/headcount/budget-positions');
@@ -715,18 +787,27 @@ createApp({
       showNewPositionModal.value = true;
     }
 
-    function createPositionFromBudget(row) {
+    async function createPositionFromBudget(row) {
       openNewPositionWizard();
-      const hotel = settingsData.value.hotels.find(h => h.code.toUpperCase() === row.hotel_code.toUpperCase());
-      newPos.value.hotel_id = hotel ? hotel.id : '';
+      const hotel = settingsData.value.hotels.find(h => h.id === row.hotel_id || h.code.toUpperCase() === row.hotel_code.toUpperCase());
+      newPos.value.hotel_id = hotel ? hotel.id : (row.hotel_id || '');
+      
+      await nextTick();
       newPos.value.department_name = row.department;
+      
+      await nextTick();
       newPos.value.sub_department = row.sub_department || '';
+      
+      await nextTick();
       newPos.value.title = row.position_title;
-      newPos.value.headcount = row.open_headcount || 1;
+      newPos.value.headcount = row.net_open || row.open_headcount || 1;
       newPos.value.job_ad_title = `${hotel ? hotel.name : 'Rixos'} - ${row.position_title} Arayışımız`;
       newPos.value.job_ad_description = `${row.department} departmanı bünyesinde görevlendirilmek üzere ${row.position_title} aramaktayız.`;
       
       isWizardPrefilled.value = true;
+      
+      // Auto-populate skills & job description using AI
+      await aiGeneratePosition();
     }
 
     async function loadAnalytics() {
@@ -1212,15 +1293,23 @@ createApp({
     // ─── POSITIONS ────────────────────────────────────────────────────
     async function aiGeneratePosition() {
       if (!newPos.value.title) return;
+      generatingJobAd.value = true;
       try {
         const data = await api('POST', '/api/positions/analyze', { title: newPos.value.title });
         newPos.value.description = data.description || newPos.value.description;
+        newPos.value.required_skills = data.skills || [];
         newPos.value.required_skills_str = (data.skills || []).join(', ');
         if (data.salary) {
           newPos.value.salary_min = data.salary.min;
           newPos.value.salary_max = data.salary.max;
+          newPos.value.salary_target = Math.round((data.salary.min + data.salary.max) / 2);
         }
-      } catch (e) { alert('AI öneri alınamadı'); }
+        showToast('AI Asistanı ilan detaylarını ve yetenekleri başarıyla oluşturdu!', 'success');
+      } catch (e) {
+        showToast('AI Asistanı öneri alamadı.', 'error');
+      } finally {
+        generatingJobAd.value = false;
+      }
     }
 
     async function savePosition() {
@@ -2608,6 +2697,8 @@ createApp({
       loadCandidateApps, openMatchModal, runMatch, matchModal,
       aiGeneratePosition, savePosition, deletePosition, openMatchPosition, openPositionDetail, loadPositionApps, loadPositionMatches, bulkAddCandidatesToPosition,
       currentWizardStep, isWizardPrefilled, openNewPositionWizard,
+      pipelineTemplates, createNewPipelineTemplate, savePipelineTemplates, savePipelineTemplate, deletePipelineTemplate, activePipelineStages,
+      showAddSkillInput, newSkillText, addRequiredSkill, removeRequiredSkill, generatingJobAd,
       openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes,
       dragApp, dropOnCol, createApplicationFromCandidate,
       runDeepAIAnalysis, getCandidateForDeepAI, handlePositionCvDrop, handlePositionCvSelect, startPositionUploads,
