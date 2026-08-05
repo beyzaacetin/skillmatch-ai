@@ -212,7 +212,8 @@ input:checked + .slider:before {
     </div>
 
   </div>
-    <aside class="sidebar">
+  <template v-if="currentUser">
+    <aside class="sidebar">
 
       <!-- Logo -->
       <div class="sb-logo">
@@ -272,7 +273,7 @@ input:checked + .slider:before {
           <span class="nav-icon">▥</span> Raporlar
         </button>
         <button class="nav-item" :class="{active: page==='settings'}"
-          v-if="currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')"
+          v-if="currentUser && currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')"
           @click="page='settings'; loadSettings()">
           <span class="nav-icon">⚙</span> Ayarlar
         </button>
@@ -881,7 +882,7 @@ input:checked + .slider:before {
           </div>
           
           <!-- Hotel selector (only visible for Central HR or Admin) -->
-          <select v-if="currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')"
+          <select v-if="currentUser && currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')"
                   v-model="headcountFilter.hotel_id" @change="loadHeadcount" class="fs" style="width:160px; padding:8px 12px">
             <option value="">Tüm oteller</option>
             <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
@@ -3395,7 +3396,7 @@ input:checked + .slider:before {
                   </span>
                 </td>
                 <td>
-                  <div v-if="r.status === 'PENDING' && currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" style="display:flex; gap:6px">
+                  <div v-if="r.status === 'PENDING' && currentUser && currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" style="display:flex; gap:6px">
                     <button class="btn btn-primary btn-sm" @click="resolveExtension(r.id, 'APPROVED')">Onayla</button>
                     <button class="btn btn-outline btn-sm text-red" style="color:#dc2626; border-color:#fca5a5" @click="resolveExtension(r.id, 'REJECTED')">Reddet</button>
                   </div>
@@ -3414,7 +3415,7 @@ input:checked + .slider:before {
         <div v-if="settingsSubTab==='budget'" class="card" style="padding:20px; background:#fff">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div style="font-weight:700; font-size:16px;">İş Gücü Kadro Bütçesi (Workforce Headcount Budget)</div>
-            <div v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" style="display:flex; gap:10px; align-items:center">
+            <div v-if="currentUser && currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" style="display:flex; gap:10px; align-items:center">
               <input type="file" ref="budgetExcelFile" accept=".xlsx, .xls" style="display:none" @change="uploadBudgetExcel">
               <button class="btn btn-primary btn-sm" @click="$refs.budgetExcelFile.click()">Excel Bütçe Yükle</button>
             </div>
@@ -3455,7 +3456,7 @@ input:checked + .slider:before {
         <div v-if="settingsSubTab==='salary'" class="card" style="padding:20px; background:#fff">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div style="font-weight:700; font-size:16px;">Maaş Politikası Referans Bantları (Salary Policies)</div>
-            <div v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" style="display:flex; gap:10px; align-items:center">
+            <div v-if="currentUser && currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" style="display:flex; gap:10px; align-items:center">
               <input type="file" ref="salaryExcelFile" accept=".xlsx, .xls" style="display:none" @change="uploadSalaryPolicyExcel">
               <button class="btn btn-primary btn-sm" @click="$refs.salaryExcelFile.click()">Excel Maaş Politikası Yükle</button>
             </div>
@@ -3616,7 +3617,7 @@ input:checked + .slider:before {
             <button class="btn btn-sm" style="background:#dc2626; color:#fff; font-weight:600; border:none; padding:6px 12px; border-radius:6px; cursor:pointer" @click="subscribeToWaitingList(candidateProfile.id)">
               Aday Boşa Çıktığında Haber Ver
             </button>
-            <button v-if="currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" class="btn btn-outline btn-sm" style="color:#dc2626; border-color:#fca5a5; padding:6px 12px; border-radius:6px" @click="forceReleaseLock(candidateProfile.id)">
+            <button v-if="currentUser && currentUser.role && (currentUser.role.toUpperCase() === 'ADMIN' || currentUser.role.toUpperCase() === 'SYSTEM_ADMIN' || currentUser.role.toUpperCase() === 'CENTRAL_HR')" class="btn btn-outline btn-sm" style="color:#dc2626; border-color:#fca5a5; padding:6px 12px; border-radius:6px" @click="forceReleaseLock(candidateProfile.id)">
               Kilidi Kaldır (Merkez İK)
             </button>
           </div>
@@ -5515,6 +5516,7 @@ input:checked + .slider:before {
     </div>
   </div>
 
+  </template>
 </div><!-- end #app -->
 
 
