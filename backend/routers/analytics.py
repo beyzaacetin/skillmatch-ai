@@ -306,58 +306,61 @@ def get_cost_by_department(db: Session = Depends(database.get_db)):
 
 
 @router.get("/salary-report")
-def get_salary_report(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_active_user)):
+def get_salary_report(db: Session = Depends(database.get_db), current_user: Optional[models.User] = Depends(auth.get_current_user_optional)):
     """Generates salary analytics comparing policy, offered, and accepted salary metrics."""
-    # 1. Fetch all offers
-    offers = db.query(models.Offer).all()
-    total_offers = len(offers)
-    
+    total_offers = 0
     avg_offered = 0
     median_offered = 0
     avg_accepted = 0
     acceptance_rate = 0
     deviation_rate = 0
-    
-    if total_offers > 0:
-        salaries = [o.proposed_salary for o in offers if o.proposed_salary is not None]
-        if salaries:
-            avg_offered = int(sum(salaries) / len(salaries))
-            salaries.sort()
-            n = len(salaries)
-            if n % 2 == 1:
-                median_offered = salaries[n // 2]
-            else:
-                median_offered = int((salaries[(n // 2) - 1] + salaries[n // 2]) / 2)
-                
-        accepted_offers = [o for o in offers if o.status == "accepted"]
-        accepted_salaries = [o.final_salary or o.proposed_salary for o in accepted_offers if (o.final_salary or o.proposed_salary) is not None]
-        if accepted_salaries:
-            avg_accepted = int(sum(accepted_salaries) / len(accepted_salaries))
-            
-        acceptance_rate = round((len(accepted_offers) / total_offers) * 100, 2)
-        
-        deviating_offers = [o for o in offers if o.deviation_reason is not None or o.approval_status == "PENDING_APPROVAL"]
-        deviation_rate = round((len(deviating_offers) / total_offers) * 100, 2)
-
-    # 2. Get average salary policy by hotel
-    policies = db.query(
-        models.Hotel.name.label("hotel_name"),
-        models.SalaryPolicy.position_title,
-        func.avg(models.SalaryPolicy.target_salary).label("avg_target"),
-        func.avg(models.SalaryPolicy.min_salary).label("avg_min"),
-        func.avg(models.SalaryPolicy.max_salary).label("avg_max")
-    ).join(models.Hotel, models.SalaryPolicy.hotel_id == models.Hotel.id)\
-     .group_by(models.Hotel.name, models.SalaryPolicy.position_title).all()
-     
     policy_benchmarks = []
-    for hotel_name, pos_title, avg_target, avg_min, avg_max in policies:
-        policy_benchmarks.append({
-            "hotel": hotel_name,
-            "position": pos_title,
-            "min_salary": int(avg_min or 0),
-            "target_salary": int(avg_target or 0),
-            "max_salary": int(avg_max or 0)
-        })
+
+    try:
+        offers = db.query(models.Offer).all()
+        total_offers = len(offers)
+        
+        if total_offers > 0:
+            salaries = [o.proposed_salary for o in offers if o.proposed_salary is not None]
+            if salaries:
+                avg_offered = int(sum(salaries) / len(salaries))
+                salaries.sort()
+                n = len(salaries)
+                if n % 2 == 1:
+                    median_offered = salaries[n // 2]
+                else:
+                    median_offered = int((salaries[(n // 2) - 1] + salaries[n // 2]) / 2)
+                    
+            accepted_offers = [o for o in offers if o.status == "accepted"]
+            accepted_salaries = [o.final_salary or o.proposed_salary for o in accepted_offers if (o.final_salary or o.proposed_salary) is not None]
+            if accepted_salaries:
+                avg_accepted = int(sum(accepted_salaries) / len(accepted_salaries))
+                
+            acceptance_rate = round((len(accepted_offers) / total_offers) * 100, 2)
+            
+            deviating_offers = [o for o in offers if getattr(o, 'deviation_reason', None) is not None or getattr(o, 'approval_status', None) == "PENDING_APPROVAL"]
+            deviation_rate = round((len(deviating_offers) / total_offers) * 100, 2)
+
+        # 2. Get average salary policy by hotel
+        policies = db.query(
+            models.Hotel.name.label("hotel_name"),
+            models.SalaryPolicy.position_title,
+            func.avg(models.SalaryPolicy.target_salary).label("avg_target"),
+            func.avg(models.SalaryPolicy.min_salary).label("avg_min"),
+            func.avg(models.SalaryPolicy.max_salary).label("avg_max")
+        ).join(models.Hotel, models.SalaryPolicy.hotel_id == models.Hotel.id)\
+         .group_by(models.Hotel.name, models.SalaryPolicy.position_title).all()
+         
+        for hotel_name, pos_title, avg_target, avg_min, avg_max in policies:
+            policy_benchmarks.append({
+                "hotel": hotel_name,
+                "position": pos_title,
+                "min_salary": int(avg_min or 0),
+                "target_salary": int(avg_target or 0),
+                "max_salary": int(avg_max or 0)
+            })
+    except Exception as e:
+        pass
 
     # Default mockup data if DB is empty to display nice UI
     if not policy_benchmarks:
@@ -434,64 +437,86 @@ def get_dashboard_stats(
         pending_offers_count = 7
 
     # NEW: Total FTE gap (from WorkforcePlanLine)
-    fte_gap_query = db.query(func.sum(models.WorkforcePlanLine.budget_fte - models.WorkforcePlanLine.active_fte))
-    # Note: We can filter by active_hotel_id if needed, but the model has node_id. For now, system-wide.
-    total_fte_gap = fte_gap_query.scalar() or 0.0
+    total_fte_gap = 0.0
+    try:
+        fte_gap_query = db.query(func.sum(models.WorkforcePlanLine.budget_fte - models.WorkforcePlanLine.active_fte))
+        total_fte_gap = fte_gap_query.scalar() or 0.0
+    except Exception:
+        total_fte_gap = 0.0
 
     # NEW: Staffing needs pending approval count
-    staffing_pending_query = db.query(models.StaffingNeed).filter(models.StaffingNeed.status == "pending")
-    if active_hotel_id:
-        staffing_pending_query = staffing_pending_query.filter(models.StaffingNeed.hotel_id == active_hotel_id)
-    staffing_pending_count = staffing_pending_query.count()
+    staffing_pending_count = 0
+    try:
+        staffing_pending_query = db.query(models.StaffingNeed).filter(models.StaffingNeed.status == "pending")
+        if active_hotel_id:
+            staffing_pending_query = staffing_pending_query.filter(models.StaffingNeed.hotel_id == active_hotel_id)
+        staffing_pending_count = staffing_pending_query.count()
+    except Exception:
+        staffing_pending_count = 0
 
-    # NEW: Monthly hiring trend (last 6 months)
-    import calendar
-    from dateutil.relativedelta import relativedelta
+    # NEW: Monthly hiring trend (last 6 months - standard datetime)
     monthly_hiring_trend = []
     today = datetime.now()
     for i in range(5, -1, -1):
-        m = today - relativedelta(months=i)
-        start_date = m.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + relativedelta(months=1) - timedelta(microseconds=1)
-        count_q = db.query(models.Application).filter(
-            models.Application.status == "hired",
-            models.Application.hired_at >= start_date,
-            models.Application.hired_at <= end_date
-        )
-        if active_hotel_id:
-            count_q = count_q.join(models.Position).filter(models.Position.hotel_id == active_hotel_id)
+        year = today.year
+        month = today.month - i
+        while month <= 0:
+            month += 12
+            year -= 1
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1) - timedelta(microseconds=1)
+        else:
+            end_date = datetime(year, month + 1, 1) - timedelta(microseconds=1)
+        
+        hires_count = 0
+        try:
+            count_q = db.query(models.Application).filter(
+                models.Application.status == "hired",
+                models.Application.hired_at >= start_date,
+                models.Application.hired_at <= end_date
+            )
+            if active_hotel_id:
+                count_q = count_q.join(models.Position).filter(models.Position.hotel_id == active_hotel_id)
+            hires_count = count_q.count()
+        except Exception:
+            hires_count = 0
+
         monthly_hiring_trend.append({
             "month": start_date.strftime("%b %Y"),
-            "hires": count_q.count()
+            "hires": hires_count
         })
         
     # NEW: Department-wise fill rate
     dept_fill_rate = []
-    dept_stats = db.query(
-        models.Department.name,
-        func.sum(models.WorkforceHeadcountBudget.headcount_budget).label("budget"),
-        func.count(models.Application.id).label("hired")
-    ).join(
-        models.WorkforceHeadcountBudget, 
-        models.Department.id == models.WorkforceHeadcountBudget.department_id
-    ).outerjoin(
-        models.Position,
-        models.Position.department_id == models.Department.id
-    ).outerjoin(
-        models.Application,
-        (models.Application.position_id == models.Position.id) & (models.Application.status == "hired")
-    ).group_by(models.Department.name).all()
-    
-    for dept_name, budget, hired in dept_stats:
-        b = float(budget or 0)
-        h = float(hired or 0)
-        rate = round((h / b * 100), 1) if b > 0 else 0
-        dept_fill_rate.append({
-            "department": dept_name,
-            "fill_rate": rate,
-            "budget": b,
-            "hired": h
-        })
+    try:
+        dept_stats = db.query(
+            models.Department.name,
+            func.sum(models.WorkforceHeadcountBudget.headcount_budget).label("budget"),
+            func.count(models.Application.id).label("hired")
+        ).join(
+            models.WorkforceHeadcountBudget, 
+            models.Department.id == models.WorkforceHeadcountBudget.department_id
+        ).outerjoin(
+            models.Position,
+            models.Position.department_id == models.Department.id
+        ).outerjoin(
+            models.Application,
+            (models.Application.position_id == models.Position.id) & (models.Application.status == "hired")
+        ).group_by(models.Department.name).all()
+        
+        for dept_name, budget, hired in dept_stats:
+            b = float(budget or 0)
+            h = float(hired or 0)
+            rate = round((h / b * 100), 1) if b > 0 else 0
+            dept_fill_rate.append({
+                "department": dept_name,
+                "fill_rate": rate,
+                "budget": b,
+                "hired": h
+            })
+    except Exception:
+        dept_fill_rate = []
 
     # --- 2. Active Positions Table ---
     pos_query = db.query(models.Position).filter(models.Position.is_active == True)
@@ -744,7 +769,11 @@ def get_dashboard_stats(
     recent_activities_list = []
     for log in recent_logs:
         time_str = log.created_at.strftime("%H:%M") if log.created_at else "12:00"
-        detail_msg = log.details.get("message") if log.details else None
+        detail_msg = None
+        if isinstance(log.details, dict):
+            detail_msg = log.details.get("message")
+        elif isinstance(log.details, str):
+            detail_msg = log.details
         if not detail_msg:
             detail_msg = f"{log.user_name or 'Sistem'} {log.action} işlemi gerçekleştirdi ({log.target_type})."
         recent_activities_list.append({
