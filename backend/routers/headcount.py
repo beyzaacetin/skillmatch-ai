@@ -262,7 +262,7 @@ def get_headcount_summary(
         
         # Calculate salary band (from SalaryPolicy or default)
         sal_policy = db.query(models.SalaryPolicy).filter(
-            models.SalaryPolicy.position_title.collate("NOCASE") == agg["position_title"]
+            func.lower(models.SalaryPolicy.position_title) == func.lower(agg["position_title"])
         ).first()
         
         if sal_policy:
@@ -356,7 +356,7 @@ def get_position_headcount_details(
     
     # Find matching DB position
     db_pos = db.query(models.Position).filter(
-        models.Position.title.collate("NOCASE") == position_title,
+        func.lower(models.Position.title) == func.lower(position_title),
         models.Position.hotel_id == hotel_id
     ).first()
     
@@ -365,7 +365,7 @@ def get_position_headcount_details(
     # Calculate values
     # Approved budget from WorkforceBudgetRecord for month = 8
     budget_rec = db.query(func.sum(models.WorkforceBudgetRecord.total_fte)).filter(
-        models.WorkforceBudgetRecord.position_title.collate("NOCASE") == position_title,
+        func.lower(models.WorkforceBudgetRecord.position_title) == func.lower(position_title),
         models.WorkforceBudgetRecord.hotel_code == hotel_code.upper(),
         models.WorkforceBudgetRecord.month_of_year == 8
     ).scalar() or 0
@@ -442,7 +442,7 @@ def get_position_headcount_details(
 
     # Fetch salary policy
     sal_policy = db.query(models.SalaryPolicy).filter(
-        models.SalaryPolicy.position_title.collate("NOCASE") == position_title
+        func.lower(models.SalaryPolicy.position_title) == func.lower(position_title)
     ).first()
     salary_band = f"{sal_policy.min_salary // 1000}-{sal_policy.max_salary // 1000}K TL" if sal_policy else "36-42K TL"
 

@@ -461,7 +461,7 @@ def get_dashboard_stats(
         budget_row = db.query(models.WorkforceHeadcountBudget).filter(
             models.WorkforceHeadcountBudget.hotel_id == p.hotel_id,
             models.WorkforceHeadcountBudget.department_id == p.department_id,
-            models.WorkforceHeadcountBudget.position_title.collate("NOCASE") == p.title
+            func.lower(models.WorkforceHeadcountBudget.position_title) == func.lower(p.title)
         ).first()
 
         status_text = "Pipeline sağlıklı"

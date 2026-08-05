@@ -1,4 +1,5 @@
 import logging
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import models
 import datetime
@@ -17,7 +18,7 @@ def validate_offer_salary(hotel_id: int, department_id: int, position_title: str
     policy = db.query(models.SalaryPolicy).filter(
         models.SalaryPolicy.hotel_id == hotel_id,
         models.SalaryPolicy.department_id == department_id,
-        models.SalaryPolicy.position_title.collate("NOCASE") == position_title.strip(),
+        func.lower(models.SalaryPolicy.position_title) == func.lower(position_title.strip()),
         models.SalaryPolicy.is_active == True
     ).first()
 
@@ -25,14 +26,14 @@ def validate_offer_salary(hotel_id: int, department_id: int, position_title: str
     if not policy:
         policy = db.query(models.SalaryPolicy).filter(
             models.SalaryPolicy.hotel_id == hotel_id,
-            models.SalaryPolicy.position_title.collate("NOCASE") == position_title.strip(),
+            func.lower(models.SalaryPolicy.position_title) == func.lower(position_title.strip()),
             models.SalaryPolicy.is_active == True
         ).first()
 
     # Generic fallback
     if not policy:
         policy = db.query(models.SalaryPolicy).filter(
-            models.SalaryPolicy.position_title.collate("NOCASE") == position_title.strip(),
+            func.lower(models.SalaryPolicy.position_title) == func.lower(position_title.strip()),
             models.SalaryPolicy.is_active == True
         ).first()
 

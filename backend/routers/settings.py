@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
 from pydantic import BaseModel
@@ -333,12 +334,12 @@ def import_headcount_budget(
                 continue
 
             try:
-                hotel = db.query(models.Hotel).filter(models.Hotel.name.collate("NOCASE") == hotel_val).first()
+                hotel = db.query(models.Hotel).filter(func.lower(models.Hotel.name) == func.lower(hotel_val)).first()
                 if not hotel:
                     skipped_rows.append(f"Satır {idx+2}: Otel '{hotel_val}' sistemde bulunamadı.")
                     continue
 
-                dept = db.query(models.Department).filter(models.Department.name.collate("NOCASE") == dept_val).first()
+                dept = db.query(models.Department).filter(func.lower(models.Department.name) == func.lower(dept_val)).first()
                 if not dept:
                     skipped_rows.append(f"Satır {idx+2}: Departman '{dept_val}' sistemde bulunamadı.")
                     continue
@@ -455,7 +456,7 @@ def resolve_routing_suggestion(
     if status == "ACCEPTED":
         position = db.query(models.Position).filter(
             models.Position.hotel_id == suggestion.target_hotel_id,
-            models.Position.title.collate("NOCASE") == suggestion.position_title,
+            func.lower(models.Position.title) == func.lower(suggestion.position_title),
             models.Position.is_active == True
         ).first()
 
@@ -569,16 +570,16 @@ def import_salary_policy(
             try:
                 hotel_id = None
                 if hotel_val:
-                    hotel = db.query(models.Hotel).filter(models.Hotel.name.collate("NOCASE") == hotel_val).first()
+                    hotel = db.query(models.Hotel).filter(func.lower(models.Hotel.name) == func.lower(hotel_val)).first()
                     if not hotel:
                         # Try matching code
-                        hotel = db.query(models.Hotel).filter(models.Hotel.code.collate("NOCASE") == hotel_val).first()
+                        hotel = db.query(models.Hotel).filter(func.lower(models.Hotel.code) == func.lower(hotel_val)).first()
                     if hotel:
                         hotel_id = hotel.id
 
                 dept_id = None
                 if dept_val:
-                    dept = db.query(models.Department).filter(models.Department.name.collate("NOCASE") == dept_val).first()
+                    dept = db.query(models.Department).filter(func.lower(models.Department.name) == func.lower(dept_val)).first()
                     if dept:
                         dept_id = dept.id
 

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models, schemas, database, auth
@@ -183,7 +184,7 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
     budget_entry = db.query(models.WorkforceHeadcountBudget).filter(
         models.WorkforceHeadcountBudget.hotel_id == position.hotel_id,
         models.WorkforceHeadcountBudget.department_id == position.department_id,
-        models.WorkforceHeadcountBudget.position_title.collate("NOCASE") == position.title
+        func.lower(models.WorkforceHeadcountBudget.position_title) == func.lower(position.title)
     ).first()
     
     approved_budget = budget_entry.headcount_budget if budget_entry else position.headcount or 1
@@ -209,7 +210,7 @@ def get_position_workspace(position_id: int, db: Session = Depends(database.get_
     
     # Salary policy
     sal_policy = db.query(models.SalaryPolicy).filter(
-        models.SalaryPolicy.position_title.collate("NOCASE") == position.title
+        func.lower(models.SalaryPolicy.position_title) == func.lower(position.title)
     ).first()
     salary_band = f"{sal_policy.min_salary // 1000}-{sal_policy.max_salary // 1000}K {sal_policy.currency}" if sal_policy else "Belirtilmemiş"
     

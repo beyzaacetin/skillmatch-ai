@@ -10,6 +10,7 @@ POST /api/portal/offer/{id}/reject — Teklifi reddet
 GET  /api/portal/notifications     — Bildirimler
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
@@ -448,7 +449,7 @@ async def apply_walkin_qr(
 
     position = db.query(models.Position).filter(
         models.Position.hotel_id == hotel_id,
-        models.Position.title.collate("NOCASE") == position_title,
+        func.lower(models.Position.title) == func.lower(position_title),
         models.Position.is_active == True
     ).first()
 

@@ -1,4 +1,5 @@
 import datetime
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import models
 import logging
@@ -18,14 +19,14 @@ def check_headcount_budget(hotel_id: int, department_id: int, position_title: st
     budget_entry = db.query(models.WorkforceHeadcountBudget).filter(
         models.WorkforceHeadcountBudget.hotel_id == hotel_id,
         models.WorkforceHeadcountBudget.department_id == department_id,
-        models.WorkforceHeadcountBudget.position_title.collate("NOCASE") == position_title
+        func.lower(models.WorkforceHeadcountBudget.position_title) == func.lower(position_title)
     ).first()
 
     # 2. Count active hired or offered candidates for this position title in the hotel/department
     active_count = db.query(models.Application).join(models.Position).filter(
         models.Position.hotel_id == hotel_id,
         models.Position.department_id == department_id,
-        models.Position.title.collate("NOCASE") == position_title,
+        func.lower(models.Position.title) == func.lower(position_title),
         models.Application.status.in_(["hired", "offer"])
     ).count()
 
