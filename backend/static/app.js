@@ -323,6 +323,13 @@ createApp({
     const hotelMappings = ref({});
     const importConfirming = ref(false);
 
+    // Staffing Needs Refs
+    const staffingNeeds = ref([]);
+    const staffingNeedsFilter = ref({ hotel_id: '', department_id: '', status: '', priority: '' });
+    const staffingNeedsSummary = ref({ pending: 0, approved: 0, rejected: 0, total_gap_fte: 0 });
+    const showNewStaffingNeedModal = ref(false);
+    const newStaffingNeed = ref({ hotel_id: '', department_id: '', position_title: '', needed_fte: 1, priority: 'normal', notes: '' });
+
     // Settings modals
     const showOrgModal = ref(false);
     const showHotelModal = ref(false);
