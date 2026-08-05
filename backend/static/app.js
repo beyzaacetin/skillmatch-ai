@@ -15,7 +15,7 @@ createApp({
       '/users': 'users'
     };
     const page = ref(pathMap[window.location.pathname] || 'dashboard');
-    
+
     // Headcount Refs
     const headcountData = ref({ kpis: {}, rows: [] });
     const headcountFilter = ref({ hotel_id: '', department: '', month: 8, search: '' });
@@ -41,7 +41,7 @@ createApp({
     // Custom Redesign Refs
     const workspaceInterviewType = ref('HR');
     const hrInterviewAnswers = ref([]);
-    
+
     const candidateProfile = ref({});
     const candidateProfileTab = ref('overview');
     const candidateProfileNotes = ref([]);
@@ -53,7 +53,7 @@ createApp({
     const candidateTechAnswers = ref([]);
     const candidateProfileAiAnalysis = ref(null);
     const aiAnalysisLoading = ref(false);
-    
+
     // Calendar & Tasks Refs
     const calendarMonth = ref(new Date().getMonth());
     const calendarYear = ref(new Date().getFullYear());
@@ -61,13 +61,13 @@ createApp({
     const calendarEvents = ref([]);
     const todayDateString = new Date().toISOString().split('T')[0];
     const turkishMonthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-    
+
     // User Management Refs
     const userSubTab = ref('users');
     const userSearchQuery = ref('');
     const userRoleFilter = ref('');
     const userStatusFilter = ref('');
-    
+
     // SVG Analytics Refs
     const departmentPerformanceData = ref([]);
     const interviewerPerformanceData = ref([]);
@@ -127,12 +127,12 @@ createApp({
       const showLeft = dashboardSettings.value.widgets.assistant || dashboardSettings.value.widgets.schedule;
       const showMiddle = dashboardSettings.value.widgets.positions || dashboardSettings.value.widgets.candidates;
       const showRight = (dashboardSettings.value.widgets.actions && !dashboardSettings.value.rules.keep_actions_top) || dashboardSettings.value.widgets.recent_activities;
-      
+
       let cols = [];
       if (showLeft) cols.push('1fr');
       if (showMiddle) cols.push('1.6fr');
       if (showRight) cols.push('1.2fr');
-      
+
       return {
         display: 'grid',
         gridTemplateColumns: cols.length > 0 ? cols.join(' ') : '1fr',
@@ -255,7 +255,7 @@ createApp({
       required_skills_str: '',
       salary_min: null,
       salary_max: null,
-      
+
       // New wizard fields
       employment_type: 'Tam zamanlı',
       contract_type: 'Belirsiz süreli',
@@ -323,28 +323,20 @@ createApp({
     const hotelMappings = ref({});
     const importConfirming = ref(false);
 
-    // Staffing Needs Refs
-    const staffingNeeds = ref([]);
-    const staffingNeedsFilter = ref({ hotel_id: '', department_id: '', status: '', priority: '' });
-    const staffingNeedsSummary = ref({ pending: 0, approved: 0, rejected: 0, total_gap_fte: 0 });
-    const showNewStaffingNeedModal = ref(false);
-    const newStaffingNeed = ref({ hotel_id: '', department_id: '', position_title: '', needed_fte: 1, priority: 'normal', notes: '' });
-
-    
     // Settings modals
     const showOrgModal = ref(false);
     const showHotelModal = ref(false);
     const showDeptModal = ref(false);
     const showMappingModal = ref(false);
     const showRoleModal = ref(false);
-    
+
     // Editing structures
     const editingOrg = ref({ id: null, name: '', code: '', is_active: true, order_index: 0 });
     const editingHotel = ref({ id: null, organization_id: '', city_id: '', region_id: '', name: '', code: '', branding_settings: {}, is_active: true });
     const editingDept = ref({ id: null, name: '', code: '', is_active: true, order_index: 0 });
     const newMapping = ref({ hotel_id: '', department_id: '', position_title: '' });
     const editingRole = ref({ id: null, name: '', code: '', description: '', permissions: {}, is_custom: true });
-    
+
     const permissionLabelMap = {
       can_access_settings: { title: "Sistem Ayarlarına Erişim", desc: "Tüm sistem ayarlarını ve parametrelerini görebilir/değiştirebilir." },
       can_see_salaries: { title: "Maaş Bilgilerini Görme", desc: "Aday tekliflerindeki ve politikalardaki maaş bilgilerini görebilir." },
@@ -423,7 +415,7 @@ createApp({
       );
       if (talentFilter.value.seniority)
         list = list.filter(c => c.seniority_level === talentFilter.value.seniority);
-      
+
       // Filter out hired/rejected unless showInactive is true
       if (!talentFilter.value.showInactive) {
         // Adayın mülakat süreci bitmişse (Hired/Rejected) listeden düşür
@@ -642,7 +634,7 @@ createApp({
       try {
         const data = await api('GET', '/api/pipelines/');
         pipelineTemplates.value = data || [];
-        
+
         // If empty on client, load defaults
         if (pipelineTemplates.value.length === 0) {
           pipelineTemplates.value = [
@@ -810,7 +802,7 @@ createApp({
         required_skills_str: '',
         salary_min: null,
         salary_max: null,
-        
+
         // New wizard fields
         employment_type: 'Tam zamanlı',
         contract_type: 'Belirsiz süreli',
@@ -842,21 +834,21 @@ createApp({
       openNewPositionWizard();
       const hotel = settingsData.value.hotels.find(h => h.id === row.hotel_id || h.code.toUpperCase() === row.hotel_code.toUpperCase());
       newPos.value.hotel_id = hotel ? hotel.id : (row.hotel_id || '');
-      
+
       await nextTick();
       newPos.value.department_name = row.department;
-      
+
       await nextTick();
       newPos.value.sub_department = row.sub_department || '';
-      
+
       await nextTick();
       newPos.value.title = row.position_title;
       newPos.value.headcount = row.net_open || row.open_headcount || 1;
       newPos.value.job_ad_title = `${hotel ? hotel.name : 'Rixos'} - ${row.position_title} Arayışımız`;
       newPos.value.job_ad_description = `${row.department} departmanı bünyesinde görevlendirilmek üzere ${row.position_title} aramaktayız.`;
-      
+
       isWizardPrefilled.value = true;
-      
+
       // Auto-populate skills & job description using AI
       await aiGeneratePosition();
     }
@@ -1367,7 +1359,7 @@ createApp({
       try {
         let deptObj = settingsData.value.departments.find(d => d.name.toLowerCase() === (newPos.value.department_name || '').toLowerCase());
         let departmentId = deptObj ? deptObj.id : (settingsData.value.departments[0]?.id || 1);
-        
+
         let reqSkills = [];
         if (newPos.value.required_skills_str) {
           reqSkills = newPos.value.required_skills_str.split(',').map(s => s.trim()).filter(Boolean);
@@ -1386,20 +1378,20 @@ createApp({
         delete payload.department_name;
 
         const saved = await api('POST', '/api/positions/', payload);
-        
+
         // Save database response to show QR code and Job Link in success screen
         newPos.value.id = saved.id;
         newPos.value.qr_code_path = saved.qr_code_path;
-        
+
         positions.value.unshift(saved);
-        
+
         // Go to success screen (step 7)
         currentWizardStep.value = 7;
-        
+
         // Refresh budget headcount needs values
         await loadHeadcount();
-      } catch (e) { 
-        alert('Kayıt hatası: ' + (e.message || e)); 
+      } catch (e) {
+        alert('Kayıt hatası: ' + (e.message || e));
       }
     }
 
@@ -1462,7 +1454,7 @@ createApp({
       deepAiLoading.value = true;
       try {
         const topIds = positionApps.value.map(app => app.candidate.id);
-        
+
         if (topIds.length === 0) {
           alert('Bu pozisyona eklenmiş aday bulunamadı. Lütfen önce pozisyona aday ekleyin.');
           deepAiLoading.value = false;
@@ -1500,7 +1492,7 @@ createApp({
           const res = await fetch('/api/candidates/upload', opts);
           const data = await res.json();
           if(!res.ok) throw new Error(data.detail||'Hata');
-          
+
           await api('POST', '/api/applications/', {
             candidate_id: data.id,
             position_id: selectedPosition.value.id,
@@ -1920,7 +1912,7 @@ createApp({
       const jobMatch = path.match(/^\/portal\/job\/(\d+)/);
       const walkinMatch = path.match(/^\/portal\/walk-in\/(\d+)/);
       const candMatch = path.match(/^\/candidates\/(\d+)/);
-      
+
       if (jobMatch) {
         page.value = 'public_job';
         await loadPublicJobDetails(parseInt(jobMatch[1]));
@@ -2066,7 +2058,7 @@ createApp({
       if (!selectedPosition.value) return;
       questionsGenerating.value = true;
       try {
-        const qList = await api('POST', `/api/positions/${selectedPosition.value.id}/interview-questions/generate`, { 
+        const qList = await api('POST', `/api/positions/${selectedPosition.value.id}/interview-questions/generate`, {
           application_id: appId,
           interview_type: workspaceInterviewType.value
         });
@@ -2088,7 +2080,7 @@ createApp({
       try {
         const answers = await api('GET', `/api/applications/${appId}/interviews?type=${type}`);
         interviewQuestions.value = answers || [];
-        
+
         if (type === 'TECHNICAL') {
           try {
             const hrAnswers = await api('GET', `/api/applications/${appId}/interviews?type=HR`);
@@ -2133,10 +2125,10 @@ createApp({
           interview_type: workspaceInterviewType.value
         });
         showToast('Mülakat yanıtı ve puanı kaydedildi.', 'success');
-        
+
         // Update local item
         interviewQuestions.value[activeQuestionIndex.value] = res;
-        
+
         // Progress to next question if available
         if (activeQuestionIndex.value < interviewQuestions.value.length - 1) {
           activeQuestionIndex.value++;
@@ -2272,13 +2264,13 @@ createApp({
       let list = positions.value;
       const q = posSearchQuery.value.toLowerCase().trim();
       if (q) {
-        list = list.filter(p => 
-          (p.title || '').toLowerCase().includes(q) || 
+        list = list.filter(p =>
+          (p.title || '').toLowerCase().includes(q) ||
           (p.department || '').toLowerCase().includes(q)
         );
       }
       if (selectedDepPill.value !== 'Tümü') {
-        list = list.filter(p => 
+        list = list.filter(p =>
           (p.department || '').toLowerCase() === selectedDepPill.value.toLowerCase()
         );
       }
@@ -2295,8 +2287,8 @@ createApp({
       const hotelId = Number(newPos.value.hotel_id);
       const deptId = Number(newPos.value.department_id);
       if (!hotelId || !deptId) return [];
-      const filtered = settingsData.value.mappings.filter(m => 
-        Number(m.hotel_id) === hotelId && 
+      const filtered = settingsData.value.mappings.filter(m =>
+        Number(m.hotel_id) === hotelId &&
         Number(m.department_id) === deptId
       );
       const titles = filtered.map(m => m.position_title).filter(Boolean);
@@ -2317,10 +2309,10 @@ createApp({
           return bpCode === code || bpName === hName || bpCode.includes(code) || hName.includes(bpCode);
         })
         .map(bp => bp.department);
-      
+
       const uniqueDepts = [...new Set(depts)].sort();
       if (uniqueDepts.length > 0) return uniqueDepts;
-      
+
       // Fallback
       if (settingsData.value.departments) {
         return settingsData.value.departments.map(d => d.name).sort();
@@ -2366,16 +2358,16 @@ createApp({
           return matchesHotel && matchesDept && matchesSub;
         })
         .map(bp => bp.position_title);
-      
+
       const uniqueTitles = [...new Set(titles)].sort();
       if (uniqueTitles.length > 0) return uniqueTitles;
-      
+
       // Fallback
       if (settingsData.value.mappings) {
         const deptObj = settingsData.value.departments.find(d => d.name.toUpperCase() === deptName.toUpperCase());
         const deptId = deptObj ? deptObj.id : null;
-        const filtered = settingsData.value.mappings.filter(m => 
-          Number(m.hotel_id) === hotelId && 
+        const filtered = settingsData.value.mappings.filter(m =>
+          Number(m.hotel_id) === hotelId &&
           (!deptId || Number(m.department_id) === deptId)
         );
         return [...new Set(filtered.map(m => m.position_title).filter(Boolean))].sort();
@@ -2388,26 +2380,26 @@ createApp({
       const hotelId = Number(selectedApp.value.hotel_id);
       const posTitle = newOffer.value.position_title || (selectedApp.value.position ? selectedApp.value.position.title : '');
       const deptId = selectedApp.value.position ? Number(selectedApp.value.position.department_id) : null;
-      
+
       const policies = settingsData.value.salaryPolicies || [];
-      
+
       // Match exact hotel + department + title
-      let p = policies.find(x => 
-        Number(x.hotel_id) === hotelId && 
-        Number(x.department_id) === deptId && 
+      let p = policies.find(x =>
+        Number(x.hotel_id) === hotelId &&
+        Number(x.department_id) === deptId &&
         (x.position_title || '').toLowerCase() === posTitle.toLowerCase()
       );
       if (p) return p;
 
       // Match hotel + title
-      p = policies.find(x => 
-        Number(x.hotel_id) === hotelId && 
+      p = policies.find(x =>
+        Number(x.hotel_id) === hotelId &&
         (x.position_title || '').toLowerCase() === posTitle.toLowerCase()
       );
       if (p) return p;
 
       // Match title only
-      p = policies.find(x => 
+      p = policies.find(x =>
         (x.position_title || '').toLowerCase() === posTitle.toLowerCase()
       );
       return p || null;
@@ -2415,19 +2407,19 @@ createApp({
 
 
     // --- 6 MODULES REDESIGN HELPER FUNCTIONS ---
-    
+
     function setWorkspaceInterviewType(type) {
       workspaceInterviewType.value = type;
       if (activeInterviewApp.value) {
         loadInterviewAnswersForCandidate(activeInterviewApp.value.id, type);
       }
     }
-    
+
     async function selectInterviewApp(app) {
       activeInterviewApp.value = app;
       await loadInterviewAnswersForCandidate(app.id, workspaceInterviewType.value);
     }
-    
+
     function getAverageScoreText(questions) {
       if (!questions || !questions.length) return 'Henüz puanlanmadı';
       const completed = questions.filter(q => q.score !== null && q.score !== undefined && q.score !== '' && !isNaN(Number(q.score)));
@@ -2444,7 +2436,7 @@ createApp({
       if (status === 'scheduled') return 'Planlandı';
       return 'Sürüyor';
     }
-    
+
     async function loadFullCandidateProfile(candidateId) {
       try {
         const profile = await api('GET', `/api/candidates/${candidateId}/profile`);
@@ -2453,7 +2445,7 @@ createApp({
         candidateProfileTimeline.value = await api('GET', `/api/candidates/${candidateId}/timeline`);
         candidateProfileApps.value = await api('GET', `/api/candidates/${candidateId}/applications`);
         candidateProfileReports.value = await api('GET', `/api/candidates/${candidateId}/reports`);
-        
+
         try {
           candidateLockStatus.value = await api('GET', `/api/ownership/candidate-lock-status/${candidateId}`);
         } catch (e) {
@@ -2477,13 +2469,13 @@ createApp({
         showToast('Aday detayları yüklenemedi: ' + e.message, 'error');
       }
     }
-    
+
     function goBackToCandidates() {
       history.pushState(null, '', '/positions');
       page.value = 'talent';
       loadCandidates();
     }
-    
+
     async function saveCandidateProfileNote() {
       if (!newProfileNoteText.value.strip) {
         if (!newProfileNoteText.value.trim()) return;
@@ -2501,7 +2493,7 @@ createApp({
         showToast('Not kaydedilemedi: ' + e.message, 'error');
       }
     }
-    
+
     async function runAiCandidateAnalysis(candidateId) {
       aiAnalysisLoading.value = true;
       try {
@@ -2514,7 +2506,7 @@ createApp({
         aiAnalysisLoading.value = false;
       }
     }
-    
+
     async function generateProfileReport(reportType) {
       if (!candidateProfileApps.value.length) {
         showToast('Adayın aktif başvurusu bulunmuyor.', 'error');
@@ -2531,20 +2523,20 @@ createApp({
         showToast('Rapor üretilemedi: ' + e.message, 'error');
       }
     }
-    
+
     // Calendar helper functions
     const calendarDays = computed(() => {
       const year = calendarYear.value;
       const month = calendarMonth.value;
-      
+
       const firstDay = new Date(year, month, 1).getDay();
       const startOffset = (firstDay + 6) % 7; // Align Monday
-      
+
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const prevDaysInMonth = new Date(year, month, 0).getDate();
-      
+
       const days = [];
-      
+
       for (let i = startOffset - 1; i >= 0; i--) {
         const d = prevDaysInMonth - i;
         days.push({
@@ -2553,7 +2545,7 @@ createApp({
           dateString: `${month === 0 ? year - 1 : year}-${String(month === 0 ? 12 : month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
         });
       }
-      
+
       for (let d = 1; d <= daysInMonth; d++) {
         days.push({
           day: d,
@@ -2561,7 +2553,7 @@ createApp({
           dateString: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
         });
       }
-      
+
       const totalCells = days.length > 35 ? 42 : 35;
       const nextPadding = totalCells - days.length;
       for (let d = 1; d <= nextPadding; d++) {
@@ -2571,14 +2563,14 @@ createApp({
           dateString: `${month === 11 ? year + 1 : year}-${String(month === 11 ? 1 : month + 2).padStart(2, '0')}-${String(d).padStart(2, '0')}`
         });
       }
-      
+
       return days;
     });
-    
+
     function getEventsForDate(dateString) {
       return calendarEvents.value.filter(e => e.start_time.split('T')[0] === dateString);
     }
-    
+
     function navigateCalendarMonth(direction) {
       calendarMonth.value += direction;
       if (calendarMonth.value < 0) {
@@ -2589,20 +2581,20 @@ createApp({
         calendarYear.value++;
       }
     }
-    
+
     async function loadCalendarEvents() {
       try {
         calendarEvents.value = await api('GET', '/api/calendar/');
       } catch(e) {}
     }
-    
+
     async function openNewEventModal(dateString) {
       const dt = dateString || todayDateString;
       const title = prompt("Etkinlik Başlığı girin:");
       if (!title) return;
       const type = prompt("Etkinlik Tipi girin (interview, task, reminder, deadline):", "reminder");
       if (!type) return;
-      
+
       try {
         await api('POST', '/api/calendar/', {
           title: title,
@@ -2618,11 +2610,11 @@ createApp({
         showToast('Etkinlik oluşturulamadı: ' + e.message, 'error');
       }
     }
-    
+
     function viewEventDetails(evt) {
       alert(`Etkinlik: ${evt.title}\nTipi: ${evt.event_type}\nAçıklama: ${evt.description || '—'}\nTarih: ${formatDate(evt.start_time)}`);
     }
-    
+
     async function deleteCalendarEvent(id) {
       if (!confirm("Bu etkinliği silmek istiyor musunuz?")) return;
       try {
@@ -2633,7 +2625,7 @@ createApp({
         showToast('Silinemedi: ' + e.message, 'error');
       }
     }
-    
+
     async function toggleTaskStatus(task) {
       const newStatus = task.status === 'done' ? 'todo' : 'done';
       try {
@@ -2644,7 +2636,7 @@ createApp({
         showToast('Güncellenemedi: ' + e.message, 'error');
       }
     }
-    
+
     // User Filtering
     const filteredUsers = computed(() => {
       let ulist = allUsers.value || [];
@@ -2661,29 +2653,27 @@ createApp({
       }
       return ulist;
     });
-    
+
     // Fetch SVGs real stats
     async function loadRealAnalytics() {
       try {
         departmentPerformanceData.value = await api('GET', '/api/analytics/department-performance');
         interviewerPerformanceData.value = await api('GET', '/api/analytics/interviewer-performance');
         costByDepartmentData.value = await api('GET', '/api/analytics/cost-by-department');
-        
+
         const forecast = await api('GET', '/api/analytics/hiring-forecast');
         forecastProjectedHires.value = forecast.projected_hires;
         forecastProjectedInterviews.value = forecast.projected_interviews;
         forecastConfidenceScore.value = forecast.confidence_score;
       } catch(e) {}
     }
-    
+
     // Hook load calendar & real analytics to page changes
     watch(page, (p) => {
       if (p === 'tasks') {
         loadCalendarEvents();
       } else if (p === 'analytics') {
         loadRealAnalytics();
-      } else if (p === 'staffing') { 
-        loadStaffingNeeds(); 
       }
     });
 
@@ -2693,212 +2683,9 @@ createApp({
       page.value = 'candidate_profile';
       loadFullCandidateProfile(candId);
     }
-    
-    
-    return {
-      // state
-      workspaceInterviewType,
-      hrInterviewAnswers,
-      setWorkspaceInterviewType,
-      selectInterviewApp,
-      getAverageScoreText,
-      getInterviewStatusText,
-      candidateProfile,
-      candidateProfileTab,
-      candidateProfileNotes,
-      candidateProfileTimeline,
-      candidateProfileApps,
-      candidateProfileReports,
-      newProfileNoteText,
-      candidateHRAnswers,
-      candidateTechAnswers,
-      candidateProfileAiAnalysis,
-      aiAnalysisLoading,
-      loadFullCandidateProfile,
-      goBackToCandidates,
-      saveCandidateProfileNote,
-      runAiCandidateAnalysis,
-      generateProfileReport,
-      viewCandidate,
-      
-      // Calendar
-      calendarMonth,
-      calendarYear,
-      calendarViewType,
-      calendarEvents,
-      calendarDays,
-      todayDateString,
-      turkishMonthNames,
-      getEventsForDate,
-      navigateCalendarMonth,
-      openNewEventModal,
-      viewEventDetails,
-      deleteCalendarEvent,
-      toggleTaskStatus,
-      
-      // Users
-      userSubTab,
-      userSearchQuery,
-      userRoleFilter,
-      userStatusFilter,
-      filteredUsers,
-      
-      // Analytics
-      departmentPerformanceData,
-      interviewerPerformanceData,
-      costByDepartmentData,
-      forecastProjectedHires,
-      forecastProjectedInterviews,
-      forecastConfidenceScore,
-      
-      page, talentView, candidates, positions, stats, pipeline, pipelineLoading,
-      pipelinePositionFilter, allInterviews, pipelineStats,
-      analyticsPositionFilter, analyticsDateFilter,
-      candidateSearch, talentFilter, filteredCandidates,
-      selectedCandidate, candidateTab, candidateNote, candidateApps,
-      selectedPosition, posTab, positionApps, positionMatches, posMatchLoading, selectedMatchCandidates, posUploads,
-      deepAiResults, deepAiLoading,
-      selectedApp, appTab, appNotes, appInterviews, currentOffer, onboardingTasks, showAllQ,
-      showUpload, showNewPositionModal, showNewAppModal, showNewInterviewModal, showNewOfferModal,
-      matchModal, newPos, newApp, newIv, newOffer,
-      feedbackIv, ivFeedback, uploadQueue, dragover, draggedApp, dragOverCol,
-      chatOpen, chatInput, chatMessages, chatLoading, chatMsgs,
-      analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
-      toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
-      interviewTab, ivAssistant, ivAnalysis,
-      workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
-      posSearchQuery, selectedDepPill, filteredPositions,
-      
-      // Headcount state and methods
-      headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,
-      loadHeadcount, uploadHeadcountExcel, openHeadcountDetails, toggleHeadcountJobActive, createPositionFromBudget,
-      headcountMonthlyTrends, headcountActionPlans, addActionPlan, removeActionPlan,
 
-      // Staffing Needs
-      staffingNeeds, staffingNeedsFilter, staffingNeedsSummary, showNewStaffingNeedModal, newStaffingNeed,
-      loadStaffingNeeds, autoDetectStaffingNeeds, createStaffingNeed, approveStaffingNeed, rejectStaffingNeed,
 
-      // New v2 states
-      aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
-      recruitmentTasks, selectedTask, showTaskModal, newTask,
-      selectedApplicationIds, selectedCandidateIds, selectedCandidates, showBulkActionModal, bulkActionType, bulkActionValue,
-      candidateTimeline, showNewUserModal, showEditUserModal, showPasswordResetModal,
-      newUser, editingUser, passwordResetData,
-      showCommModal, commCandidate, commChannel, commMsgType, commTone, commText, commSubject, commLoading, commPositionId, isViewer,
 
-      // methods
-      loadPipeline, loadAnalytics, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
-      loadCandidateApps, openMatchModal, runMatch, matchModal,
-      aiGeneratePosition, savePosition, deletePosition, openMatchPosition, openPositionDetail, loadPositionApps, loadPositionMatches, bulkAddCandidatesToPosition,
-      currentWizardStep, isWizardPrefilled, openNewPositionWizard,
-      pipelineTemplates, createNewPipelineTemplate, savePipelineTemplate, deletePipelineTemplate, activePipelineStages,
-      showAddSkillInput, newSkillText, addRequiredSkill, removeRequiredSkill, generatingJobAd,
-      openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes,
-      dragApp, dropOnCol, createApplicationFromCandidate,
-      runDeepAIAnalysis, getCandidateForDeepAI, handlePositionCvDrop, handlePositionCvSelect, startPositionUploads,
-      loadAppInterviews, saveInterview, generateQuestions,
-      openFeedbackModal, saveFeedback, generateAISummary, openIvDetail,
-      generateAiQuestionsTab, analyzeRawNotesTab,
-      loadOffer, saveOffer, generateLetter, sendOffer,
-      loadOnboarding, generateOnboarding, updateTask,
-      handleFileSelect, handleFileDrop,
-      sendChat,
-      stageColor, scoreClass, stageIndex, ivTypeLabel, formatDate, calculateBestMatch,
-      showToast, viewMatchDetails, getHeatmapCount, getHeatmapColor, openCandidateByName,
-      loadWorkspace, runWorkspaceMatching, generateWorkspaceInsights, addCandidateToWorkspace, updateApplicationStageInWorkspace, generateInterviewQuestionsForCandidate, loadInterviewAnswersForCandidate, saveInterviewQuestionAnswer, loadHiringDecisionForCandidate, saveHiringDecision, generateReportForPosition,
-      
-      // New v2 methods
-      openNewUserModal, saveNewUser, toggleUserStatus, editUser, updateUser,
-      openPasswordReset, submitPasswordReset, runAiTalentSearch, viewCandidateById,
-      loadRecruitmentTasks, openNewTaskModal, saveRecruitmentTask, editRecruitmentTask, deleteRecruitmentTask,
-      loadCandidateTimeline, submitBulkAction,
-
-      // Candidate communication methods
-      normalizePhoneForWhatsApp, openCommunication, generateAiDraft, openInExternalChannel, copyCommText, getDaysSinceLastActivity,
-
-      // ─── SYSTEM SETTINGS (SİSTEM AYARLARI) ────────────────────────────
-      loadSettings,
-      getRegionName,
-      getCityName,
-      getHotelName,
-      getDeptName,
-      formatAuditDate,
-      openNewOrgModal,
-      editOrg,
-      saveOrg,
-      openNewHotelModal,
-      editHotel,
-      saveHotel,
-      openNewDeptModal,
-      editDept,
-      saveDept,
-      openNewMappingModal,
-      saveMapping,
-      deleteMapping,
-      openNewRoleModal,
-      editRole,
-      saveRole,
-      saveConfig,
-      
-      // settings state
-      settingsSubTab,
-      orgSubTab,
-      settingsData,
-      showOrgModal,
-      showHotelModal,
-      showDeptModal,
-      showMappingModal,
-      showRoleModal,
-      editingOrg,
-      editingHotel,
-      editingDept,
-      newMapping,
-      editingRole,
-      permissionLabelMap,
-
-      // Candidate Ownership & Locks
-      candidateLockStatus,
-      showExtensionModal,
-      newExtensionRequest,
-      subscribeToWaitingList,
-      forceReleaseLock,
-      openExtensionRequestModal,
-      submitExtensionRequest,
-      resolveExtension,
-
-      // Phase 3 portal state & methods
-      talentSubTab, interviewSubTab, sharingJob, sharingHotel, showShareModal, showWalkinModal,
-      publicJob, publicBranding, publicApplyForm, publicApplyCv, submittingPublic,
-      walkinForm, walkinCv, submittingWalkin,
-      loadPublicJobDetails, loadPublicWalkinDetails, submitPublicApplication, onPublicCvSelected,
-      submitWalkinApplication, onWalkinCvSelected, getJobShareUrl, getWalkinShareUrl,
-      shareJobPosting, shareHotelWalkIn, copyShareLink, loadHeadcountBudgets, uploadBudgetExcel,
-      loadRoutingSuggestions, resolveRoutingSuggestion,
-      filteredMappingTitles, matchedSalaryPolicy,
-      budgetPositions, loadBudgetPositions,
-      filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
-      salary_stats: salaryStats,
-      showHeadcountLayoutModal,
-      headcountLayout,
-      saveHeadcountLayout,
-      pendingApprovals, loadPendingApprovals, resolveApproval, uploadSalaryPolicyExcel,
-
-      // Dashboard State & Methods
-      dashboardHotelFilter, dashboardViewMode, dashboardTestRole, dashboardStatsData, dashboardLoading, loadDashboardStats,
-      showDashboardSettings, dashboardSettings, loadDashboardSettings, saveDashboardSettings, applyPreset, dashboardGridStyle,
-
-      // Single-Excel Import
-      importResult,
-      hotelMappings,
-      importConfirming,
-      handleOrgImportUpload,
-      saveHotelMapping,
-      confirmOrganizationImport,
-
-      // auth
-      currentUser, loginData, authMode, registerData, register, login, logout,
-      allUsers, loadUsers,
-    };
 
     // ─── SINGLE-EXCEL IMPORT METHODS ────────────────────────────────
     async function handleOrgImportUpload(event) {
@@ -2950,52 +2737,6 @@ createApp({
       } finally {
         importConfirming.value = false;
       }
-    // ─── STAFFING NEEDS METHODS ───────────────────────────────────────
-    async function loadStaffingNeeds() {
-      try {
-        const params = new URLSearchParams();
-        if (staffingNeedsFilter.value.hotel_id) params.append('hotel_id', staffingNeedsFilter.value.hotel_id);
-        if (staffingNeedsFilter.value.status) params.append('status', staffingNeedsFilter.value.status);
-        if (staffingNeedsFilter.value.priority) params.append('priority', staffingNeedsFilter.value.priority);
-        staffingNeeds.value = await api('GET', '/api/staffing-needs?' + params.toString());
-        staffingNeedsSummary.value = await api('GET', '/api/staffing-needs/summary');
-      } catch(e) { showToast('Kadro ihtiyaçları yüklenemedi: ' + e.message, 'error'); }
-    }
-
-    async function autoDetectStaffingNeeds() {
-      try {
-        const res = await api('POST', '/api/staffing-needs/auto-detect');
-        showToast(res.message || 'Otomatik tespit tamamlandı.', 'success');
-        await loadStaffingNeeds();
-      } catch(e) { showToast('Tespit hatası: ' + e.message, 'error'); }
-    }
-
-    async function createStaffingNeed() {
-      try {
-        await api('POST', '/api/staffing-needs', newStaffingNeed.value);
-        showToast('Kadro ihtiyacı oluşturuldu.', 'success');
-        showNewStaffingNeedModal.value = false;
-        newStaffingNeed.value = { hotel_id: '', department_id: '', position_title: '', needed_fte: 1, priority: 'normal', notes: '' };
-        await loadStaffingNeeds();
-      } catch(e) { showToast('Oluşturma hatası: ' + e.message, 'error'); }
-    }
-
-    async function approveStaffingNeed(id) {
-      try {
-        await api('PUT', `/api/staffing-needs/${id}/approve`);
-        showToast('Kadro ihtiyacı onaylandı ve pozisyon oluşturuldu.', 'success');
-        await loadStaffingNeeds();
-      } catch(e) { showToast('Onay hatası: ' + e.message, 'error'); }
-    }
-
-    async function rejectStaffingNeed(id) {
-      const reason = prompt('Reddetme sebebi:');
-      if (!reason) return;
-      try {
-        await api('PUT', `/api/staffing-needs/${id}/reject`, { reason });
-        showToast('Kadro ihtiyacı reddedildi.', 'success');
-        await loadStaffingNeeds();
-      } catch(e) { showToast('Red hatası: ' + e.message, 'error'); }
     }
 
     // ─── SYSTEM SETTINGS METHODS IMPLEMENTATION ───────────────────────
@@ -3014,7 +2755,7 @@ createApp({
           api('GET', '/api/ownership/extension-requests'),
           api('GET', '/api/settings/salary-policy')
         ]);
-        
+
         settingsData.value.organizations = orgs;
         settingsData.value.cities = cities;
         settingsData.value.regions = regions;
@@ -3025,7 +2766,7 @@ createApp({
         settingsData.value.auditLogs = logs;
         settingsData.value.extensionRequests = requests;
         settingsData.value.salaryPolicies = policies;
-        
+
         settingsData.value.configs = configs.map(c => {
           if (Array.isArray(c.value)) {
             return { ...c, valueRaw: c.value.join('\n') };
@@ -3398,10 +3139,10 @@ createApp({
     async function uploadBudgetExcel(event) {
       const file = event.target.files[0];
       if (!file) return;
-      
+
       const formData = new FormData();
       formData.append('file', file);
-      
+
       try {
         const res = await fetch('/api/settings/headcount-budget/import', {
           method: 'POST',
@@ -3467,10 +3208,10 @@ createApp({
     async function uploadSalaryPolicyExcel(event) {
       const file = event.target.files[0];
       if (!file) return;
-      
+
       const formData = new FormData();
       formData.append('file', file);
-      
+
       try {
         const res = await fetch('/api/settings/salary-policy/import', {
           method: 'POST',
@@ -3489,5 +3230,210 @@ createApp({
         showToast('Yükleme hatası: ' + err.message, 'error');
       }
     }
+
+    return {
+      // state
+      workspaceInterviewType,
+      hrInterviewAnswers,
+      setWorkspaceInterviewType,
+      selectInterviewApp,
+      getAverageScoreText,
+      getInterviewStatusText,
+      candidateProfile,
+      candidateProfileTab,
+      candidateProfileNotes,
+      candidateProfileTimeline,
+      candidateProfileApps,
+      candidateProfileReports,
+      newProfileNoteText,
+      candidateHRAnswers,
+      candidateTechAnswers,
+      candidateProfileAiAnalysis,
+      aiAnalysisLoading,
+      loadFullCandidateProfile,
+      goBackToCandidates,
+      saveCandidateProfileNote,
+      runAiCandidateAnalysis,
+      generateProfileReport,
+      viewCandidate,
+
+      // Calendar
+      calendarMonth,
+      calendarYear,
+      calendarViewType,
+      calendarEvents,
+      calendarDays,
+      todayDateString,
+      turkishMonthNames,
+      getEventsForDate,
+      navigateCalendarMonth,
+      openNewEventModal,
+      viewEventDetails,
+      deleteCalendarEvent,
+      toggleTaskStatus,
+
+      // Users
+      userSubTab,
+      userSearchQuery,
+      userRoleFilter,
+      userStatusFilter,
+      filteredUsers,
+
+      // Analytics
+      departmentPerformanceData,
+      interviewerPerformanceData,
+      costByDepartmentData,
+      forecastProjectedHires,
+      forecastProjectedInterviews,
+      forecastConfidenceScore,
+
+      page, talentView, candidates, positions, stats, pipeline, pipelineLoading,
+      pipelinePositionFilter, allInterviews, pipelineStats,
+      analyticsPositionFilter, analyticsDateFilter,
+      candidateSearch, talentFilter, filteredCandidates,
+      selectedCandidate, candidateTab, candidateNote, candidateApps,
+      selectedPosition, posTab, positionApps, positionMatches, posMatchLoading, selectedMatchCandidates, posUploads,
+      deepAiResults, deepAiLoading,
+      selectedApp, appTab, appNotes, appInterviews, currentOffer, onboardingTasks, showAllQ,
+      showUpload, showNewPositionModal, showNewAppModal, showNewInterviewModal, showNewOfferModal,
+      matchModal, newPos, newApp, newIv, newOffer,
+      feedbackIv, ivFeedback, uploadQueue, dragover, draggedApp, dragOverCol,
+      chatOpen, chatInput, chatMessages, chatLoading, chatMsgs,
+      analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
+      toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
+      interviewTab, ivAssistant, ivAnalysis,
+      workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
+      posSearchQuery, selectedDepPill, filteredPositions,
+
+      // Headcount state and methods
+      headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,
+      loadHeadcount, uploadHeadcountExcel, openHeadcountDetails, toggleHeadcountJobActive, createPositionFromBudget,
+      headcountMonthlyTrends, headcountActionPlans, addActionPlan, removeActionPlan,
+
+      // New v2 states
+      aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
+      recruitmentTasks, selectedTask, showTaskModal, newTask,
+      selectedApplicationIds, selectedCandidateIds, selectedCandidates, showBulkActionModal, bulkActionType, bulkActionValue,
+      candidateTimeline, showNewUserModal, showEditUserModal, showPasswordResetModal,
+      newUser, editingUser, passwordResetData,
+      showCommModal, commCandidate, commChannel, commMsgType, commTone, commText, commSubject, commLoading, commPositionId, isViewer,
+
+      // methods
+      loadPipeline, loadAnalytics, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
+      loadCandidateApps, openMatchModal, runMatch, matchModal,
+      aiGeneratePosition, savePosition, deletePosition, openMatchPosition, openPositionDetail, loadPositionApps, loadPositionMatches, bulkAddCandidatesToPosition,
+      currentWizardStep, isWizardPrefilled, openNewPositionWizard,
+      pipelineTemplates, createNewPipelineTemplate, savePipelineTemplate, deletePipelineTemplate, activePipelineStages,
+      showAddSkillInput, newSkillText, addRequiredSkill, removeRequiredSkill, generatingJobAd,
+      openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes,
+      dragApp, dropOnCol, createApplicationFromCandidate,
+      runDeepAIAnalysis, getCandidateForDeepAI, handlePositionCvDrop, handlePositionCvSelect, startPositionUploads,
+      loadAppInterviews, saveInterview, generateQuestions,
+      openFeedbackModal, saveFeedback, generateAISummary, openIvDetail,
+      generateAiQuestionsTab, analyzeRawNotesTab,
+      loadOffer, saveOffer, generateLetter, sendOffer,
+      loadOnboarding, generateOnboarding, updateTask,
+      handleFileSelect, handleFileDrop,
+      sendChat,
+      stageColor, scoreClass, stageIndex, ivTypeLabel, formatDate, calculateBestMatch,
+      showToast, viewMatchDetails, getHeatmapCount, getHeatmapColor, openCandidateByName,
+      loadWorkspace, runWorkspaceMatching, generateWorkspaceInsights, addCandidateToWorkspace, updateApplicationStageInWorkspace, generateInterviewQuestionsForCandidate, loadInterviewAnswersForCandidate, saveInterviewQuestionAnswer, loadHiringDecisionForCandidate, saveHiringDecision, generateReportForPosition,
+
+      // New v2 methods
+      openNewUserModal, saveNewUser, toggleUserStatus, editUser, updateUser,
+      openPasswordReset, submitPasswordReset, runAiTalentSearch, viewCandidateById,
+      loadRecruitmentTasks, openNewTaskModal, saveRecruitmentTask, editRecruitmentTask, deleteRecruitmentTask,
+      loadCandidateTimeline, submitBulkAction,
+
+      // Candidate communication methods
+      normalizePhoneForWhatsApp, openCommunication, generateAiDraft, openInExternalChannel, copyCommText, getDaysSinceLastActivity,
+
+      // ─── SYSTEM SETTINGS (SİSTEM AYARLARI) ────────────────────────────
+      loadSettings,
+      getRegionName,
+      getCityName,
+      getHotelName,
+      getDeptName,
+      formatAuditDate,
+      openNewOrgModal,
+      editOrg,
+      saveOrg,
+      openNewHotelModal,
+      editHotel,
+      saveHotel,
+      openNewDeptModal,
+      editDept,
+      saveDept,
+      openNewMappingModal,
+      saveMapping,
+      deleteMapping,
+      openNewRoleModal,
+      editRole,
+      saveRole,
+      saveConfig,
+
+      // settings state
+      settingsSubTab,
+      orgSubTab,
+      settingsData,
+      showOrgModal,
+      showHotelModal,
+      showDeptModal,
+      showMappingModal,
+      showRoleModal,
+      editingOrg,
+      editingHotel,
+      editingDept,
+      newMapping,
+      editingRole,
+      permissionLabelMap,
+
+      // Candidate Ownership & Locks
+      candidateLockStatus,
+      showExtensionModal,
+      newExtensionRequest,
+      subscribeToWaitingList,
+      forceReleaseLock,
+      openExtensionRequestModal,
+      submitExtensionRequest,
+      resolveExtension,
+
+      // Phase 3 portal state & methods
+      talentSubTab, interviewSubTab, sharingJob, sharingHotel, showShareModal, showWalkinModal,
+      publicJob, publicBranding, publicApplyForm, publicApplyCv, submittingPublic,
+      walkinForm, walkinCv, submittingWalkin,
+      loadPublicJobDetails, loadPublicWalkinDetails, submitPublicApplication, onPublicCvSelected,
+      submitWalkinApplication, onWalkinCvSelected, getJobShareUrl, getWalkinShareUrl,
+      shareJobPosting, shareHotelWalkIn, copyShareLink, loadHeadcountBudgets, uploadBudgetExcel,
+      loadRoutingSuggestions, resolveRoutingSuggestion,
+      filteredMappingTitles, matchedSalaryPolicy,
+      budgetPositions, loadBudgetPositions,
+      filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
+      salary_stats: salaryStats,
+      showHeadcountLayoutModal,
+      headcountLayout,
+      saveHeadcountLayout,
+      pendingApprovals, loadPendingApprovals, resolveApproval, uploadSalaryPolicyExcel,
+
+      // Dashboard State & Methods
+      dashboardHotelFilter, dashboardViewMode, dashboardTestRole, dashboardStatsData, dashboardLoading, loadDashboardStats,
+      showDashboardSettings, dashboardSettings, loadDashboardSettings, saveDashboardSettings, applyPreset, dashboardGridStyle,
+
+      // Single-Excel Import
+      importResult,
+      hotelMappings,
+      importConfirming,
+      handleOrgImportUpload,
+      saveHotelMapping,
+      confirmOrganizationImport,
+
+      // Staffing Needs
+      staffingNeeds, staffingNeedsFilter, staffingNeedsSummary, showNewStaffingNeedModal, newStaffingNeed,
+      loadStaffingNeeds, autoDetectStaffingNeeds, createStaffingNeed, approveStaffingNeed, rejectStaffingNeed,
+
+      // auth
+      currentUser, loginData, authMode, registerData, register, login, logout,
+      allUsers, loadUsers,
+    };
   }
 }).mount('#app');
