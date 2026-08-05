@@ -697,3 +697,81 @@ class RecruitmentPipeline(Base):
     stages = Column(JSON, default=[])
     is_active = Column(Boolean, default=True)
 
+
+class OrganizationNode(Base):
+    __tablename__ = "organization_nodes"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, default=1)
+    code = Column(String, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    level = Column(String, nullable=False) # company, city, region, hotel, main_category, sub_main_category, sub_category, position
+    parent_id = Column(Integer, ForeignKey("organization_nodes.id"), nullable=True)
+    path = Column(String, index=True, nullable=True) # Materialized path e.g. "1/2/3/4"
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    parent = relationship("OrganizationNode", remote_side=[id])
+
+class WorkforcePlanPeriod(Base):
+    __tablename__ = "workforce_plan_periods"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, default=1)
+    period_code = Column(String, unique=True, index=True, nullable=False) # e.g. "2026-08"
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class WorkforcePlanLine(Base):
+    __tablename__ = "workforce_plan_lines"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, default=1)
+    period_id = Column(Integer, ForeignKey("workforce_plan_periods.id"), nullable=False)
+    node_id = Column(Integer, ForeignKey("organization_nodes.id"), nullable=False)
+    budget_fte = Column(Float, default=0.0)
+    active_fte = Column(Float, default=0.0)
+    hired_pending_fte = Column(Float, default=0.0) # Kesinleşen giriş
+    resigned_pending_fte = Column(Float, default=0.0) # Planlanan ayrılış
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    period = relationship("WorkforcePlanPeriod")
+    node = relationship("OrganizationNode")
+
+
+class OrganizationImport(Base):
+    __tablename__ = "organization_imports"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, default=1)
+    filename = Column(String, nullable=False)
+    file_hash = Column(String, index=True, nullable=False)
+    status = Column(String, default="uploaded") # uploaded, validating, validation_failed, ready_for_confirmation, importing, completed, completed_with_warnings, failed, rolled_back
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class OrganizationImportRow(Base):
+    __tablename__ = "organization_import_rows"
+    id = Column(Integer, primary_key=True, index=True)
+    import_id = Column(Integer, ForeignKey("organization_imports.id"), nullable=False)
+    row_index = Column(Integer, nullable=False)
+    period = Column(String, nullable=False)
+    hotel_code = Column(String, nullable=False)
+    hotel_name = Column(String, nullable=False)
+    city = Column(String, nullable=True)
+    region = Column(String, nullable=True)
+    main_category = Column(String, nullable=False)
+    sub_main_category = Column(String, nullable=True)
+    sub_category = Column(String, nullable=True)
+    position_code = Column(String, nullable=False)
+    position_name = Column(String, nullable=False)
+    budget_fte = Column(Float, default=0.0)
+    active_fte = Column(Float, default=0.0)
+    status = Column(String, default="pending") # valid, invalid, warning
+    validation_message = Column(String, nullable=True)
+
+class OrganizationImportMapping(Base):
+    __tablename__ = "organization_import_mappings"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, default=1)
+    excel_hotel_code = Column(String, unique=True, index=True, nullable=False)
+    system_hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+

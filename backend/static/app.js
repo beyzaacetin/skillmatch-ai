@@ -319,6 +319,9 @@ createApp({
     const settingsSubTab = ref('org');
     const orgSubTab = ref('orgs');
     const settingsData = ref({ organizations: [], countries: [], cities: [], regions: [], hotels: [], departments: [], mappings: [], roles: [], configs: [], auditLogs: [], salaryPolicies: [], extensionRequests: [] });
+    const importResult = ref(null);
+    const hotelMappings = ref({});
+    const importConfirming = ref(false);
     
     // Settings modals
     const showOrgModal = ref(false);
@@ -2870,10 +2873,70 @@ createApp({
       dashboardHotelFilter, dashboardViewMode, dashboardTestRole, dashboardStatsData, dashboardLoading, loadDashboardStats,
       showDashboardSettings, dashboardSettings, loadDashboardSettings, saveDashboardSettings, applyPreset, dashboardGridStyle,
 
+      // Single-Excel Import
+      importResult,
+      hotelMappings,
+      importConfirming,
+      handleOrgImportUpload,
+      saveHotelMapping,
+      confirmOrganizationImport,
+
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
       allUsers, loadUsers,
     };
+
+    // ─── SINGLE-EXCEL IMPORT METHODS ────────────────────────────────
+    async function handleOrgImportUpload(event) {
+      const file = event?.target?.files?.[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await apiForm('/api/organization-imports/upload', fd);
+        importResult.value = res;
+        showToast('Dosya başarıyla doğrulandı.', 'success');
+      } catch (e) {
+        showToast('Yükleme hatası: ' + (e.message || e), 'error');
+      }
+    }
+
+    async function saveHotelMapping(excelCode) {
+      const targetId = hotelMappings.value[excelCode];
+      if (!targetId) {
+        showToast('Lütfen eşleştirmek istediğiniz oteli seçin.', 'error');
+        return;
+      }
+      try {
+        await api('POST', '/api/organization-imports/mappings', {
+          excel_hotel_code: excelCode,
+          system_hotel_id: parseInt(targetId)
+        });
+        showToast('Eşleştirme başarıyla kaydedildi.', 'success');
+      } catch (e) {
+        showToast('Eşleştirme hatası: ' + (e.message || e), 'error');
+      }
+    }
+
+    async function confirmOrganizationImport() {
+      if (!importResult.value) return;
+      importConfirming.value = true;
+      try {
+        const res = await api('POST', `/api/organization-imports/confirm/${importResult.value.import_id}`);
+        showToast(res.message || 'İçe aktarma tamamlandı.', 'success');
+        importResult.value = null;
+        hotelMappings.value = {};
+        await Promise.all([
+          loadSettings(),
+          loadHeadcount(),
+          loadBudgetPositions()
+        ]);
+      } catch (e) {
+        showToast('İçe aktarma hatası: ' + (e.message || e), 'error');
+      } finally {
+        importConfirming.value = false;
+      }
+    }
 
     // ─── SYSTEM SETTINGS METHODS IMPLEMENTATION ───────────────────────
     async function loadSettings() {

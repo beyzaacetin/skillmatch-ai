@@ -3126,6 +3126,7 @@ input:checked + .slider:before {
           <div class="card-hdr" style="padding: 10px 20px; border-bottom:none">
             <div class="tabs" style="display:flex; gap:16px; flex-wrap:wrap">
               <button class="tab-btn" :class="{active: settingsSubTab==='org'}" @click="settingsSubTab='org'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='org' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Organizasyon Yapısı</button>
+              <button class="tab-btn" :class="{active: settingsSubTab==='org_import'}" @click="settingsSubTab='org_import'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='org_import' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Organizasyon & Bütçe İçe Aktarma</button>
               <button class="tab-btn" :class="{active: settingsSubTab==='users'}" @click="settingsSubTab='users';loadUsers()" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='users' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Kullanıcı Yönetimi</button>
               <button class="tab-btn" :class="{active: settingsSubTab==='roles'}" @click="settingsSubTab='roles'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='roles' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Roller ve Yetkiler</button>
               <button class="tab-btn" :class="{active: settingsSubTab==='configs'}" @click="settingsSubTab='configs'" style="background:none; border:none; padding:10px 0; font-weight:600; cursor:pointer; border-bottom:2px solid transparent" :style="settingsSubTab==='configs' ? 'border-color:var(--primary); color:var(--primary)' : 'color:var(--g500)'">Sistem Parametreleri</button>
@@ -3271,6 +3272,140 @@ input:checked + .slider:before {
                 </tbody>
               </table>
               <div v-if="!settingsData.mappings?.length" style="padding:20px; text-align:center; color:var(--g500)">Hiç pozisyon eşleşmesi tanımlanmamış.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORGANİZASYON & BÜTÇE İÇE AKTARMA TAB -->
+        <div v-if="settingsSubTab==='org_import'" class="card" style="padding:24px; background:#fff">
+          <div style="margin-bottom: 24px;">
+            <div style="font-weight:700; font-size:18px; color:var(--primary);">Organizasyon, Bütçe & FTE İçe Aktarma</div>
+            <div style="font-size:13px; color:var(--g500); margin-top:4px;">
+              Tüm otellerin organizasyon hiyerarşisini, kadro bütçelerini (FTE) ve aktif iş gücü verilerini tek bir Excel dosyasından içe aktarın.
+            </div>
+          </div>
+
+          <!-- Upload form -->
+          <div v-if="!importResult" style="border: 2px dashed var(--border-color); padding: 40px; text-align: center; border-radius: 12px; background: var(--bg-light); transition: all 0.2s;" class="excel-drop-zone">
+            <svg style="width: 48px; height: 48px; color: var(--primary); margin: 0 auto 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <div style="font-weight: 600; margin-bottom: 8px;">Excel Dosyasını Sürükleyip Bırakın veya Seçin</div>
+            <div style="font-size:12px; color:var(--g500); margin-bottom: 20px;">Desteklenen formatlar: .xlsx, .xls (Zorunlu Sayfa: Organizasyon_Butce_FTE)</div>
+            
+            <input type="file" ref="orgImportFile" accept=".xlsx, .xls" style="display:none" @change="handleOrgImportUpload">
+            <button class="btn btn-primary" @click="$refs.orgImportFile.click()">Dosya Seçin</button>
+            
+            <div style="margin-top: 16px;">
+              <a href="/static/templates/Organizasyon_Butce_FTE_Sablonu.xlsx" download style="color:var(--accent); font-weight:600; text-decoration:none; font-size:12px;">Örnek Şablon İndir →</a>
+            </div>
+          </div>
+
+          <!-- Import Results & Confirm screen -->
+          <div v-else>
+            <!-- Stats -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom: 24px;">
+              <div class="card" style="padding: 16px; background:#EAF3EF; border:1px solid #C3E7D9; border-radius: 8px;">
+                <div style="font-size:12px; color:#34785F; font-weight:600;">Toplam Satır</div>
+                <div style="font-size:24px; font-weight:700; color:#173D34; margin-top:4px;">{{ importResult.total_rows }}</div>
+              </div>
+              <div class="card" style="padding: 16px; background:#E3F1EB; border:1px solid #C3E7D9; border-radius: 8px;">
+                <div style="font-size:12px; color:#34785F; font-weight:600;">Geçerli Satırlar</div>
+                <div style="font-size:24px; font-weight:700; color:#34785F; margin-top:4px;">{{ importResult.valid_count }}</div>
+              </div>
+              <div class="card" style="padding: 16px; background:#F8E4E2; border:1px solid #EFA7A7; border-radius: 8px;">
+                <div style="font-size:12px; color:#A64848; font-weight:600;">Hatalı Satırlar</div>
+                <div style="font-size:24px; font-weight:700; color:#A64848; margin-top:4px;">{{ importResult.invalid_count }}</div>
+              </div>
+              <div class="card" style="padding: 16px; background:#F9EDCF; border:1px solid #E6C575; border-radius: 8px;">
+                <div style="font-size:12px; color:#996818; font-weight:600;">Mükerrer / Uyarılar</div>
+                <div style="font-size:24px; font-weight:700; color:#996818; margin-top:4px;">{{ importResult.warning_count }}</div>
+              </div>
+            </div>
+
+            <!-- Idempotency Warning -->
+            <div v-if="importResult.already_uploaded" class="alert alert-warning" style="margin-bottom: 20px;">
+              <strong>Uyarı:</strong> Bu dosya (veya birebir aynı içerik) daha önce sisteme yüklendi. Tekrar içe aktarmak bütçeleri güncelleyecektir.
+            </div>
+
+            <!-- Unmapped Hotels / Alias Matching -->
+            <div v-if="importResult.unmapped_hotels && importResult.unmapped_hotels.length > 0" class="card" style="padding: 20px; border:1px solid var(--border-color); border-radius: 8px; margin-bottom: 24px; background:#FDFDFD;">
+              <div style="font-weight:700; color:var(--primary); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                <span style="background:#F9EDCF; color:#996818; padding:2px 8px; border-radius:4px; font-size:11px;">Eşleştirme Gerekli</span>
+                Excel'deki Tanımlanmamış Otelleri Eşleştirin
+              </div>
+              <p style="font-size:12px; color:var(--g500); margin-bottom:16px;">
+                Excel dosyasında yer alan bazı otel kodları sisteminizde bulunamadı. Lütfen bunları mevcut otellerle eşleştirin. Eşleştirilmeyen oteller için sistem otomatik yeni otel tanımlayacaktır.
+              </p>
+              
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <div v-for="hotel in importResult.unmapped_hotels" :key="hotel.excel_code" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid var(--border-color); border-radius:6px; background:#fff;">
+                  <div>
+                    <span style="font-weight:700; color:var(--g900);">{{ hotel.excel_code }}</span>
+                    <span style="font-size:12px; color:var(--g500); margin-left:8px;">(Excel Satırlarında Geçen Otel)</span>
+                  </div>
+                  <div style="display:flex; gap:10px; align-items:center;">
+                    <select v-model="hotelMappings[hotel.excel_code]" style="padding:6px 12px; border:1px solid var(--border-color); border-radius:6px; font-size:12px;">
+                      <option value="">-- Yeni Otel Olarak Oluştur --</option>
+                      <option v-for="sysH in settingsData.hotels" :key="sysH.id" :value="sysH.id">{{ sysH.name }} ({{ sysH.code }})</option>
+                    </select>
+                    <button class="btn btn-sm" @click="saveHotelMapping(hotel.excel_code)" style="background:var(--primary); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-weight:600; cursor:pointer;">Eşle</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview First 50 Rows -->
+            <div style="margin-bottom: 24px;">
+              <div style="font-weight:700; margin-bottom: 12px;">İlk 50 Satır Önizleme</div>
+              <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                <table class="enterprise-table" style="font-size:12px;">
+                  <thead>
+                    <tr>
+                      <th>Satır No</th>
+                      <th>Dönem</th>
+                      <th>Otel Kodu</th>
+                      <th>Otel Adı</th>
+                      <th>Ana Kategori</th>
+                      <th>Pozisyon</th>
+                      <th>Bütçe FTE</th>
+                      <th>Aktif FTE</th>
+                      <th>Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in importResult.preview_rows" :key="row.row_index" :style="row.status === 'invalid' ? 'background:#FDF2F2' : (row.status === 'warning' ? 'background:#FFFDF5' : '')">
+                      <td>{{ row.row_index }}</td>
+                      <td>{{ row.period }}</td>
+                      <td><strong>{{ row.hotel_code }}</strong></td>
+                      <td>{{ row.hotel_name }}</td>
+                      <td>{{ row.main_category }}</td>
+                      <td>{{ row.position_name }}</td>
+                      <td>{{ row.budget_fte }}</td>
+                      <td>{{ row.active_fte }}</td>
+                      <td>
+                        <span :style="{
+                          background: row.status === 'valid' ? '#E3F1EB' : (row.status === 'invalid' ? '#F8E4E2' : '#F9EDCF'),
+                          color: row.status === 'valid' ? '#34785F' : (row.status === 'invalid' ? '#A64848' : '#996818'),
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: '700',
+                          fontSize: '10px'
+                        }">{{ row.status.toUpperCase() }}</span>
+                        <div v-if="row.validation_message" style="font-size:10px; color:#A64848; margin-top:2px;">{{ row.validation_message }}</div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-color); padding-top:20px;">
+              <button class="btn btn-secondary" @click="importResult = null; hotelMappings = {}">Yeni Dosya Yükle</button>
+              <button class="btn btn-primary" :disabled="importResult.invalid_count > 0 || importConfirming" @click="confirmOrganizationImport">
+                {{ importConfirming ? 'İçe Aktarılıyor...' : 'İçe Aktarmayı Onayla ve Tamamla' }}
+              </button>
             </div>
           </div>
         </div>
