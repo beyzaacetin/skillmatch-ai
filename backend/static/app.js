@@ -397,7 +397,9 @@ createApp({
     }
 
     async function apiForm(url, formData) {
-      const r = await fetch(url, { method: 'POST', body: formData });
+      const headers = {};
+      if (token.value) headers['Authorization'] = `Bearer ${token.value}`;
+      const r = await fetch(url, { method: 'POST', headers, body: formData });
       if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
       return r.json();
     }
