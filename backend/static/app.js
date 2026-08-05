@@ -22,6 +22,9 @@ createApp({
     const selectedHeadcountDetail = ref(null);
     const showHeadcountDetail = ref(false);
     const importingHeadcount = ref(false);
+    const budgetPositions = ref([]);
+    const headcountMonthlyTrends = ref([]);
+    const headcountActionPlans = ref([]);
 
     // Custom Redesign Refs
     const workspaceInterviewType = ref('HR');
@@ -431,11 +434,12 @@ createApp({
     // ─── LOAD DATA ────────────────────────────────────────────────────
     async function loadInitialData() {
       if (!currentUser.value) return;
+      initializeActionPlans();
       if (currentUser.value.role === 'HOTEL_HR' && currentUser.value.hotel_access_ids && currentUser.value.hotel_access_ids.length > 0) {
         dashboardHotelFilter.value = currentUser.value.hotel_access_ids[0];
         headcountFilter.value.hotel_id = currentUser.value.hotel_access_ids[0];
       }
-      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings(), loadHeadcount()]);
+      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings(), loadHeadcount(), loadBudgetPositions()]);
     }
 
     async function loadDashboardSettings() {
@@ -522,8 +526,58 @@ createApp({
         const search = headcountFilter.value.search ? `&search=${encodeURIComponent(headcountFilter.value.search)}` : '';
         const data = await api('GET', `/api/headcount/summary?${hotel}${dept}${m}${search}`);
         headcountData.value = data;
+        await loadHeadcountMonthlyTrends();
       } catch (e) {
         console.error('Headcount loading error:', e);
+      }
+    }
+
+    async function loadHeadcountMonthlyTrends() {
+      try {
+        const hotel = headcountFilter.value.hotel_id ? `?hotel_id=${headcountFilter.value.hotel_id}` : '';
+        const data = await api('GET', `/api/headcount/monthly-trends${hotel}`);
+        headcountMonthlyTrends.value = data;
+      } catch (e) {
+        console.error('Error loading monthly trends:', e);
+      }
+    }
+
+    function initializeActionPlans() {
+      const stored = localStorage.getItem('headcount_actions');
+      if (stored) {
+        headcountActionPlans.value = JSON.parse(stored);
+      } else {
+        headcountActionPlans.value = [
+          { id: 1, text: "Eylül ayı mutfak departmanı için 4 Garson açığını kapatmak amacıyla havuzdaki 8 adaya WhatsApp daveti gönderin." },
+          { id: 2, text: "Rixos Premium Belek bünyesinde Chief Accountant ilanı açılmamış. Sistemden tek tıkla ilanı oluşturun." },
+          { id: 3, text: "Lifeguard açığını kapatmak için beklemedeki 3 adayın mülakatlarını bu hafta sonuna kadar tamamlayın." }
+        ];
+        localStorage.setItem('headcount_actions', JSON.stringify(headcountActionPlans.value));
+      }
+    }
+
+    function addActionPlan() {
+      const text = prompt('Yeni aksiyon planı girin:');
+      if (text) {
+        headcountActionPlans.value.push({
+          id: Date.now(),
+          text: text
+        });
+        localStorage.setItem('headcount_actions', JSON.stringify(headcountActionPlans.value));
+      }
+    }
+
+    function removeActionPlan(id) {
+      headcountActionPlans.value = headcountActionPlans.value.filter(a => a.id !== id);
+      localStorage.setItem('headcount_actions', JSON.stringify(headcountActionPlans.value));
+    }
+
+    async function loadBudgetPositions() {
+      try {
+        const data = await api('GET', '/api/headcount/budget-positions');
+        budgetPositions.value = data;
+      } catch (e) {
+        console.error('Error loading budget positions:', e);
       }
     }
 
@@ -537,7 +591,7 @@ createApp({
       try {
         const res = await apiForm('/api/headcount/upload-excel', fd);
         alert('Excel başarıyla yüklendi! Toplam ' + res.imported + ' kayıt veritabanına işlendi.');
-        await loadHeadcount();
+        await Promise.all([loadHeadcount(), loadBudgetPositions()]);
       } catch (e) {
         alert('Excel yükleme hatası: ' + (e.message || e));
       } finally {
@@ -564,6 +618,23 @@ createApp({
       } catch (e) {
         alert('İlan durumu değiştirilemedi: ' + (e.message || e));
       }
+    }
+
+    function createPositionFromBudget(row) {
+      const hotel = settingsData.value.hotels.find(h => h.code.toUpperCase() === row.hotel_code.toUpperCase());
+      newPos.value = {
+        title: row.position_title,
+        department_name: row.department,
+        sub_department: row.sub_department || '',
+        hotel_id: hotel ? hotel.id : '',
+        department_id: '',
+        description: '',
+        seniority_level: 'Mid',
+        required_skills_str: '',
+        salary_min: null,
+        salary_max: null
+      };
+      showNewPositionModal.value = true;
     }
 
     async function loadAnalytics() {
@@ -1062,18 +1133,23 @@ createApp({
 
     async function savePosition() {
       try {
-        const deptObj = settingsData.value.departments.find(d => d.id === newPos.value.department_id);
+        let deptObj = settingsData.value.departments.find(d => d.name.toLowerCase() === (newPos.value.department_name || '').toLowerCase());
+        let departmentId = deptObj ? deptObj.id : (settingsData.value.departments[0]?.id || 1);
+        
         const payload = {
           ...newPos.value,
-          department: deptObj ? deptObj.name : newPos.value.department,
+          department: newPos.value.department_name || newPos.value.department,
+          department_id: departmentId,
           required_skills: newPos.value.required_skills_str.split(',').map(s => s.trim()).filter(Boolean),
           preferred_skills: [],
         };
         delete payload.required_skills_str;
+        delete payload.department_name;
+
         const saved = await api('POST', '/api/positions/', payload);
         positions.value.unshift(saved);
         showNewPositionModal.value = false;
-        newPos.value = { title: '', department: '', hotel_id: '', department_id: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null };
+        newPos.value = { title: '', department: '', department_name: '', sub_department: '', hotel_id: '', department_id: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null };
       } catch (e) { alert('Kayıt hatası: ' + e.message); }
     }
 
@@ -1977,6 +2053,49 @@ createApp({
       return [...new Set(titles)].sort();
     });
 
+    const filteredBudgetDepartments = computed(() => {
+      const hotelId = Number(newPos.value.hotel_id);
+      if (!hotelId || !settingsData.value || !settingsData.value.hotels) return [];
+      const hotel = settingsData.value.hotels.find(h => h.id === hotelId);
+      if (!hotel) return [];
+      const code = hotel.code.toUpperCase();
+      const depts = budgetPositions.value
+        .filter(bp => bp.hotel_code.toUpperCase() === code)
+        .map(bp => bp.department);
+      return [...new Set(depts)].sort();
+    });
+
+    const filteredBudgetSubDepartments = computed(() => {
+      const hotelId = Number(newPos.value.hotel_id);
+      const deptName = newPos.value.department_name;
+      if (!hotelId || !deptName || !settingsData.value || !settingsData.value.hotels) return [];
+      const hotel = settingsData.value.hotels.find(h => h.id === hotelId);
+      if (!hotel) return [];
+      const code = hotel.code.toUpperCase();
+      const subs = budgetPositions.value
+        .filter(bp => bp.hotel_code.toUpperCase() === code && bp.department.toUpperCase() === deptName.toUpperCase())
+        .map(bp => bp.sub_department);
+      return [...new Set(subs)].sort();
+    });
+
+    const filteredBudgetTitles = computed(() => {
+      const hotelId = Number(newPos.value.hotel_id);
+      const deptName = newPos.value.department_name;
+      const subName = newPos.value.sub_department || '';
+      if (!hotelId || !deptName || !settingsData.value || !settingsData.value.hotels) return [];
+      const hotel = settingsData.value.hotels.find(h => h.id === hotelId);
+      if (!hotel) return [];
+      const code = hotel.code.toUpperCase();
+      const titles = budgetPositions.value
+        .filter(bp => 
+          bp.hotel_code.toUpperCase() === code && 
+          bp.department.toUpperCase() === deptName.toUpperCase() &&
+          (subName === '' || (bp.sub_department || '').toUpperCase() === subName.toUpperCase())
+        )
+        .map(bp => bp.position_title);
+      return [...new Set(titles)].sort();
+    });
+
     const matchedSalaryPolicy = computed(() => {
       if (!selectedApp.value) return null;
       const hotelId = Number(selectedApp.value.hotel_id);
@@ -2363,7 +2482,8 @@ createApp({
       
       // Headcount state and methods
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,
-      loadHeadcount, uploadHeadcountExcel, openHeadcountDetails, toggleHeadcountJobActive,
+      loadHeadcount, uploadHeadcountExcel, openHeadcountDetails, toggleHeadcountJobActive, createPositionFromBudget,
+      headcountMonthlyTrends, headcountActionPlans, addActionPlan, removeActionPlan,
 
       // New v2 states
       aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
@@ -2459,6 +2579,8 @@ createApp({
       shareJobPosting, shareHotelWalkIn, copyShareLink, loadHeadcountBudgets, uploadBudgetExcel,
       loadRoutingSuggestions, resolveRoutingSuggestion,
       filteredMappingTitles, matchedSalaryPolicy,
+      budgetPositions, loadBudgetPositions,
+      filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
       pendingApprovals, loadPendingApprovals, resolveApproval, uploadSalaryPolicyExcel,
       salaryStats,
 

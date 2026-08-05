@@ -9,6 +9,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+.chart-bar-wrapper:hover .chart-tooltip {
+  opacity: 1 !important;
+}
 /* Simple Switch CSS */
 .switch {
   position: relative;
@@ -911,20 +914,81 @@ input:checked + .slider:before {
           </select>
         </div>
 
+        <!-- Monthly Trends & Action Plans Grid -->
+        <div style="display:grid; grid-template-columns:7fr 3fr; gap:20px; margin-bottom:20px">
+          
+          <!-- Monthly Deficit Trends Bar Chart -->
+          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <h3 style="font-size:15px; font-weight:700; color:var(--g800); margin:0">Aylık Kadro İhtiyaç & Açık Dağılımı (FTE Deficit)</h3>
+              <small style="font-size:12px; color:var(--g500)">Net Açık = Bütçe - Aktif Çalışan</small>
+            </div>
+            
+            <!-- Flex Bar Chart -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; height:180px; padding:10px 0; border-bottom:1px solid var(--g200); position:relative">
+              <div v-for="t in headcountMonthlyTrends" :key="t.month_num" class="chart-bar-wrapper" style="display:flex; flex-direction:column; align-items:center; flex:1; position:relative; cursor:pointer">
+                <!-- Tooltip on hover -->
+                <div class="chart-tooltip" style="position:absolute; bottom:100%; background:var(--g900); color:#fff; font-size:10.5px; padding:6px 10px; border-radius:6px; opacity:0; pointer-events:none; transition:opacity 0.2s; white-space:nowrap; z-index:10; margin-bottom:5px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)">
+                  Bütçe: {{ t.budget }} FTE<br>Aktif: {{ t.active }}<br>Açık: {{ t.deficit }} FTE
+                </div>
+                
+                <!-- Deficit visual bar -->
+                <div :style="{
+                  height: (t.deficit * 8) + 'px', 
+                  maxHeight: '150px',
+                  minHeight: t.deficit > 0 ? '6px' : '2px',
+                  background: t.deficit > 4 ? 'linear-gradient(to top, #ef4444, #f87171)' : t.deficit > 0 ? 'linear-gradient(to top, #f97316, #fb923c)' : '#10b981',
+                  width: '60%',
+                  borderRadius: '4px 4px 0 0',
+                  transition: 'height 0.3s ease'
+                }"></div>
+                
+                <!-- Display Deficit value if > 0 -->
+                <span v-if="t.deficit > 0" style="font-size:10px; font-weight:700; color:var(--g700); margin-top:4px">{{ t.deficit }}</span>
+                <span v-else style="font-size:10px; color:var(--green); font-weight:600; margin-top:4px">✓</span>
+              </div>
+            </div>
+            
+            <!-- Chart X Axis labels -->
+            <div style="display:flex; justify-content:space-between">
+              <div v-for="t in headcountMonthlyTrends" :key="t.month_num" style="flex:1; text-align:center; font-size:11px; font-weight:600; color:var(--g600)">
+                {{ t.month_name }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Plans Sidebar (customizable) -->
+          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <h3 style="font-size:15px; font-weight:700; color:var(--g800); margin:0">Aksiyon Planı</h3>
+              <button @click="addActionPlan" class="btn btn-primary btn-sm" style="padding:4px 8px; font-size:11.5px">+ Ekle</button>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; max-height:190px">
+              <div v-for="a in headcountActionPlans" :key="a.id" class="action-card" style="background:#f9fafb; border:1px solid var(--g200); padding:10px; border-radius:8px; display:flex; justify-content:space-between; gap:10px; align-items:flex-start">
+                <div style="font-size:12px; color:var(--g700); line-height:1.4">{{ a.text }}</div>
+                <button @click="removeActionPlan(a.id)" style="background:none; border:none; color:var(--green); font-size:13px; cursor:pointer; font-weight:bold" title="Tamamlandı">✓</button>
+              </div>
+              <div v-if="headcountActionPlans.length === 0" style="font-size:12px; color:var(--g400); text-align:center; padding:20px">Kayıtlı aksiyon planı bulunmuyor.</div>
+            </div>
+          </div>
+          
+        </div>
+
         <!-- Table card -->
         <div class="card" style="background:#fff; border:1px solid var(--g200); border-radius:12px; overflow:hidden">
           <div style="padding:20px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center">
             <h3 style="font-size:16px; font-weight:700; color:var(--g800)">Pozisyon İhtiyaç planı</h3>
             
             <div style="display:flex; gap:10px">
-              <!-- Excel Import (reads C:\Users\sule\Desktop\bütçemevcut.xlsx) -->
-              <button @click="uploadHeadcountExcel" class="btn btn-outline" style="padding:6px 12px; display:flex; align-items:center; gap:6px; font-size:12.5px" :disabled="importingHeadcount">
+              <!-- Excel Import -->
+              <button @click="$refs.headcountExcelFileInput.click()" class="btn btn-outline" style="padding:6px 12px; display:flex; align-items:center; gap:6px; font-size:12.5px" :disabled="importingHeadcount">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 {{ importingHeadcount ? 'Yükleniyor...' : 'Excel Yükle' }}
               </button>
               
-              <!-- Hidden file picker as fallback -->
-              <input type="file" id="headcountExcelFile" @change="uploadHeadcountExcel" style="display:none" accept=".xlsx,.xls">
+              <!-- Hidden file picker -->
+              <input type="file" ref="headcountExcelFileInput" @change="uploadHeadcountExcel" style="display:none" accept=".xlsx,.xls">
               
               <button class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Şablon indir</button>
               <button class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Kolonlar ⚙</button>
@@ -942,6 +1006,7 @@ input:checked + .slider:before {
                 <th style="text-align:center">ADAY</th>
                 <th>ÜCRET BANDI</th>
                 <th>DURUM</th>
+                <th>İŞE ALIM AKSIYONU</th>
                 <th style="width:40px"></th>
               </tr>
             </thead>
@@ -970,6 +1035,12 @@ input:checked + .slider:before {
                   }">
                     {{ r.status }}
                   </span>
+                </td>
+                <td @click.stop>
+                  <span v-if="r.has_job_ad" class="badge b-hired" style="font-weight:600">✓ İlan Aktif</span>
+                  <button v-else @click="createPositionFromBudget(r)" class="btn btn-outline btn-sm" style="padding:4px 8px; font-size:11.5px; border-color:var(--primary); color:var(--primary)">
+                    ✦ İlan Oluştur
+                  </button>
                 </td>
                 <td><span style="color:var(--g400)">→</span></td>
               </tr>
@@ -4734,26 +4805,35 @@ input:checked + .slider:before {
         <div class="form-row">
           <div class="fg">
             <label class="fl">Otel *</label>
-            <select v-model.number="newPos.hotel_id" class="fs">
+            <select v-model.number="newPos.hotel_id" class="fs" @change="newPos.department_name = ''; newPos.sub_department = ''; newPos.title = ''">
               <option value="">Otel Seçin</option>
               <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
             </select>
           </div>
           <div class="fg">
-            <label class="fl">Departman *</label>
-            <select v-model.number="newPos.department_id" class="fs">
+            <label class="fl">Ana Kategori (Departman) *</label>
+            <select v-model="newPos.department_name" class="fs" :disabled="!newPos.hotel_id" @change="newPos.sub_department = ''; newPos.title = ''">
               <option value="">Departman Seçin</option>
-              <option v-for="d in settingsData.departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+              <option v-for="d in filteredBudgetDepartments" :key="d" :value="d">{{ d }}</option>
             </select>
           </div>
         </div>
 
-        <div class="fg">
-          <label class="fl">Pozisyon Başlığı *</label>
-          <select v-model="newPos.title" class="fs" :disabled="!newPos.hotel_id || !newPos.department_id">
-            <option value="">Pozisyon Seçin</option>
-            <option v-for="t in filteredMappingTitles" :key="t" :value="t">{{ t }}</option>
-          </select>
+        <div class="form-row">
+          <div class="fg">
+            <label class="fl">Alt Kategori</label>
+            <select v-model="newPos.sub_department" class="fs" :disabled="!newPos.department_name" @change="newPos.title = ''">
+              <option value="">Alt Kategori Seçin</option>
+              <option v-for="s in filteredBudgetSubDepartments" :key="s" :value="s">{{ s || 'Alt Kategori Yok' }}</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Pozisyon Başlığı *</label>
+            <select v-model="newPos.title" class="fs" :disabled="!newPos.department_name">
+              <option value="">Pozisyon Seçin</option>
+              <option v-for="t in filteredBudgetTitles" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
         </div>
 
         <button class="btn btn-secondary btn-sm" style="margin-bottom:12px" @click="aiGeneratePosition()" :disabled="!newPos.title">

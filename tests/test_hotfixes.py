@@ -868,6 +868,79 @@ def test_headcount_management_and_toggle_active():
         db.close()
 
 
+def test_headcount_cascading_and_monthly_trends():
+    from fastapi.testclient import TestClient
+    from main import app
+    from auth import get_current_user
+    
+    # 1. Setup mock user with SYSTEM_ADMIN permissions
+    db = TestingSessionLocal()
+    org = db.query(models.Organization).first()
+    if not org:
+        org = models.Organization(name="Test Org")
+        db.add(org)
+        db.commit()
+        db.refresh(org)
+        
+    hotel = db.query(models.Hotel).first()
+    if not hotel:
+        hotel = models.Hotel(name="Rixos Sungate", code="SUN", region_id=1, city_id=1, organization_id=org.id)
+        db.add(hotel)
+        db.commit()
+        db.refresh(hotel)
+        
+    user = db.query(models.User).filter(models.User.email == "test_hc@sry.com").first()
+    if not user:
+        user = models.User(
+            email="test_hc@sry.com",
+            full_name="Headcount tester",
+            role="SYSTEM_ADMIN",
+            is_active=True
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    client = TestClient(app)
+    
+    try:
+        # Create budget record
+        budget_rec = models.WorkforceBudgetRecord(
+            hotel_code="SUN",
+            hotel_sub="SUN",
+            department="Mutfak",
+            sub_department="Sıcak",
+            position_title="Komi",
+            month_of_year=8,
+            total_fte=5.0,
+            budget_amount=250000.0,
+            tenant_id=1
+        )
+        db.add(budget_rec)
+        db.commit()
+        
+        # Test GET /api/headcount/budget-positions
+        res_bp = client.get("/api/headcount/budget-positions")
+        assert res_bp.status_code == 200
+        bp_data = res_bp.json()
+        assert len(bp_data) > 0
+        assert any(x["position_title"] == "Komi" for x in bp_data)
+        
+        # Test GET /api/headcount/monthly-trends
+        res_mt = client.get("/api/headcount/monthly-trends?hotel_id=" + str(hotel.id))
+        assert res_mt.status_code == 200
+        mt_data = res_mt.json()
+        assert len(mt_data) == 12
+        assert mt_data[7]["budget"] == 5.0 # August is index 7
+        
+    finally:
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+        db.close()
+
+
+
 
 
 
