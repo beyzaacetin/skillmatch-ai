@@ -67,6 +67,8 @@ class Candidate(Base):
     ai_profile_summary = Column(Text, nullable=True)
     cv_file_path = Column(String, nullable=True)
     cv_file_data = Column(Text, nullable=True)
+    cv_versions = Column(JSON, default=[])
+    phone_normalized = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -158,6 +160,10 @@ class Application(Base):
     utm_campaign = Column(String, nullable=True)
     utm_content = Column(String, nullable=True)
     
+    evaluation_deadline = Column(DateTime(timezone=True), nullable=True)
+    routing_level = Column(String, nullable=True)
+    routed_from_hotel_id = Column(Integer, nullable=True)
+
     # Relations
     candidate = relationship("Candidate", back_populates="applications")
     position = relationship("Position", back_populates="applications")
@@ -302,6 +308,8 @@ class MatchScore(Base):
     language_score = Column(Float, nullable=True)
     domain_fit_score = Column(Float, nullable=True)
     culture_fit_score = Column(Float, nullable=True)
+    skill_score = Column(Float, nullable=True)
+    certification_score = Column(Float, nullable=True)
     matching_skills = Column(JSON, default=[])
     missing_skills = Column(JSON, default=[])
     transferable_skills = Column(JSON, default=[])
@@ -774,4 +782,28 @@ class OrganizationImportMapping(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class StaffingNeed(Base):
+    __tablename__ = "staffing_needs"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, default=1)
+    hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    organization_node_id = Column(Integer, ForeignKey("organization_nodes.id"), nullable=True)
+    position_title = Column(String, nullable=False)
+    position_code = Column(String, nullable=True)
+    needed_fte = Column(Float, default=1.0)  # budget_fte - active_fte gap
+    priority = Column(String, default="normal")  # urgent, high, normal, low
+    status = Column(String, default="pending")  # pending, approved, rejected, position_created, cancelled
+    approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    source = Column(String, default="budget_gap")  # budget_gap, manual, resignation
+    notes = Column(Text, nullable=True)
+    created_position_id = Column(Integer, ForeignKey("positions.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    hotel = relationship("Hotel")
+    department = relationship("Department")
+    approved_by = relationship("User")
+    created_position = relationship("Position")

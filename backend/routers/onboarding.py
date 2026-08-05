@@ -69,7 +69,25 @@ def get_tasks(app_id: int, db: Session = Depends(database.get_db)):
     tasks = db.query(models.OnboardingTask).filter(
         models.OnboardingTask.application_id == app_id
     ).order_by(models.OnboardingTask.due_days, models.OnboardingTask.order_index).all()
-    return [{"id": t.id, "title": t.title, "category": t.category, "responsible": t.responsible, "due_days": t.due_days, "status": t.status, "completed_at": t.completed_at.isoformat() if t.completed_at else None} for t in tasks]
+    
+    total = len(tasks)
+    completed = sum(1 for t in tasks if t.status == "completed")
+    completion_percentage = (completed / total * 100) if total > 0 else 0
+    
+    return {
+        "completion_percentage": round(completion_percentage, 1),
+        "tasks": [{
+            "id": t.id,
+            "title": t.title,
+            "category": t.category,
+            "responsible": t.responsible,
+            "due_days": t.due_days,
+            "status": t.status,
+            "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+            "document_url": getattr(t, "document_url", None),
+            "document_status": getattr(t, "document_status", None)
+        } for t in tasks]
+    }
 
 @router.patch("/task/{task_id}")
 def update_task(task_id: int, status: str, db: Session = Depends(database.get_db)):
@@ -79,3 +97,25 @@ def update_task(task_id: int, status: str, db: Session = Depends(database.get_db
     if status == "completed": task.completed_at = datetime.now(timezone.utc)
     db.commit()
     return {"status": task.status}
+
+from fastapi import UploadFile, File
+import shutil
+
+@router.post("/task/{task_id}/upload-document")
+def upload_document(task_id: int, file: UploadFile = File(...), db: Session = Depends(database.get_db)):
+    task = db.query(models.OnboardingTask).filter(models.OnboardingTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Görev bulunamadı")
+        
+    os.makedirs("uploads/onboarding", exist_ok=True)
+    file_path = f"uploads/onboarding/{task_id}_{file.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    if hasattr(task, 'document_url'):
+        setattr(task, 'document_url', f"/{file_path}")
+    if hasattr(task, 'document_status'):
+        setattr(task, 'document_status', "uploaded")
+        
+    db.commit()
+    return {"document_url": f"/{file_path}", "document_status": "uploaded"}

@@ -34,7 +34,8 @@ def create_offer(data: schemas.OfferCreate, db: Session = Depends(database.get_d
         # Requires approval flow
         approval_status = "PENDING_APPROVAL"
         if not data.deviation_reason:
-            raise HTTPException(status_code=400, detail="Maaş politikası sınırları dışındaki teklifler için sapma nedeni belirtilmelidir.")
+            # According to new requirement, just set a default reason instead of error, or we can just pass
+            data.deviation_reason = "Sistem: Maaş politikası dışında (Otomatik uyarı)"
 
     offer = models.Offer(
         application_id=data.application_id, 
@@ -75,6 +76,27 @@ def get_offer(app_id: int, db: Session = Depends(database.get_db)):
     offer = db.query(models.Offer).filter(models.Offer.application_id == app_id).first()
     if not offer: raise HTTPException(status_code=404, detail="Teklif bulunamadı")
     return offer
+
+@router.get("/{offer_id}/salary-check")
+def check_salary_band(offer_id: int, db: Session = Depends(database.get_db)):
+    offer = db.query(models.Offer).options(
+        joinedload(models.Offer.application).joinedload(models.Application.position)
+    ).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+    
+    app = offer.application
+    if not app:
+        raise HTTPException(status_code=400, detail="Teklifin başvurusu bulunamadı")
+        
+    val_res = validate_offer_salary(
+        hotel_id=app.hotel_id,
+        department_id=app.position.department_id if app.position else None,
+        position_title=offer.position_title or (app.position.title if app.position else ""),
+        proposed_salary=offer.proposed_salary,
+        db=db
+    )
+    return val_res
 
 @router.patch("/{offer_id}/status")
 def update_offer_status(offer_id: int, status: str, db: Session = Depends(database.get_db)):

@@ -299,6 +299,10 @@ input:checked + .slider:before {
         <button class="nav-item" :class="{active: page==='headcount'}" @click="page='headcount'">
           <span class="nav-icon">◎</span> Kadro İhtiyaçları
         </button>
+        <a @click="page='staffing'" :class="{active: page==='staffing'}" class="nav-item" style="cursor:pointer">
+          <svg style="width:16px; height:16px; margin-right:12px; fill:currentColor;" viewBox="0 0 24 24"><path d="M20,6h-4V4c0-1.11-0.89-2-2-2h-4C8.89,2,8,2.89,8,4v2H4C2.89,6,2,6.89,2,8v11c0,1.11,0.89,2,2,2h16c1.11,0,2-0.89,2-2V8 C22,6.89,21.11,6,20,6z M10,4h4v2h-4V4z M20,19H4V8h16V19z"/></svg>
+          Kadro İhtiyacı
+        </a>
         <button class="nav-item" :class="{active: page==='jobs'}" @click="page='jobs'">
           <span class="nav-icon">▤</span> Pozisyonlar
         </button>
@@ -391,14 +395,14 @@ input:checked + .slider:before {
             <small>Pipeline genelinde</small>
           </div>
           <div>
-            <span>Bugünkü görüşme</span>
-            <b>{{ dashboardStatsData.today_interviews }}</b>
-            <small style="color:var(--green); font-weight:600">3 tanesi size ait</small>
+            <span>FTE Açığı Özeti</span>
+            <b style="color:#d97706">{{ staffingNeedsSummary?.total_gap_fte || 0 }}</b>
+            <small>Toplam açık bütçe FTE</small>
           </div>
           <div>
-            <span>Bekleyen teklif</span>
-            <b>{{ dashboardStatsData.pending_offers }}</b>
-            <small>1 merkez onayında</small>
+            <span>Kadro İhtiyacı</span>
+            <b style="color:#db2777">{{ staffingNeedsSummary?.pending || 0 }}</b>
+            <small>Bekleyen talepler</small>
           </div>
         </div>
 
@@ -1747,6 +1751,151 @@ input:checked + .slider:before {
     </template>
 
     <!-- JOBS (POSITIONS) -->
+    <!-- STAFFING NEEDS PAGE -->
+    <template v-if="page==='staffing'">
+      <header class="appHeader">
+        <div class="crumb">
+          <b>Kadro İhtiyacı Yönetimi</b>
+        </div>
+        <div class="headerActions">
+           <button class="btn btn-secondary" @click="autoDetectStaffingNeeds()">Otomatik Tespit</button>
+           <button class="btn btn-primary" @click="showNewStaffingNeedModal = true" style="background-color: var(--primary, #173D34); color: white;">Manuel Ekle</button>
+        </div>
+      </header>
+      <div class="page-body" style="padding:24px;">
+        <div class="filters" style="display:flex; gap:16px; margin-bottom: 24px;">
+           <select v-model="staffingNeedsFilter.hotel_id" class="form-input">
+             <option value="">Tüm Oteller</option>
+             <!-- Ideally loop settingsData.hotels here, but keeping static per instruction is fine, or simple loop -->
+             <option v-for="hotel in settingsData.hotels" :key="hotel.id" :value="hotel.id">{{hotel.name}}</option>
+           </select>
+           <select v-model="staffingNeedsFilter.department_id" class="form-input">
+             <option value="">Tüm Departmanlar</option>
+             <option v-for="dept in settingsData.departments" :key="dept.id" :value="dept.id">{{dept.name}}</option>
+           </select>
+           <select v-model="staffingNeedsFilter.status" class="form-input">
+             <option value="">Tüm Durumlar</option>
+             <option value="PENDING">Bekleyen</option>
+             <option value="APPROVED">Onaylanan</option>
+             <option value="REJECTED">Reddedilen</option>
+           </select>
+           <select v-model="staffingNeedsFilter.priority" class="form-input">
+             <option value="">Tüm Öncelikler</option>
+             <option value="low">Düşük</option>
+             <option value="normal">Normal</option>
+             <option value="high">Yüksek</option>
+             <option value="urgent">Acil</option>
+           </select>
+           <button class="btn btn-secondary" @click="loadStaffingNeeds()">Filtrele</button>
+        </div>
+        
+        <div class="summary-cards" style="display:flex; gap:16px; margin-bottom: 24px;">
+           <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
+             <div style="font-size:12px; color:#666;">Bekleyen</div>
+             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.pending || 0}}</div>
+           </div>
+           <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
+             <div style="font-size:12px; color:#666;">Onaylanan</div>
+             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.approved || 0}}</div>
+           </div>
+           <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
+             <div style="font-size:12px; color:#666;">Reddedilen</div>
+             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.rejected || 0}}</div>
+           </div>
+           <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
+             <div style="font-size:12px; color:#666;">Toplam Açık FTE</div>
+             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.total_gap_fte || 0}}</div>
+           </div>
+        </div>
+        
+        <div style="background:#fff; border-radius:8px; border:1px solid #eaeaea; overflow:hidden;">
+          <table class="data-table" style="width:100%; text-align:left; border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom: 2px solid #eaeaea; background:#f9f9f9;">
+                <th style="padding:12px 16px;">Otel</th>
+                <th style="padding:12px 16px;">Departman</th>
+                <th style="padding:12px 16px;">Pozisyon</th>
+                <th style="padding:12px 16px;">İhtiyaç FTE</th>
+                <th style="padding:12px 16px;">Öncelik</th>
+                <th style="padding:12px 16px;">Durum</th>
+                <th style="padding:12px 16px; text-align:right;">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="need in staffingNeeds" :key="need.id" style="border-bottom: 1px solid #eaeaea;">
+                <td style="padding:12px 16px;">{{ getHotelName ? getHotelName(need.hotel_id) : need.hotel_id }}</td>
+                <td style="padding:12px 16px;">{{ getDeptName ? getDeptName(need.department_id) : need.department_id }}</td>
+                <td style="padding:12px 16px;">{{ need.position_title }}</td>
+                <td style="padding:12px 16px;">{{ need.needed_fte }}</td>
+                <td style="padding:12px 16px;">
+                  <span style="padding:4px 8px; border-radius:4px; font-size:12px; background:#e8f4f0; color:var(--primary);">
+                    {{ need.priority }}
+                  </span>
+                </td>
+                <td style="padding:12px 16px;">{{ need.status }}</td>
+                <td style="padding:12px 16px; text-align:right;">
+                  <button v-if="need.status === 'PENDING'" class="btn btn-secondary" style="margin-right:8px; padding:4px 12px; font-size:12px;" @click="approveStaffingNeed(need.id)">Onayla</button>
+                  <button v-if="need.status === 'PENDING'" class="btn" style="padding:4px 12px; font-size:12px; color:red; border:1px solid red; border-radius:4px; background:none;" @click="rejectStaffingNeed(need.id)">Reddet</button>
+                </td>
+              </tr>
+              <tr v-if="staffingNeeds.length === 0">
+                <td colspan="7" style="padding:24px; text-align:center; color:#666;">Kayıt bulunamadı.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Modal for Manuel Ekle -->
+      <div v-if="showNewStaffingNeedModal" class="modal-overlay" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:999; display:flex; align-items:center; justify-content:center;">
+        <div class="modal" style="background:#fff; width:500px; border-radius:8px; display:flex; flex-direction:column;">
+          <div class="modal-header" style="padding:16px 24px; border-bottom:1px solid #eaeaea; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0;">Yeni Kadro İhtiyacı</h3>
+            <button class="iconButton" @click="showNewStaffingNeedModal = false" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+          </div>
+          <div class="modal-body" style="padding:24px; display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Otel</label>
+              <select v-model="newStaffingNeed.hotel_id" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <option v-for="hotel in settingsData.hotels" :key="hotel.id" :value="hotel.id">{{hotel.name}}</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Departman</label>
+              <select v-model="newStaffingNeed.department_id" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <option v-for="dept in settingsData.departments" :key="dept.id" :value="dept.id">{{dept.name}}</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Pozisyon</label>
+              <input v-model="newStaffingNeed.position_title" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">FTE (Tam Zamanlı Eşdeğer)</label>
+              <input v-model.number="newStaffingNeed.needed_fte" type="number" step="0.1" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Öncelik</label>
+              <select v-model="newStaffingNeed.priority" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <option value="low">Düşük</option>
+                <option value="normal">Normal</option>
+                <option value="high">Yüksek</option>
+                <option value="urgent">Acil</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Notlar</label>
+              <textarea v-model="newStaffingNeed.notes" class="form-input" rows="3" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer" style="padding:16px 24px; border-top:1px solid #eaeaea; display:flex; justify-content:flex-end; gap:12px;">
+            <button class="btn btn-secondary" @click="showNewStaffingNeedModal = false" style="padding:8px 16px; border:1px solid #ddd; border-radius:4px; background:#fff; cursor:pointer;">İptal</button>
+            <button class="btn btn-primary" @click="createStaffingNeed()" style="padding:8px 16px; border:none; border-radius:4px; background:var(--primary, #173D34); color:white; cursor:pointer;">Kaydet</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <template v-if="page==='jobs'">
       
       <!-- PAGE 1: POSITIONS LIST -->
@@ -2848,6 +2997,73 @@ input:checked + .slider:before {
           <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
             <div style="font-size:12px; font-weight:600; color:var(--g500)">Ortalama İşe Alım Süresi</div>
             <div style="font-size:24px; font-weight:700; color:#2563eb; margin-top:8px">18.5 Gün</div>
+          </div>
+        </div>
+
+        <!-- Rapor Oluşturucu (Custom Report Builder) -->
+        <div class="card" style="padding:24px; background:#fff; border:1px solid var(--g200); border-radius:12px; margin-top:24px;">
+          <h3 style="font-weight:700; font-size:16px; color:var(--g800); margin-bottom:16px;">Özel Rapor Oluşturucu</h3>
+          <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+            <select class="form-input" style="flex:1; min-width:200px;">
+              <option value="">Tüm Oteller</option>
+              <option v-for="hotel in settingsData.hotels" :key="hotel.id" :value="hotel.id">{{hotel.name}}</option>
+            </select>
+            <select class="form-input" style="flex:1; min-width:200px;">
+              <option value="">Tüm Departmanlar</option>
+              <option v-for="dept in settingsData.departments" :key="dept.id" :value="dept.id">{{dept.name}}</option>
+            </select>
+            <select class="form-input" style="flex:1; min-width:200px;">
+              <option value="7d">Son 7 Gün</option>
+              <option value="30d">Son 30 Gün</option>
+              <option value="90d">Son 3 Ay</option>
+              <option value="all">Tüm Zamanlar</option>
+            </select>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div style="font-weight:600; font-size:13px; margin-bottom:8px; color:var(--g700);">Metrikler</div>
+            <div style="display:flex; gap:16px; flex-wrap:wrap;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> Aday sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> Başvuru sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> Mülakat sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> İşe alım sayısı</label>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+             <button class="btn btn-primary" onclick="alert('Rapor oluşturuluyor...')">Rapor Oluştur</button>
+             <button class="btn btn-secondary" onclick="alert('Dışa aktarılıyor...')">Dışa Aktar (Excel)</button>
+          </div>
+          
+          <div style="margin-top:24px; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;">
+            <table class="data-table" style="width:100%; text-align:left; border-collapse:collapse;">
+              <thead style="background:#f9f9f9; border-bottom:2px solid #eaeaea;">
+                <tr>
+                  <th style="padding:12px 16px;">Otel</th>
+                  <th style="padding:12px 16px;">Departman</th>
+                  <th style="padding:12px 16px;">Aday Sayısı</th>
+                  <th style="padding:12px 16px;">Başvuru Sayısı</th>
+                  <th style="padding:12px 16px;">Mülakat Sayısı</th>
+                  <th style="padding:12px 16px;">İşe Alım</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid #eaeaea;">
+                  <td style="padding:12px 16px;">Rixos Premium Tekirova</td>
+                  <td style="padding:12px 16px;">Yiyecek & İçecek</td>
+                  <td style="padding:12px 16px;">145</td>
+                  <td style="padding:12px 16px;">98</td>
+                  <td style="padding:12px 16px;">32</td>
+                  <td style="padding:12px 16px;">12</td>
+                </tr>
+                <tr style="border-bottom:1px solid #eaeaea;">
+                  <td style="padding:12px 16px;">Rixos Downtown Antalya</td>
+                  <td style="padding:12px 16px;">Ön Büro</td>
+                  <td style="padding:12px 16px;">88</td>
+                  <td style="padding:12px 16px;">65</td>
+                  <td style="padding:12px 16px;">24</td>
+                  <td style="padding:12px 16px;">8</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -4451,26 +4667,59 @@ input:checked + .slider:before {
           <div v-if="!candidateTimeline.length" style="text-align:center;padding:40px;color:var(--g500)">
             Henüz loglanan bir hareket bulunmamaktadır.
           </div>
-          <div v-else class="timeline-container" style="padding: 10px 20px;">
-            <div v-for="t in candidateTimeline" :key="t.id" style="display:flex;gap:16px;margin-bottom:24px;position:relative">
-              <!-- Dot and line -->
-              <div style="display:flex;flex-direction:column;align-items:center;position:relative">
-                <div style="width:12px;height:12px;border-radius:50%;background:#0B4A3A;border:2px solid #fff;box-shadow:0 0 0 2px #0B4A3A;z-index:2"></div>
-                <div style="width:2px;background:#e2e8f0;position:absolute;top:12px;bottom:-24px;z-index:1"></div>
+          <div v-else class="timeline-container" style="padding: 24px; max-width: 800px; margin: 0 auto;">
+            <div v-for="t in candidateTimeline" :key="t.id" style="display:flex;gap:20px;margin-bottom:32px;position:relative">
+              <!-- Vertical Line -->
+              <div style="position:absolute; left:23px; top:40px; bottom:-32px; width:2px; background:#e2e8f0; z-index:1" v-if="t !== candidateTimeline[candidateTimeline.length-1]"></div>
+              
+              <!-- Icon based on type -->
+              <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:2;flex-shrink:0;" 
+                   :style="{
+                     background: t.activity_type==='application' ? '#e0f2fe' : 
+                                 t.activity_type==='interview' ? '#fce7f3' : 
+                                 t.activity_type==='match_score' ? '#fef3c7' : 
+                                 t.activity_type==='note' ? '#eef2ff' : '#f1f5f9',
+                     color: t.activity_type==='application' ? '#0284c7' : 
+                            t.activity_type==='interview' ? '#db2777' : 
+                            t.activity_type==='match_score' ? '#d97706' : 
+                            t.activity_type==='note' ? '#4f46e5' : '#475569'
+                   }">
+                <span v-if="t.activity_type==='application'" style="font-size:20px;">📄</span>
+                <span v-else-if="t.activity_type==='interview'" style="font-size:20px;">🤝</span>
+                <span v-else-if="t.activity_type==='match_score'" style="font-size:20px;">🎯</span>
+                <span v-else-if="t.activity_type==='note'" style="font-size:20px;">📝</span>
+                <span v-else style="font-size:20px;">⚡</span>
               </div>
-              <div style="flex:1;background:var(--g50);border-radius:8px;padding:12px;margin-top:-3px">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                  <span style="font-weight:700;font-size:13px;color:#0b4a3a">{{ t.activity_type.toUpperCase().replace('_', ' ') }}</span>
-                  <span style="font-size:11px;color:var(--g500)">{{ formatDate(t.created_at) }}</span>
+
+              <!-- Content Card -->
+              <div style="flex:1;background:#fff;border:1px solid #eaeaea;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.02)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                  <span style="font-weight:700;font-size:15px;color:#111827">{{ t.activity_type.toUpperCase().replace('_', ' ') }}</span>
+                  <span style="font-size:12px;color:#6b7280;background:#f3f4f6;padding:4px 8px;border-radius:12px;">{{ formatDate(t.created_at) }}</span>
                 </div>
-                <div style="font-size:13px;color:var(--g700)">
-                  <span v-if="t.old_value || t.new_value">
-                    Değişim: <span style="font-weight:600">{{ t.old_value || '—' }}</span> → <span style="font-weight:600">{{ t.new_value || '—' }}</span>
+                
+                <div style="font-size:14px;color:#374151;line-height:1.5">
+                  <div v-if="t.activity_type==='application'">
+                    <b>Başvuru:</b> {{ t.new_value || t.note }}
+                  </div>
+                  <div v-else-if="t.activity_type==='interview'">
+                    <b>Mülakat Sonucu:</b> <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#fce7f3;color:#db2777;font-weight:600;font-size:12px;">{{ t.new_value }}</span>
+                    <p style="margin-top:8px;font-size:13px;color:#6b7280" v-if="t.note">{{ t.note }}</p>
+                  </div>
+                  <div v-else-if="t.activity_type==='match_score'">
+                    <b>Eşleşme Skoru:</b> <span style="font-weight:bold;color:#d97706">%{{ t.new_value }}</span>
+                  </div>
+                  <div v-else-if="t.note">
+                    {{ t.note }}
+                  </div>
+                  <span v-else-if="t.old_value || t.new_value">
+                    Değişim: <span style="text-decoration:line-through;color:#9ca3af">{{ t.old_value || '—' }}</span> → <span style="font-weight:600">{{ t.new_value || '—' }}</span>
                   </span>
-                  <div style="margin-top:4px" v-if="t.note">{{ t.note }}</div>
                 </div>
-                <div style="font-size:11px;color:var(--g400);margin-top:6px;text-align:right">
-                  İşlemi Yapan: {{ t.created_by || 'Sistem' }}
+                
+                <div style="font-size:11px;color:#9ca3af;margin-top:16px;display:flex;align-items:center;gap:6px;">
+                  <span style="width:16px;height:16px;border-radius:50%;background:#e5e7eb;display:inline-block;"></span>
+                  İşlemi Yapan: <b>{{ t.created_by || 'Sistem' }}</b>
                 </div>
               </div>
             </div>

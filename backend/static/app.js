@@ -322,6 +322,14 @@ createApp({
     const importResult = ref(null);
     const hotelMappings = ref({});
     const importConfirming = ref(false);
+
+    // Staffing Needs Refs
+    const staffingNeeds = ref([]);
+    const staffingNeedsFilter = ref({ hotel_id: '', department_id: '', status: '', priority: '' });
+    const staffingNeedsSummary = ref({ pending: 0, approved: 0, rejected: 0, total_gap_fte: 0 });
+    const showNewStaffingNeedModal = ref(false);
+    const newStaffingNeed = ref({ hotel_id: '', department_id: '', position_title: '', needed_fte: 1, priority: 'normal', notes: '' });
+
     
     // Settings modals
     const showOrgModal = ref(false);
@@ -2674,6 +2682,8 @@ createApp({
         loadCalendarEvents();
       } else if (p === 'analytics') {
         loadRealAnalytics();
+      } else if (p === 'staffing') { 
+        loadStaffingNeeds(); 
       }
     });
 
@@ -2763,6 +2773,10 @@ createApp({
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,
       loadHeadcount, uploadHeadcountExcel, openHeadcountDetails, toggleHeadcountJobActive, createPositionFromBudget,
       headcountMonthlyTrends, headcountActionPlans, addActionPlan, removeActionPlan,
+
+      // Staffing Needs
+      staffingNeeds, staffingNeedsFilter, staffingNeedsSummary, showNewStaffingNeedModal, newStaffingNeed,
+      loadStaffingNeeds, autoDetectStaffingNeeds, createStaffingNeed, approveStaffingNeed, rejectStaffingNeed,
 
       // New v2 states
       aiSearchQuery, aiSearchResults, aiSearchLoading, aiSearchSearched, aiSearchStats,
@@ -2936,6 +2950,52 @@ createApp({
       } finally {
         importConfirming.value = false;
       }
+    // ─── STAFFING NEEDS METHODS ───────────────────────────────────────
+    async function loadStaffingNeeds() {
+      try {
+        const params = new URLSearchParams();
+        if (staffingNeedsFilter.value.hotel_id) params.append('hotel_id', staffingNeedsFilter.value.hotel_id);
+        if (staffingNeedsFilter.value.status) params.append('status', staffingNeedsFilter.value.status);
+        if (staffingNeedsFilter.value.priority) params.append('priority', staffingNeedsFilter.value.priority);
+        staffingNeeds.value = await api('GET', '/api/staffing-needs?' + params.toString());
+        staffingNeedsSummary.value = await api('GET', '/api/staffing-needs/summary');
+      } catch(e) { showToast('Kadro ihtiyaçları yüklenemedi: ' + e.message, 'error'); }
+    }
+
+    async function autoDetectStaffingNeeds() {
+      try {
+        const res = await api('POST', '/api/staffing-needs/auto-detect');
+        showToast(res.message || 'Otomatik tespit tamamlandı.', 'success');
+        await loadStaffingNeeds();
+      } catch(e) { showToast('Tespit hatası: ' + e.message, 'error'); }
+    }
+
+    async function createStaffingNeed() {
+      try {
+        await api('POST', '/api/staffing-needs', newStaffingNeed.value);
+        showToast('Kadro ihtiyacı oluşturuldu.', 'success');
+        showNewStaffingNeedModal.value = false;
+        newStaffingNeed.value = { hotel_id: '', department_id: '', position_title: '', needed_fte: 1, priority: 'normal', notes: '' };
+        await loadStaffingNeeds();
+      } catch(e) { showToast('Oluşturma hatası: ' + e.message, 'error'); }
+    }
+
+    async function approveStaffingNeed(id) {
+      try {
+        await api('PUT', `/api/staffing-needs/${id}/approve`);
+        showToast('Kadro ihtiyacı onaylandı ve pozisyon oluşturuldu.', 'success');
+        await loadStaffingNeeds();
+      } catch(e) { showToast('Onay hatası: ' + e.message, 'error'); }
+    }
+
+    async function rejectStaffingNeed(id) {
+      const reason = prompt('Reddetme sebebi:');
+      if (!reason) return;
+      try {
+        await api('PUT', `/api/staffing-needs/${id}/reject`, { reason });
+        showToast('Kadro ihtiyacı reddedildi.', 'success');
+        await loadStaffingNeeds();
+      } catch(e) { showToast('Red hatası: ' + e.message, 'error'); }
     }
 
     // ─── SYSTEM SETTINGS METHODS IMPLEMENTATION ───────────────────────

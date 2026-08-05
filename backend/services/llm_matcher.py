@@ -66,9 +66,11 @@ def validate_llm_data(data: dict) -> dict:
         "decision": "potential_match",
         "required_skill_score": 50.0,
         "preferred_skill_score": 50.0,
+        "skill_score": 50.0,
         "experience_score": 50.0,
         "seniority_score": 50.0,
         "education_score": 50.0,
+        "certification_score": 50.0,
         "language_score": 50.0,
         "domain_fit_score": 50.0,
         "culture_fit_score": 50.0,
@@ -219,21 +221,23 @@ class LLMMatcherService:
                 2. decision: "strong_match" (güçlü), "potential_match" (olası), "weak_match" (zayıf), veya "not_match" (uygun değil).
                 3. required_skill_score: Gerekli yetkinliklerin karşılanma oranı (0-100).
                 4. preferred_skill_score: Tercih edilen yetkinliklerin karşılanma oranı (0-100).
-                5. experience_score: Deneyim süresi ve kalitesi uyumu (0-100).
-                6. seniority_score: Kıdem/seviye uyumu (0-100).
-                7. education_score: Eğitim geçmişi uyumu (0-100).
-                8. language_score: Yabancı dil bilgisi uyumu (0-100).
-                9. domain_fit_score: Sektör/alan bilgisi uyumu (0-100).
-                10. culture_fit_score: Kültürel uyum tahmini (0-100).
-                11. matching_skills: Eşleşen yetenekler listesi.
-                12. missing_skills: Eksik olan kritik yetenekler listesi.
-                13. transferable_skills: Farklı alanlardan aktarılabilir yetenekler listesi.
-                14. strengths: Adayın güçlü yanları listesi (Türkçe).
-                15. risks: Adayın pozisyona yönelik taşıdığı riskler/soru işaretleri listesi (Türkçe).
-                16. summary: Değerlendirmenin Türkçe kısa bir özeti.
-                17. recommendation: İşe alım yöneticisine yönelik Türkçe tavsiye.
-                18. interview_focus_areas: Mülakatta odaklanılması gereken Türkçe konular/alanlar listesi.
-                19. suggested_questions: Bu adaya özel mülakatta sorulabilecek 3 adet Türkçe soru.
+                5. skill_score: Genel yetenek uyumu (0-100).
+                6. experience_score: Deneyim süresi ve kalitesi uyumu (0-100).
+                7. seniority_score: Kıdem/seviye uyumu (0-100).
+                8. education_score: Eğitim geçmişi uyumu (0-100).
+                9. certification_score: Sertifikasyon uyumu (0-100).
+                10. language_score: Yabancı dil bilgisi uyumu (0-100).
+                11. domain_fit_score: Sektör/alan bilgisi uyumu (0-100).
+                12. culture_fit_score: Kültürel uyum tahmini (0-100).
+                13. matching_skills: Eşleşen yetenekler listesi.
+                14. missing_skills: Eksik olan kritik yetenekler listesi.
+                15. transferable_skills: Farklı alanlardan aktarılabilir yetenekler listesi.
+                16. strengths: Adayın güçlü yanları listesi (Türkçe).
+                17. risks: Adayın pozisyona yönelik taşıdığı riskler/soru işaretleri listesi (Türkçe).
+                18. summary: Değerlendirmenin Türkçe kısa bir özeti.
+                19. recommendation: İşe alım yöneticisine yönelik Türkçe tavsiye.
+                20. interview_focus_areas: Mülakatta odaklanılması gereken Türkçe konular/alanlar listesi.
+                21. suggested_questions: Bu adaya özel mülakatta sorulabilecek 3 adet Türkçe soru.
  
                 ÇIKTI ŞABLONU (Strict JSON):
                 {{
@@ -241,9 +245,11 @@ class LLMMatcherService:
                   "decision": "strong_match",
                   "required_skill_score": 90,
                   "preferred_skill_score": 70,
+                  "skill_score": 85,
                   "experience_score": 80,
                   "seniority_score": 90,
                   "education_score": 85,
+                  "certification_score": 80,
                   "language_score": 80,
                   "domain_fit_score": 90,
                   "culture_fit_score": 85,
@@ -314,9 +320,11 @@ class LLMMatcherService:
                 "decision": decision,
                 "required_skill_score": int(keyword_score_100),
                 "preferred_skill_score": 50,
+                "skill_score": int(keyword_score_100),
                 "experience_score": int(experience_score_100),
                 "seniority_score": int(experience_score_100),
                 "education_score": 50,
+                "certification_score": 50,
                 "language_score": 50,
                 "domain_fit_score": 50,
                 "culture_fit_score": 50,
@@ -353,9 +361,13 @@ class LLMMatcherService:
         match_score.decision = llm_data.get("decision")
         match_score.required_skill_score = float(llm_data.get("required_skill_score", 0))
         match_score.preferred_skill_score = float(llm_data.get("preferred_skill_score", 0))
+        if hasattr(match_score, 'skill_score'):
+            setattr(match_score, 'skill_score', float(llm_data.get("skill_score", 0)))
         match_score.experience_score = float(llm_data.get("experience_score", 0))
         match_score.seniority_score = float(llm_data.get("seniority_score", 0))
         match_score.education_score = float(llm_data.get("education_score", 0))
+        if hasattr(match_score, 'certification_score'):
+            setattr(match_score, 'certification_score', float(llm_data.get("certification_score", 0)))
         match_score.language_score = float(llm_data.get("language_score", 0))
         match_score.domain_fit_score = float(llm_data.get("domain_fit_score", 0))
         match_score.culture_fit_score = float(llm_data.get("culture_fit_score", 0))

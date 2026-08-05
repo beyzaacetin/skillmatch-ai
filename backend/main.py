@@ -201,7 +201,18 @@ try:
             "ALTER TABLE offers ADD COLUMN deviation_reason VARCHAR(255)",
             "ALTER TABLE offers ADD COLUMN deviation_explanation TEXT",
             "ALTER TABLE offers ADD COLUMN approved_by JSON DEFAULT '[]'",
-            "ALTER TABLE offers ADD COLUMN approval_status VARCHAR(50) DEFAULT 'APPROVED'"
+            "ALTER TABLE offers ADD COLUMN approval_status VARCHAR(50) DEFAULT 'APPROVED'",
+
+            # Phase 2-3-4 new columns
+            "ALTER TABLE applications ADD COLUMN evaluation_deadline TIMESTAMP",
+            "ALTER TABLE applications ADD COLUMN routing_level VARCHAR(255)",
+            "ALTER TABLE applications ADD COLUMN routed_from_hotel_id INTEGER",
+
+            "ALTER TABLE candidates ADD COLUMN cv_versions JSON DEFAULT '[]'",
+            "ALTER TABLE candidates ADD COLUMN phone_normalized VARCHAR(255)",
+
+            "ALTER TABLE match_scores ADD COLUMN skill_score FLOAT",
+            "ALTER TABLE match_scores ADD COLUMN certification_score FLOAT"
         ]
         for q in queries:
             try:
@@ -330,7 +341,7 @@ try:
     templates = Jinja2Templates(directory=templates_dir)
 
     # Routers
-    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, settings, ownership, portal, campaigns, headcount, pipelines, organization_imports
+    from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, custom_reports, settings, ownership, portal, campaigns, headcount, pipelines, organization_imports, staffing_needs
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
@@ -339,6 +350,7 @@ try:
     app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
     app.include_router(positions.router, prefix="/api/positions", tags=["positions"])
     app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+    app.include_router(custom_reports.router, prefix="/api/reports", tags=["custom_reports"])
     app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
     app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
     app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
@@ -352,11 +364,13 @@ try:
     app.include_router(headcount.router, prefix="/api/headcount", tags=["headcount"])
     app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"])
     app.include_router(organization_imports.router)
+    app.include_router(staffing_needs.router, prefix="/api/staffing-needs", tags=["staffing-needs"])
 
     from services.chatbot import chatbot_service
+    from auth import get_current_user_optional
     @app.post("/api/chat")
-    def chat_endpoint(message: str = Body(..., embed=True), db: Session = Depends(get_db)):
-        return {"response": chatbot_service.chat(message, db)}
+    def chat_endpoint(message: str = Body(..., embed=True), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user_optional)):
+        return {"response": chatbot_service.chat(message, db, current_user)}
 
     @app.get("/health")
     def health(db: Session = Depends(get_db)):

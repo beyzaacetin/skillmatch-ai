@@ -14,6 +14,16 @@ def _log(db: Session, action: str, target_type: str, target_id: int, details: di
     from services.audit_service import audit_service
     audit_service.log(db, user, action, target_type, target_id, details)
 
+def normalize_phone(phone: str) -> str:
+    if not phone: return ""
+    import re
+    digits = re.sub(r'[^0-9]', '', phone)
+    if digits.startswith('0') and len(digits) == 11:
+        digits = '90' + digits[1:]
+    elif len(digits) == 10:
+        digits = '90' + digits
+    return digits
+
 @router.post("/upload", response_model=schemas.Candidate)
 async def upload_cv(
     file: UploadFile = File(...), 
@@ -113,6 +123,29 @@ async def upload_cv(
     _log(db, "candidate_added", "candidate", db_candidate.id, {"name": db_candidate.name}, current_user)
     
     return db_candidate
+
+@router.get("/duplicate-check")
+def duplicate_check(
+    email: str = None,
+    phone: str = None,
+    db: Session = Depends(database.get_db)
+):
+    if not email and not phone:
+        return {"duplicates": []}
+    
+    query = db.query(models.Candidate).filter(models.Candidate.is_deleted == False)
+    filters = []
+    if email:
+        filters.append(models.Candidate.email == email)
+    if phone:
+        norm_phone = normalize_phone(phone)
+        filters.append(models.Candidate.phone_normalized == norm_phone)
+        filters.append(models.Candidate.phone == phone)
+        
+    from sqlalchemy import or_
+    duplicates = query.filter(or_(*filters)).all()
+    
+    return {"duplicates": [{"id": d.id, "name": d.name, "email": d.email, "phone": d.phone} for d in duplicates]}
 
 @router.get("/", response_model=List[schemas.Candidate])
 def read_candidates(
@@ -318,19 +351,44 @@ def toggle_favorite(
     _log(db, "candidate_favorite_toggled", "candidate", c.id, {"is_favorite": c.is_favorite}, current_user)
     return {"is_favorite": c.is_favorite}
 
-@router.patch("/{candidate_id}/blacklist")
-def toggle_blacklist(
+@router.post("/{candidate_id}/blacklist")
+def blacklist_candidate(
     candidate_id: int, 
-    reason: str = Body(None, embed=True), 
+    payload: dict = Body(...), 
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user_optional)
 ):
     c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not c: raise HTTPException(status_code=404, detail="Aday bulunamadı")
-    c.is_blacklisted = not c.is_blacklisted
-    c.blacklist_reason = reason if c.is_blacklisted else None
+    
+    reason_code = payload.get("reason_code")
+    evidence = payload.get("evidence")
+    notes = payload.get("notes")
+    
+    c.is_blacklisted = True
+    c.blacklist_reason = f"[{reason_code}] {notes or ''} - Kanıt: {evidence or ''}"
+    
+    if hasattr(c, 'blacklist_reason_code'):
+        setattr(c, 'blacklist_reason_code', reason_code)
+    if hasattr(c, 'blacklist_evidence'):
+        setattr(c, 'blacklist_evidence', evidence)
+    if hasattr(c, 'blacklist_notes'):
+        setattr(c, 'blacklist_notes', notes)
+        
     db.commit()
-    _log(db, "candidate_blacklist_toggled", "candidate", c.id, {"is_blacklisted": c.is_blacklisted, "reason": c.blacklist_reason}, current_user)
+    
+    from models import ImmutableAuditLog
+    audit = ImmutableAuditLog(
+        user_id=current_user.id if current_user else 1,
+        action="CANDIDATE_BLACKLISTED",
+        target_type="candidate",
+        target_id=str(c.id),
+        details={"message": f"Aday kara listeye alındı. Reason Code: {reason_code}, Evidence: {evidence}, Notes: {notes}"}
+    )
+    db.add(audit)
+    
+    _log(db, "candidate_blacklisted", "candidate", c.id, {"is_blacklisted": True, "reason_code": reason_code}, current_user)
+    db.commit()
     return {"is_blacklisted": c.is_blacklisted, "reason": c.blacklist_reason}
 
 @router.delete("/{candidate_id}")

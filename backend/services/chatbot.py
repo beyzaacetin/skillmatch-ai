@@ -25,12 +25,28 @@ class ChatbotService:
         # We don't use stateful history list here anymore for robustness in this simple structure.
         # We will build prompt per request.
 
-    def get_context(self, db: Session):
-        """Retrieves all candidates and positions to form the context."""
-        candidates = db.query(models.Candidate).filter(models.Candidate.is_deleted == False).all()
-        positions = db.query(models.Position).all()
+    def get_context(self, db: Session, current_user: models.User = None):
+        """Retrieves candidates and positions to form the context, scoped by user access."""
+        cand_query = db.query(models.Candidate).filter(models.Candidate.is_deleted == False)
+        pos_query = db.query(models.Position).filter(models.Position.is_active == True)
+        
+        if current_user and getattr(current_user, 'data_visibility_scope', None) == "HOTEL" and getattr(current_user, 'hotel_access_ids', None):
+            pos_query = pos_query.filter(models.Position.hotel_id.in_(current_user.hotel_access_ids))
+            cand_query = cand_query.join(models.Application).join(models.Position).filter(models.Position.hotel_id.in_(current_user.hotel_access_ids))
+        elif current_user and getattr(current_user, 'data_visibility_scope', None) == "DEPARTMENT" and getattr(current_user, 'department_access_ids', None):
+            pos_query = pos_query.filter(models.Position.department_id.in_(current_user.department_access_ids))
+            cand_query = cand_query.join(models.Application).join(models.Position).filter(models.Position.department_id.in_(current_user.department_access_ids))
+            
+        candidates = cand_query.all()
+        positions = pos_query.all()
         
         context_str = "--- CURRENT DATABASE CONTEXT ---\n"
+        if current_user and getattr(current_user, 'hotel_access_ids', None):
+            context_str += f"Kullanıcının otel/kapsam bilgisi: Bu bilgiler sadece kullanıcının yetkili olduğu otel ve departmanlardaki açık pozisyonlar ve adaylardır.\n"
+        else:
+            context_str += f"Kullanıcının otel/kapsam bilgisi: Tüm sistemdeki pozisyonlar.\n"
+        
+        context_str += f"Toplam Açık Pozisyon Sayısı: {len(positions)}\n"
         context_str += "CANDIDATES:\n"
         for c in candidates:
             skills = ", ".join(c.skills) if c.skills else "None"
@@ -56,13 +72,13 @@ class ChatbotService:
         except Exception as e:
             return f"\n[Web Search Failed: {e}]\n"
 
-    def chat(self, user_message: str, db: Session):
+    def chat(self, user_message: str, db: Session, current_user: models.User = None):
         if not API_KEY:
             return "Demo Modu: API Anahtarı bulunamadı (GEMINI_API_KEY)."
 
         try:
             # 1. Build Context
-            db_context = self.get_context(db)
+            db_context = self.get_context(db, current_user)
             
             # 2. Web Search (Trigger based)
             search_keywords = ["hava", "haber", "maaş", "nedir", "kimdir", "fiyat", "borsa", "trend"]

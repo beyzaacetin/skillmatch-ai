@@ -433,6 +433,66 @@ def get_dashboard_stats(
     if pending_offers_count == 0:
         pending_offers_count = 7
 
+    # NEW: Total FTE gap (from WorkforcePlanLine)
+    fte_gap_query = db.query(func.sum(models.WorkforcePlanLine.budget_fte - models.WorkforcePlanLine.active_fte))
+    # Note: We can filter by active_hotel_id if needed, but the model has node_id. For now, system-wide.
+    total_fte_gap = fte_gap_query.scalar() or 0.0
+
+    # NEW: Staffing needs pending approval count
+    staffing_pending_query = db.query(models.StaffingNeed).filter(models.StaffingNeed.status == "pending")
+    if active_hotel_id:
+        staffing_pending_query = staffing_pending_query.filter(models.StaffingNeed.hotel_id == active_hotel_id)
+    staffing_pending_count = staffing_pending_query.count()
+
+    # NEW: Monthly hiring trend (last 6 months)
+    import calendar
+    from dateutil.relativedelta import relativedelta
+    monthly_hiring_trend = []
+    today = datetime.now()
+    for i in range(5, -1, -1):
+        m = today - relativedelta(months=i)
+        start_date = m.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + relativedelta(months=1) - timedelta(microseconds=1)
+        count_q = db.query(models.Application).filter(
+            models.Application.status == "hired",
+            models.Application.hired_at >= start_date,
+            models.Application.hired_at <= end_date
+        )
+        if active_hotel_id:
+            count_q = count_q.join(models.Position).filter(models.Position.hotel_id == active_hotel_id)
+        monthly_hiring_trend.append({
+            "month": start_date.strftime("%b %Y"),
+            "hires": count_q.count()
+        })
+        
+    # NEW: Department-wise fill rate
+    dept_fill_rate = []
+    dept_stats = db.query(
+        models.Department.name,
+        func.sum(models.WorkforceHeadcountBudget.headcount_budget).label("budget"),
+        func.count(models.Application.id).label("hired")
+    ).join(
+        models.WorkforceHeadcountBudget, 
+        models.Department.id == models.WorkforceHeadcountBudget.department_id
+    ).outerjoin(
+        models.Position,
+        models.Position.department_id == models.Department.id
+    ).outerjoin(
+        models.Application,
+        (models.Application.position_id == models.Position.id) & (models.Application.status == "hired")
+    ).group_by(models.Department.name).all()
+    
+    for dept_name, budget, hired in dept_stats:
+        b = float(budget or 0)
+        h = float(hired or 0)
+        rate = round((h / b * 100), 1) if b > 0 else 0
+        dept_fill_rate.append({
+            "department": dept_name,
+            "fill_rate": rate,
+            "budget": b,
+            "hired": h
+        })
+
     # --- 2. Active Positions Table ---
     pos_query = db.query(models.Position).filter(models.Position.is_active == True)
     if active_hotel_id:
@@ -712,7 +772,13 @@ def get_dashboard_stats(
         "schedule": schedule_list,
         "new_candidates": new_candidates_list,
         "action_items": action_items,
-        "recent_activities": recent_activities_list
+        "recent_activities": recent_activities_list,
+        "executive_stats": {
+            "total_fte_gap": round(float(total_fte_gap), 1),
+            "staffing_pending_approval": staffing_pending_count,
+            "monthly_hiring_trend": monthly_hiring_trend,
+            "department_fill_rate": dept_fill_rate
+        }
     }
 
 
