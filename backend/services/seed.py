@@ -130,9 +130,22 @@ def seed_multi_hotel_foundation(db: Session):
 
         # 6. Seed Hotels
         hotels_data = [
-            {"name": "Rixos Sungate", "code": "RIXOS_SUNGATE"},
-            {"name": "Rixos Tekirova", "code": "RIXOS_TEKIROVA"},
-            {"name": "Rixos Beldibi", "code": "RIXOS_BELDIBI"}
+            {"name": "Rixos Sungate (SUN)", "code": "SUN"},
+            {"name": "Rixos Almaty (ALEE)", "code": "ALEE"},
+            {"name": "Rixos Avenue (AVM)", "code": "AVM"},
+            {"name": "Rixos Premium Bodrum (BDR)", "code": "BDR"},
+            {"name": "Rixos Beldibi (BLD)", "code": "BLD"},
+            {"name": "Rixos Club Quba (CHQ)", "code": "CHQ"},
+            {"name": "Rixos Downtown Antalya (DWT)", "code": "DWT"},
+            {"name": "Rixos Premium Gocek (GCK)", "code": "GCK"},
+            {"name": "Rixos Water World (NICK)", "code": "NICK"},
+            {"name": "Rixos Park Belek (PARK)", "code": "PARK"},
+            {"name": "Rixos President Astana (PRA)", "code": "PRA"},
+            {"name": "Rixos Premium Belek (PRBL)", "code": "PRBL"},
+            {"name": "Rixos Premium Magawish (PRM)", "code": "PRM"},
+            {"name": "Rixos Thermal Eskisehir (THM)", "code": "THM"},
+            {"name": "Rixos Premium Tekirova (TKR)", "code": "TKR"},
+            {"name": "Rixos Premium Trieste (TRIS)", "code": "TRIS"}
         ]
         db_hotels = {}
         for h_dict in hotels_data:

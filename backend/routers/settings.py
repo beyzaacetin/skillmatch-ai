@@ -289,10 +289,10 @@ def import_headcount_budget(
         df.columns = [str(c).strip().lower() for c in df.columns]
         
         col_mappings = {
-            "hotel": ["hotel name", "hotel", "otel", "otel adı"],
-            "department": ["department", "departman", "bölüm"],
-            "position": ["position", "position title", "pozisyon", "unvan"],
-            "budget": ["headcount budget", "budget", "bütçe", "kontenjan", "headcount"],
+            "hotel": ["hotel name", "hotel", "otel", "otel adı", "otel_alt"],
+            "department": ["department", "departman", "bölüm", "ana kategori", "ana_kategori"],
+            "position": ["position", "position title", "pozisyon", "unvan", "tanım (pozisyon/isim/grade)", "tanım", "tanim"],
+            "budget": ["headcount budget", "budget", "bütçe", "kontenjan", "headcount", "toplam fte", "toplam_fte"],
             "salary_min": ["target salary min", "salary min", "min maaş", "minimum maaş", "salary_min"],
             "salary_max": ["target salary max", "salary max", "max maaş", "maksimum maaş", "salary_max"],
             "currency": ["currency", "para birimi", "döviz"]
@@ -334,19 +334,41 @@ def import_headcount_budget(
                 continue
 
             try:
-                hotel = db.query(models.Hotel).filter(func.lower(models.Hotel.name) == func.lower(hotel_val)).first()
+                hotel = db.query(models.Hotel).filter(
+                    (func.lower(models.Hotel.name) == func.lower(hotel_val)) |
+                    (func.lower(models.Hotel.code) == func.lower(hotel_val))
+                ).first()
                 if not hotel:
-                    skipped_rows.append(f"Satır {idx+2}: Otel '{hotel_val}' sistemde bulunamadı.")
-                    continue
+                    hotel = models.Hotel(
+                        name=hotel_val,
+                        code=hotel_val.upper().replace(" ", "_"),
+                        organization_id=1,
+                        city_id=1,
+                        region_id=1,
+                        branding_settings={"primary_color": "#0B4A3A", "logo_url": ""}
+                    )
+                    db.add(hotel)
+                    db.flush()
 
-                dept = db.query(models.Department).filter(func.lower(models.Department.name) == func.lower(dept_val)).first()
+                dept = db.query(models.Department).filter(
+                    (func.lower(models.Department.name) == func.lower(dept_val)) |
+                    (func.lower(models.Department.code) == func.lower(dept_val))
+                ).first()
                 if not dept:
-                    skipped_rows.append(f"Satır {idx+2}: Departman '{dept_val}' sistemde bulunamadı.")
-                    continue
+                    dept = models.Department(
+                        name=dept_val,
+                        code=dept_val.upper().replace(" ", "_")
+                    )
+                    db.add(dept)
+                    db.flush()
 
-                budget_num = int(budget_val)
-                sal_min = int(row[salary_min_col]) if salary_min_col and not pd.isna(row[salary_min_col]) else None
-                sal_max = int(row[salary_max_col]) if salary_max_col and not pd.isna(row[salary_max_col]) else None
+                try:
+                    budget_num = int(float(budget_val))
+                except Exception:
+                    budget_num = 0
+
+                sal_min = int(float(row[salary_min_col])) if salary_min_col and not pd.isna(row[salary_min_col]) else None
+                sal_max = int(float(row[salary_max_col])) if salary_max_col and not pd.isna(row[salary_max_col]) else None
                 curr = str(row[curr_col]).strip() if curr_col and not pd.isna(row[curr_col]) else 'TRY'
 
                 budget = models.WorkforceHeadcountBudget(

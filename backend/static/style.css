@@ -1425,31 +1425,31 @@ i.offerDot { background: var(--amber); }
 
 /* --- PERSONAL CANDIDATES (Yeni Başvurular) --- */
 .personalCandidates article {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 0; border-bottom: 1px solid var(--g100);
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid var(--g100);
 }
 .personalCandidates article:last-child { border-bottom: none; padding-bottom: 0; }
 .avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  font-size: 12px; font-weight: 700; color: var(--primary);
+  width: 40px; height: 40px; border-radius: 12px;
+  font-size: 13px; font-weight: 700; color: #173D34;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .personalCandidates article > div { flex: 1; min-width: 0; }
-.personalCandidates article b { font-size: 13px; font-weight: 700; color: var(--g900); display: block; }
+.personalCandidates article b { font-size: 13.5px; font-weight: 700; color: var(--g900); display: block; margin-bottom: 2px; }
 .personalCandidates article span { font-size: 11px; color: var(--g500); }
 .personalCandidates article em {
-  font-style: normal; font-size: 12px; font-weight: 700;
-  color: var(--primary); white-space: nowrap;
-  background: var(--primary-light); padding: 2px 8px; border-radius: 6px;
+  font-style: normal; font-size: 11px; font-weight: 700;
+  color: #34785F; white-space: nowrap;
+  background: #E3F1EB; padding: 4px 10px; border-radius: 6px;
+  border: 1px solid #DFE7E3;
 }
 .personalCandidates article button {
-  background: none; border: 1px solid var(--g200);
-  padding: 5px 10px; border-radius: 7px;
-  font-size: 11px; font-weight: 600; color: var(--primary);
+  background: none; border: none;
+  padding: 5px 8px; font-size: 11.5px; font-weight: 700; color: #2D7661;
   cursor: pointer; flex-shrink: 0; transition: all .15s;
 }
-.personalCandidates article button:hover { background: var(--primary-light); border-color: var(--primary); }
+.personalCandidates article button:hover { color: #1F5A49; text-decoration: underline; }
 
 /* --- NEED ACTIONS (İlgilenmeniz Gerekenler) --- */
 .needActions {}

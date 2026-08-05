@@ -81,6 +81,36 @@ def upload_headcount_excel(
             department = str(row['Ana Kategori']).strip()
             sub_department = str(row['Alt Kategori']).strip() if not pd.isna(row['Alt Kategori']) else None
             position_title = str(row['Tanım (Pozisyon/İsim/Grade)']).strip()
+
+            # Dynamically create hotel if not exists
+            hotel = db.query(models.Hotel).filter(
+                (func.lower(models.Hotel.code) == func.lower(hotel_code)) |
+                (func.lower(models.Hotel.name) == func.lower(hotel_code))
+            ).first()
+            if not hotel:
+                hotel = models.Hotel(
+                    name=hotel_code,
+                    code=hotel_code.upper().replace(" ", "_"),
+                    organization_id=1,
+                    city_id=1,
+                    region_id=1,
+                    branding_settings={"primary_color": "#0B4A3A", "logo_url": ""}
+                )
+                db.add(hotel)
+                db.flush()
+
+            # Dynamically create department if not exists
+            dept = db.query(models.Department).filter(
+                (func.lower(models.Department.name) == func.lower(department)) |
+                (func.lower(models.Department.code) == func.lower(department))
+            ).first()
+            if not dept:
+                dept = models.Department(
+                    name=department,
+                    code=department.upper().replace(" ", "_")
+                )
+                db.add(dept)
+                db.flush()
             
             try:
                 month_of_year = int(row['MonthOfYear'])

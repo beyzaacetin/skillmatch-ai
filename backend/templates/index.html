@@ -552,34 +552,41 @@ input:checked + .slider:before {
               </div>
               <template v-if="dashboardStatsData.new_candidates && dashboardStatsData.new_candidates.length > 0">
                 <article v-for="cand in dashboardStatsData.new_candidates" :key="cand.id">
-                  <div class="avatar" :style="`background:${cand.avatar_color || '#d8efe4'}`">
+                  <div class="avatar" :style="{
+                    background: cand.match_score >= 90 ? '#E3F1EB' : (cand.match_score >= 85 ? '#F9EDCF' : (cand.match_score >= 80 ? '#ECE7F3' : '#E1EBF2')),
+                    color: cand.match_score >= 90 ? '#34785F' : (cand.match_score >= 85 ? '#996818' : (cand.match_score >= 80 ? '#6C5990' : '#4D7187'))
+                  }">
                     {{ (cand.name || '?').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase() }}
                   </div>
                   <div>
                     <b>{{ cand.name }}</b>
                     <span>{{ cand.position }} · {{ cand.hotel }}</span>
                   </div>
-                  <em>%{{ cand.match_score }} eşleşme</em>
+                  <em :style="{
+                    background: cand.match_score >= 90 ? '#E3F1EB' : (cand.match_score >= 85 ? '#F9EDCF' : (cand.match_score >= 80 ? '#ECE7F3' : '#E1EBF2')),
+                    color: cand.match_score >= 90 ? '#34785F' : (cand.match_score >= 85 ? '#996818' : (cand.match_score >= 80 ? '#6C5990' : '#4D7187')),
+                    border: '1px solid ' + (cand.match_score >= 90 ? '#C3E7D9' : (cand.match_score >= 85 ? '#F1DEB4' : (cand.match_score >= 80 ? '#DCD3EA' : '#CADCE8')))
+                  }">%{{ cand.match_score }} eşleşme</em>
                   <button @click="viewCandidateById(cand.id)">İncele →</button>
                 </article>
               </template>
               <template v-else>
                 <article>
-                  <div class="avatar" style="background:#d8efe4">AY</div>
+                  <div class="avatar" style="background:#E3F1EB; color:#34785F">AY</div>
                   <div><b>Ahmet Yılmaz</b><span>Garson · Rixos Sungate</span></div>
-                  <em>%91 eşleşme</em>
+                  <em style="background:#E3F1EB; color:#34785F; border:1px solid #C3E7D9">%91 eşleşme</em>
                   <button @click="page='talent'">İncele →</button>
                 </article>
                 <article>
-                  <div class="avatar" style="background:#eee4d7">ED</div>
+                  <div class="avatar" style="background:#F9EDCF; color:#996818">ED</div>
                   <div><b>Elif Demir</b><span>Resepsiyonist · Rixos Premium Belek</span></div>
-                  <em>%87 eşleşme</em>
+                  <em style="background:#F9EDCF; color:#996818; border:1px solid #F1DEB4">%87 eşleşme</em>
                   <button @click="page='talent'">İncele →</button>
                 </article>
                 <article>
-                  <div class="avatar" style="background:#e3e4f5">MK</div>
+                  <div class="avatar" style="background:#ECE7F3; color:#6C5990">MK</div>
                   <div><b>Mehmet Kaya</b><span>Lifeguard · Rixos Sungate</span></div>
-                  <em>%83 eşleşme</em>
+                  <em style="background:#ECE7F3; color:#6C5990; border:1px solid #DCD3EA">%83 eşleşme</em>
                   <button @click="page='talent'">İncele →</button>
                 </article>
               </template>
