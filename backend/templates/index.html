@@ -3437,6 +3437,7 @@ input:checked + .slider:before {
               </table>
             </div>
           </div>
+        </div>
 
         <!-- ROLES TAB -->
         <div v-if="settingsSubTab==='roles'" class="card" style="padding:20px; background:#fff">
@@ -6123,6 +6124,8 @@ input:checked + .slider:before {
         <button class="btn btn-primary" @click="saveRole()">Kaydet</button>
       </div>
     </div>
+  </div>
+
   <!-- Extension Request Modal -->
   <div v-if="showExtensionModal" class="modal-backdrop" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:2000">
     <div class="modal" style="background:#fff; border-radius:12px; max-width:500px; width:100%; overflow:hidden">
@@ -6216,8 +6219,6 @@ input:checked + .slider:before {
       </div>
     </div>
   </div>
-
-  </template>
 </div><!-- end #app -->
 
 
