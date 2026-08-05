@@ -13,14 +13,18 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 app = None
-COMMIT_HASH = "6e8dab7_prod"
-try:
-    import subprocess
-    git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
-    if git_hash:
-        COMMIT_HASH = git_hash
-except Exception:
-    pass
+import time
+COMMIT_HASH = os.getenv("RAILWAY_GIT_COMMIT_SHA", os.getenv("COMMIT_SHA", ""))[:7]
+if not COMMIT_HASH:
+    try:
+        import subprocess
+        git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
+        if git_hash:
+            COMMIT_HASH = git_hash
+    except Exception:
+        pass
+if not COMMIT_HASH:
+    COMMIT_HASH = str(int(time.time()))
 
 try:
     from database import engine, Base, get_db
