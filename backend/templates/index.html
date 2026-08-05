@@ -4922,14 +4922,16 @@ input:checked + .slider:before {
     <div style="background:#fff; border-radius:16px; width:1100px; max-width:95vw; height:750px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
       
       <!-- Wizard Header -->
-      <div style="padding:20px 28px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center; background:#fff">
+      <div style="padding:24px 32px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:flex-start; background:#fff">
         <div>
-          <div style="font-size:18px; font-weight:800; color:var(--g900); display:flex; align-items:center; gap:8px">
-            <span style="background:var(--primary-light); color:var(--primary); padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700">SIHİRBAZ</span>
-            Yeni Pozisyon & İş İlanı Oluştur
-          </div>
+          <div style="font-size:11px; font-weight:700; color:var(--g500); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px">YENİ POZİSYON</div>
+          <h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0">Pozisyon aç</h2>
+          <div style="font-size:12.5px; color:var(--g400); margin-top:4px">İhtiyaçtan yayına kadar tüm kontroller tek akışta tamamlanır.</div>
         </div>
-        <button class="modal-x" @click="showNewPositionModal=false" style="font-size:24px; color:var(--g400); background:none; border:none; cursor:pointer">×</button>
+        <button @click="showNewPositionModal = false" 
+                style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--g500); cursor:pointer; font-weight:bold; transition:all 0.2s"
+                onmouseover="this.style.background='#e2e8f0'"
+                onmouseout="this.style.background='#f1f5f9'">&times;</button>
       </div>
 
       <!-- Wizard Content Body -->
@@ -4942,31 +4944,41 @@ input:checked + .slider:before {
                style="display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:10px; transition:all 0.2s; cursor:pointer"
                :style="currentWizardStep === stepNum ? 'background:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); border:1px solid var(--g200)' : ''">
             <div style="width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700"
-                 :style="currentWizardStep === stepNum ? 'background:var(--primary); color:#fff' : currentWizardStep > stepNum ? 'background:#dcfce7; color:#16a34a' : 'background:var(--g100); color:var(--g500)'">
+                 :style="currentWizardStep === stepNum ? 'background:var(--primary); color:#fff' : currentWizardStep > stepNum ? 'background:#e2e8f0; color:#1e293b' : 'background:var(--g100); color:var(--g500)'">
               <span v-if="currentWizardStep > stepNum">✓</span>
               <span v-else>{{ stepNum }}</span>
             </div>
             <div>
               <div style="font-size:12px; font-weight:700" :style="currentWizardStep === stepNum ? 'color:var(--g800)' : 'color:var(--g500)'">
                 {{ 
-                  stepNum === 1 ? 'İhtiyaç & Kapsam' :
-                  stepNum === 2 ? 'Pozisyon Bilgileri' :
-                  stepNum === 3 ? 'Bütçe & Ücret' :
-                  stepNum === 4 ? 'Süreç & Ekip' :
-                  stepNum === 5 ? 'İlan & Başvuru' : 'Kontrol & Yayınla'
+                  stepNum === 1 ? 'İhtiyaç & kapsam' :
+                  stepNum === 2 ? 'Pozisyon bilgileri' :
+                  stepNum === 3 ? 'Bütçe & ücret' :
+                  stepNum === 4 ? 'Süreç & ekip' :
+                  stepNum === 5 ? 'İlan & başvuru' : 'Kontrol & yayınla'
                 }}
               </div>
               <div style="font-size:10px; color:var(--g400)">
                 {{
-                  stepNum === 1 ? 'Onaylı kadro eşleme' :
-                  stepNum === 2 ? 'Çalışma koşulları' :
-                  stepNum === 3 ? 'Politika kontrolü' :
-                  stepNum === 4 ? 'Pipeline & Onaylar' :
-                  stepNum === 5 ? 'Kanal & QR Kod' : 'Özet & Onay'
+                  stepNum === 1 ? 'Onaylı kadroyla eşleştir' :
+                  stepNum === 2 ? 'Görev ve çalışma koşulları' :
+                  stepNum === 3 ? 'Kadro ve politika kontrolü' :
+                  stepNum === 4 ? 'Pipeline ve sorumlular' :
+                  stepNum === 5 ? 'Metin, link ve QR' : 'Özet ve onay akışı'
                 }}
               </div>
             </div>
           </div>
+          
+          <div style="flex:1"></div>
+          
+          <!-- Back button inside sidebar -->
+          <button v-if="currentWizardStep > 1 && currentWizardStep < 7" 
+                  @click="currentWizardStep--" 
+                  class="btn btn-outline" 
+                  style="padding:10px 16px; font-weight:700; border-radius:8px; border-color:var(--g300); color:var(--g700); width:100%; display:flex; align-items:center; justify-content:center; gap:8px">
+            &larr; Geri
+          </button>
         </div>
 
         <!-- FORM CONTENT AREA (Middle) -->
@@ -5311,9 +5323,9 @@ input:checked + .slider:before {
               <div style="width:100%">
                 <div style="font-size:11px; color:var(--g400); margin-bottom:4px">İlan Başvuru Linki</div>
                 <div style="display:flex; gap:6px; width:340px">
-                  <input readonly :value="`${window.location.origin}/portal/job/${newPos.id}`" 
+                  <input readonly :value="getJobPortalUrl(newPos.id)" 
                          style="flex:1; font-size:12px; padding:6px 10px; background:#fff; border:1px solid var(--g200); border-radius:6px" id="wizard-link-input">
-                  <button @click="copyShareLink(`${window.location.origin}/portal/job/${newPos.id}`)" class="btn btn-outline btn-sm" style="padding:6px 12px; font-size:11.5px">Kopyala</button>
+                  <button @click="copyShareLink(getJobPortalUrl(newPos.id))" class="btn btn-outline btn-sm" style="padding:6px 12px; font-size:11.5px">Kopyala</button>
                 </div>
               </div>
             </div>

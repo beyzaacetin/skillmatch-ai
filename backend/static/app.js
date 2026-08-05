@@ -2258,10 +2258,23 @@ createApp({
       const hotel = settingsData.value.hotels.find(h => h.id === hotelId);
       if (!hotel) return [];
       const code = hotel.code.toUpperCase();
+      const hName = hotel.name.toUpperCase();
       const depts = budgetPositions.value
-        .filter(bp => bp.hotel_code.toUpperCase() === code)
+        .filter(bp => {
+          const bpCode = (bp.hotel_code || '').toUpperCase();
+          const bpName = (bp.hotel_sub || bp.hotel_code || '').toUpperCase();
+          return bpCode === code || bpName === hName || bpCode.includes(code) || hName.includes(bpCode);
+        })
         .map(bp => bp.department);
-      return [...new Set(depts)].sort();
+      
+      const uniqueDepts = [...new Set(depts)].sort();
+      if (uniqueDepts.length > 0) return uniqueDepts;
+      
+      // Fallback
+      if (settingsData.value.departments) {
+        return settingsData.value.departments.map(d => d.name).sort();
+      }
+      return [];
     });
 
     const filteredBudgetSubDepartments = computed(() => {
@@ -2271,8 +2284,14 @@ createApp({
       const hotel = settingsData.value.hotels.find(h => h.id === hotelId);
       if (!hotel) return [];
       const code = hotel.code.toUpperCase();
+      const hName = hotel.name.toUpperCase();
       const subs = budgetPositions.value
-        .filter(bp => bp.hotel_code.toUpperCase() === code && bp.department.toUpperCase() === deptName.toUpperCase())
+        .filter(bp => {
+          const bpCode = (bp.hotel_code || '').toUpperCase();
+          const bpName = (bp.hotel_sub || bp.hotel_code || '').toUpperCase();
+          const matchesHotel = bpCode === code || bpName === hName || bpCode.includes(code) || hName.includes(bpCode);
+          return matchesHotel && bp.department.toUpperCase() === deptName.toUpperCase();
+        })
         .map(bp => bp.sub_department);
       return [...new Set(subs)].sort();
     });
@@ -2285,14 +2304,32 @@ createApp({
       const hotel = settingsData.value.hotels.find(h => h.id === hotelId);
       if (!hotel) return [];
       const code = hotel.code.toUpperCase();
+      const hName = hotel.name.toUpperCase();
       const titles = budgetPositions.value
-        .filter(bp => 
-          bp.hotel_code.toUpperCase() === code && 
-          bp.department.toUpperCase() === deptName.toUpperCase() &&
-          (subName === '' || (bp.sub_department || '').toUpperCase() === subName.toUpperCase())
-        )
+        .filter(bp => {
+          const bpCode = (bp.hotel_code || '').toUpperCase();
+          const bpName = (bp.hotel_sub || bp.hotel_code || '').toUpperCase();
+          const matchesHotel = bpCode === code || bpName === hName || bpCode.includes(code) || hName.includes(bpCode);
+          const matchesDept = bp.department.toUpperCase() === deptName.toUpperCase();
+          const matchesSub = subName === '' || (bp.sub_department || '').toUpperCase() === subName.toUpperCase();
+          return matchesHotel && matchesDept && matchesSub;
+        })
         .map(bp => bp.position_title);
-      return [...new Set(titles)].sort();
+      
+      const uniqueTitles = [...new Set(titles)].sort();
+      if (uniqueTitles.length > 0) return uniqueTitles;
+      
+      // Fallback
+      if (settingsData.value.mappings) {
+        const deptObj = settingsData.value.departments.find(d => d.name.toUpperCase() === deptName.toUpperCase());
+        const deptId = deptObj ? deptObj.id : null;
+        const filtered = settingsData.value.mappings.filter(m => 
+          Number(m.hotel_id) === hotelId && 
+          (!deptId || Number(m.department_id) === deptId)
+        );
+        return [...new Set(filtered.map(m => m.position_title).filter(Boolean))].sort();
+      }
+      return [];
     });
 
     const matchedSalaryPolicy = computed(() => {
