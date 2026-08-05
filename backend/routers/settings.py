@@ -321,6 +321,12 @@ def import_headcount_budget(
         db.query(models.WorkforceHeadcountBudget).delete()
         db.commit()
 
+        # Check if headcount columns are present
+        has_headcount_cols = 'otel_alt' in df.columns and 'alt kategori' in df.columns and 'monthofyear' in df.columns and 'toplam fte' in df.columns
+        if has_headcount_cols:
+            db.query(models.WorkforceBudgetRecord).delete()
+            db.commit()
+
         imported_count = 0
         skipped_rows = []
 
@@ -381,6 +387,31 @@ def import_headcount_budget(
                     currency=curr
                 )
                 db.add(budget)
+
+                if has_headcount_cols:
+                    hotel_sub = str(row['otel_alt']).strip() if not pd.isna(row['otel_alt']) else None
+                    sub_dept = str(row['alt kategori']).strip() if not pd.isna(row['alt kategori']) else None
+                    try:
+                        month_of_year = int(row['monthofyear'])
+                        fte_val = row['toplam fte']
+                        total_fte = float(fte_val) if not pd.isna(fte_val) else 0.0
+                    except Exception:
+                        month_of_year = 8
+                        total_fte = 0.0
+                    
+                    rec = models.WorkforceBudgetRecord(
+                        tenant_id=1,
+                        hotel_code=hotel_val,
+                        hotel_sub=hotel_sub,
+                        department=dept_val,
+                        sub_department=sub_dept,
+                        position_title=pos_val,
+                        month_of_year=month_of_year,
+                        total_fte=total_fte,
+                        budget_amount=float(budget_num)
+                    )
+                    db.add(rec)
+
                 imported_count += 1
             except Exception as row_err:
                 skipped_rows.append(f"Satır {idx+2}: Hata - {str(row_err)}")
