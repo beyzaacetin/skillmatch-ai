@@ -25,6 +25,18 @@ createApp({
     const budgetPositions = ref([]);
     const headcountMonthlyTrends = ref([]);
     const headcountActionPlans = ref([]);
+    const showHeadcountLayoutModal = ref(false);
+    const headcountLayout = ref(JSON.parse(localStorage.getItem('headcount_layout') || JSON.stringify({
+      showKpis: true,
+      showChart: true,
+      showPlanner: true,
+      showTable: true
+    })));
+
+    function saveHeadcountLayout() {
+      localStorage.setItem('headcount_layout', JSON.stringify(headcountLayout.value));
+      showHeadcountLayoutModal.value = false;
+    }
 
     // Custom Redesign Refs
     const workspaceInterviewType = ref('HR');
@@ -229,7 +241,45 @@ createApp({
     const matchModal = ref({ show: false, candidate: null, positionId: '', results: [], loading: false });
 
     // Forms
-    const newPos = ref({ title: '', department: '', hotel_id: '', department_id: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null });
+    const currentWizardStep = ref(1);
+    const isWizardPrefilled = ref(false);
+    const newPos = ref({
+      title: '',
+      department: '',
+      department_name: '',
+      sub_department: '',
+      hotel_id: '',
+      department_id: '',
+      description: '',
+      seniority_level: 'Mid',
+      required_skills_str: '',
+      salary_min: null,
+      salary_max: null,
+      
+      // New wizard fields
+      employment_type: 'Tam zamanlı',
+      contract_type: 'Belirsiz süreli',
+      accommodation: 'Sağlanacak',
+      headcount: 1,
+      target_date: '',
+      location: 'Otelde / Yerinde',
+      salary_target: null,
+      offer_approval_rule: 'Üst bant aşılırsa merkez onayı',
+      pipeline_template: 'Standart İşe Alım Akışı',
+      hiring_manager: '',
+      department_manager: '',
+      rule_no_tech_without_hr: true,
+      rule_approve_outside_band: true,
+      rule_notify_new_application: true,
+      job_ad_title: '',
+      job_ad_description: '',
+      application_form_fields: ['Ad Soyad', 'E-posta', 'Telefon', 'Özgeçmiş (PDF)'],
+      job_ad_language: 'Türkçe',
+      channel_link_qr: true,
+      channel_career_portal: true,
+      channel_linkedin: false,
+      qr_code_path: null
+    });
     const newApp = ref({ candidate_id: '', position_id: '', source: '', cover_letter: '' });
     const newIv = ref({ round_number: 1, interview_type: 'hr', scheduled_at: '', duration_minutes: 60, interviewer_name: '', meeting_link: '' });
     const newOffer = ref({ proposed_salary: null, start_date: '', position_title: '', benefits_str: '', notes: '', deviation_reason: '', deviation_explanation: '' });
@@ -622,21 +672,61 @@ createApp({
       }
     }
 
-    function createPositionFromBudget(row) {
-      const hotel = settingsData.value.hotels.find(h => h.code.toUpperCase() === row.hotel_code.toUpperCase());
+    function openNewPositionWizard() {
+      currentWizardStep.value = 1;
+      isWizardPrefilled.value = false;
       newPos.value = {
-        title: row.position_title,
-        department_name: row.department,
-        sub_department: row.sub_department || '',
-        hotel_id: hotel ? hotel.id : '',
+        title: '',
+        department: '',
+        department_name: '',
+        sub_department: '',
+        hotel_id: '',
         department_id: '',
         description: '',
         seniority_level: 'Mid',
         required_skills_str: '',
         salary_min: null,
-        salary_max: null
+        salary_max: null,
+        
+        // New wizard fields
+        employment_type: 'Tam zamanlı',
+        contract_type: 'Belirsiz süreli',
+        accommodation: 'Sağlanacak',
+        headcount: 1,
+        target_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        location: 'Otelde / Yerinde',
+        salary_target: null,
+        offer_approval_rule: 'Üst bant aşılırsa merkez onayı',
+        pipeline_template: 'Standart İşe Alım Akışı',
+        hiring_manager: '',
+        department_manager: '',
+        rule_no_tech_without_hr: true,
+        rule_approve_outside_band: true,
+        rule_notify_new_application: true,
+        job_ad_title: '',
+        job_ad_description: '',
+        application_form_fields: ['Ad Soyad', 'E-posta', 'Telefon', 'Özgeçmiş (PDF)'],
+        job_ad_language: 'Türkçe',
+        channel_link_qr: true,
+        channel_career_portal: true,
+        channel_linkedin: false,
+        qr_code_path: null
       };
       showNewPositionModal.value = true;
+    }
+
+    function createPositionFromBudget(row) {
+      openNewPositionWizard();
+      const hotel = settingsData.value.hotels.find(h => h.code.toUpperCase() === row.hotel_code.toUpperCase());
+      newPos.value.hotel_id = hotel ? hotel.id : '';
+      newPos.value.department_name = row.department;
+      newPos.value.sub_department = row.sub_department || '';
+      newPos.value.title = row.position_title;
+      newPos.value.headcount = row.open_headcount || 1;
+      newPos.value.job_ad_title = `${hotel ? hotel.name : 'Rixos'} - ${row.position_title} Arayışımız`;
+      newPos.value.job_ad_description = `${row.department} departmanı bünyesinde görevlendirilmek üzere ${row.position_title} aramaktayız.`;
+      
+      isWizardPrefilled.value = true;
     }
 
     async function loadAnalytics() {
@@ -1138,21 +1228,39 @@ createApp({
         let deptObj = settingsData.value.departments.find(d => d.name.toLowerCase() === (newPos.value.department_name || '').toLowerCase());
         let departmentId = deptObj ? deptObj.id : (settingsData.value.departments[0]?.id || 1);
         
+        let reqSkills = [];
+        if (newPos.value.required_skills_str) {
+          reqSkills = newPos.value.required_skills_str.split(',').map(s => s.trim()).filter(Boolean);
+        } else if (Array.isArray(newPos.value.required_skills)) {
+          reqSkills = newPos.value.required_skills;
+        }
+
         const payload = {
           ...newPos.value,
           department: newPos.value.department_name || newPos.value.department,
           department_id: departmentId,
-          required_skills: newPos.value.required_skills_str.split(',').map(s => s.trim()).filter(Boolean),
+          required_skills: reqSkills,
           preferred_skills: [],
         };
         delete payload.required_skills_str;
         delete payload.department_name;
 
         const saved = await api('POST', '/api/positions/', payload);
+        
+        // Save database response to show QR code and Job Link in success screen
+        newPos.value.id = saved.id;
+        newPos.value.qr_code_path = saved.qr_code_path;
+        
         positions.value.unshift(saved);
-        showNewPositionModal.value = false;
-        newPos.value = { title: '', department: '', department_name: '', sub_department: '', hotel_id: '', department_id: '', description: '', seniority_level: '', required_skills_str: '', salary_min: null, salary_max: null };
-      } catch (e) { alert('Kayıt hatası: ' + e.message); }
+        
+        // Go to success screen (step 7)
+        currentWizardStep.value = 7;
+        
+        // Refresh budget headcount needs values
+        await loadHeadcount();
+      } catch (e) { 
+        alert('Kayıt hatası: ' + (e.message || e)); 
+      }
     }
 
     async function deletePosition(id) {
@@ -2499,6 +2607,7 @@ createApp({
       loadPipeline, loadAnalytics, openCandidate, rateCandidate, saveNote, deleteCandidate, toggleBlacklist,
       loadCandidateApps, openMatchModal, runMatch, matchModal,
       aiGeneratePosition, savePosition, deletePosition, openMatchPosition, openPositionDetail, loadPositionApps, loadPositionMatches, bulkAddCandidatesToPosition,
+      currentWizardStep, isWizardPrefilled, openNewPositionWizard,
       openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes,
       dragApp, dropOnCol, createApplicationFromCandidate,
       runDeepAIAnalysis, getCandidateForDeepAI, handlePositionCvDrop, handlePositionCvSelect, startPositionUploads,
@@ -2583,8 +2692,11 @@ createApp({
       filteredMappingTitles, matchedSalaryPolicy,
       budgetPositions, loadBudgetPositions,
       filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
+      salary_stats: salaryStats,
+      showHeadcountLayoutModal,
+      headcountLayout,
+      saveHeadcountLayout,
       pendingApprovals, loadPendingApprovals, resolveApproval, uploadSalaryPolicyExcel,
-      salaryStats,
 
       // Dashboard State & Methods
       dashboardHotelFilter, dashboardViewMode, dashboardTestRole, dashboardStatsData, dashboardLoading, loadDashboardStats,

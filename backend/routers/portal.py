@@ -268,6 +268,40 @@ def get_public_position_details(pos_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/job/{pos_id}")
+def get_public_position_details_alias(pos_id: int, db: Session = Depends(get_db)):
+    return get_public_position_details(pos_id, db)
+
+
+@router.post("/job/{pos_id}/apply")
+async def apply_public_position_alias(
+    pos_id: int,
+    name: str = Form(...),
+    email: str = Form(...),
+    phone: str = Form(...),
+    cover_letter: str = Form(default=""),
+    cv_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    utm_source: Optional[str] = Query(None),
+    utm_medium: Optional[str] = Query(None),
+    utm_campaign: Optional[str] = Query(None),
+    utm_content: Optional[str] = Query(None)
+):
+    return await apply_public_position(
+        pos_id=pos_id,
+        name=name,
+        email=email,
+        phone=phone,
+        cover_letter=cover_letter,
+        cv_file=cv_file,
+        db=db,
+        utm_source=utm_source,
+        utm_medium=utm_medium,
+        utm_campaign=utm_campaign,
+        utm_content=utm_content
+    )
+
+
 @router.post("/public/positions/{pos_id}/apply")
 async def apply_public_position(
     pos_id: int,

@@ -151,6 +151,24 @@ class PositionBase(BaseModel):
     target_date: Optional[str] = None
     hotel_id: Optional[int] = None
     department_id: Optional[int] = None
+    employment_type: Optional[str] = None
+    contract_type: Optional[str] = None
+    accommodation: Optional[str] = None
+    salary_target: Optional[int] = None
+    offer_approval_rule: Optional[str] = None
+    pipeline_template: Optional[str] = None
+    department_manager: Optional[str] = None
+    rule_no_tech_without_hr: Optional[bool] = False
+    rule_approve_outside_band: Optional[bool] = False
+    rule_notify_new_application: Optional[bool] = False
+    job_ad_title: Optional[str] = None
+    job_ad_description: Optional[str] = None
+    application_form_fields: Optional[Any] = None
+    job_ad_language: Optional[str] = None
+    channel_link_qr: Optional[bool] = False
+    channel_career_portal: Optional[bool] = False
+    channel_linkedin: Optional[bool] = False
+    qr_code_path: Optional[str] = None
 
     @field_validator('required_skills', 'preferred_skills', mode='before')
     @classmethod

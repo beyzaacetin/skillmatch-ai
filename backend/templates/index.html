@@ -109,50 +109,95 @@ input:checked + .slider:before {
   <!-- PUBLIC PORTAL PAGES -->
   <div v-if="!currentUser && (page === 'public_job' || page === 'public_walkin')" style="background:#f3f4f6; min-height:100vh; width:100%; overflow-y:auto; padding-bottom:40px">
     
-    <!-- 1. PUBLIC JOB APPLY PAGE -->
-    <div v-if="page==='public_job'" style="max-width:680px; margin:40px auto; padding:0 20px">
-      <div class="card" style="padding:32px; background:#fff; border-radius:12px; border:1px solid var(--g200)">
-        <div style="text-align:center; margin-bottom:24px">
-          <div style="font-size:24px; font-family:'Georgia', serif; font-weight:700; color:var(--primary)">{{ publicJob.title }}</div>
-          <div style="font-size:13px; color:var(--g500); margin-top:6px">{{ publicJob.department }} · {{ publicJob.location }}</div>
+    <!-- 1. PUBLIC JOB APPLY PAGE (PREMIUM STYLING) -->
+    <div v-if="page==='public_job'" style="max-width:720px; margin:60px auto; padding:0 24px">
+      
+      <!-- Brand Card -->
+      <div style="text-align:center; margin-bottom:32px">
+        <div style="font-size:12px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px">SKILLMATCH KANALIYLA</div>
+        <div style="font-size:32px; font-weight:800; color:var(--g900); font-family:'Inter', sans-serif; letter-spacing:-0.02em">Açık Pozisyon Başvurusu</div>
+      </div>
+
+      <div class="card" style="padding:40px; background:#fff; border-radius:16px; border:1px solid var(--g200); box-shadow:0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.04)">
+        
+        <!-- Job Header Details -->
+        <div style="text-align:center; margin-bottom:36px; border-bottom:1px solid var(--g100); padding-bottom:28px">
+          <h1 style="font-size:26px; font-weight:800; color:var(--primary); margin:0">{{ publicJob.title }}</h1>
+          <div style="display:flex; justify-content:center; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap">
+            <span style="background:var(--g100); color:var(--g700); font-size:12px; font-weight:600; padding:4px 10px; border-radius:100px">
+              {{ publicJob.department || 'Departman Belirtilmemiş' }}
+            </span>
+            <span style="background:var(--primary-light); color:var(--primary); font-size:12px; font-weight:600; padding:4px 10px; border-radius:100px">
+              {{ publicJob.location || 'Otelde / Yerinde' }}
+            </span>
+          </div>
         </div>
         
-        <div style="font-weight:700; font-size:14px; color:var(--g900); margin-bottom:8px; border-bottom:1px solid var(--g200); padding-bottom:6px">Pozisyon Açıklaması</div>
-        <div style="font-size:14px; color:var(--g700); line-height:1.6; margin-bottom:24px; white-space:pre-line">{{ publicJob.description }}</div>
+        <!-- Job Details Segment -->
+        <div style="margin-bottom:32px">
+          <h3 style="font-weight:700; font-size:15px; color:var(--g800); margin-bottom:10px; display:flex; align-items:center; gap:6px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Pozisyon Tanımı & Kapsamı
+          </h3>
+          <p style="font-size:14.5px; color:var(--g600); line-height:1.7; margin:0; white-space:pre-line">{{ publicJob.description }}</p>
+        </div>
         
-        <div style="font-weight:700; font-size:14px; color:var(--g900); margin-bottom:8px; border-bottom:1px solid var(--g200); padding-bottom:6px">Gerekli Yetenekler</div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:32px">
-          <span v-for="s in publicJob.required_skills" :key="s" class="skill-tag" style="background:var(--primary-light); color:var(--primary)">{{ s }}</span>
-          <span v-if="!publicJob.required_skills?.length" style="font-size:13px; color:var(--g400)">Belirtilmemiş</span>
+        <!-- Skills Segment -->
+        <div style="margin-bottom:36px" v-if="publicJob.required_skills?.length">
+          <h3 style="font-weight:700; font-size:15px; color:var(--g800); margin-bottom:12px; display:flex; align-items:center; gap:6px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Aranan Yetenekler
+          </h3>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <span v-for="s in publicJob.required_skills" :key="s" class="skill-tag" style="background:#eef2ff; color:#4f46e5; border:1px solid #c7d2fe; font-size:12px; font-weight:600; padding:6px 12px; border-radius:8px">
+              {{ s }}
+            </span>
+          </div>
         </div>
 
-        <div style="font-weight:700; font-size:16px; color:var(--primary); margin-bottom:16px; font-family:'Georgia', serif">Hızlı Başvuru Formu</div>
+        <!-- Application Form Header -->
+        <div style="margin-bottom:24px; border-top:1px solid var(--g200); padding-top:28px">
+          <h2 style="font-size:18px; font-weight:800; color:var(--g800); margin:0">Hızlı Aday Başvuru Formu</h2>
+          <p style="font-size:13px; color:var(--g500); margin-top:4px">Lütfen aşağıdaki alanları eksiksiz doldurup güncel özgeçmişinizi yükleyin.</p>
+        </div>
         
-        <form @submit.prevent="submitPublicApplication" style="display:flex; flex-direction:column; gap:16px">
+        <form @submit.prevent="submitPublicApplication" style="display:flex; flex-direction:column; gap:20px">
           <div class="fg">
-            <label class="fl">Ad Soyad *</label>
-            <input type="text" v-model="publicApplyForm.name" required class="fi" placeholder="Adınızı ve soyadınızı girin">
-          </div>
-          <div class="fg">
-            <label class="fl">E-posta Adresi *</label>
-            <input type="email" v-model="publicApplyForm.email" required class="fi" placeholder="ad@domain.com">
-          </div>
-          <div class="fg">
-            <label class="fl">Telefon Numarası *</label>
-            <input type="tel" v-model="publicApplyForm.phone" required class="fi" placeholder="+905xxxxxxxx">
-          </div>
-          <div class="fg">
-            <label class="fl">Ön Yazı (İsteğe Bağlı)</label>
-            <textarea v-model="publicApplyForm.cover_letter" class="fi" placeholder="Kendinizden kısaca bahsedin..." style="height:100px"></textarea>
-          </div>
-          <div class="fg">
-            <label class="fl">Özgeçmiş (PDF Formatında) *</label>
-            <input type="file" @change="onPublicCvSelected" required accept=".pdf" class="fi" style="padding:6px">
+            <label class="fl" style="font-weight:600; color:var(--g700)">Ad Soyad *</label>
+            <input type="text" v-model="publicApplyForm.name" required class="fi" placeholder="Adınızı ve soyadınızı girin" style="padding:10px 14px; border-radius:8px">
           </div>
           
-          <button type="submit" class="btn btn-primary" style="width:100%; padding:12px; font-weight:700; margin-top:12px" :disabled="submittingPublic">
+          <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+            <div class="fg">
+              <label class="fl" style="font-weight:600; color:var(--g700)">E-posta Adresi *</label>
+              <input type="email" v-model="publicApplyForm.email" required class="fi" placeholder="ad@domain.com" style="padding:10px 14px; border-radius:8px">
+            </div>
+            <div class="fg">
+              <label class="fl" style="font-weight:600; color:var(--g700)">Telefon Numarası *</label>
+              <input type="tel" v-model="publicApplyForm.phone" required class="fi" placeholder="+90 5xx xxx xx xx" style="padding:10px 14px; border-radius:8px">
+            </div>
+          </div>
+          
+          <div class="fg">
+            <label class="fl" style="font-weight:600; color:var(--g700)">Ön Yazı / Notlar</label>
+            <textarea v-model="publicApplyForm.cover_letter" class="fi" placeholder="Varsa pozisyona özel belirtmek istediklerinizi yazın..." style="height:100px; padding:10px 14px; border-radius:8px; resize:none"></textarea>
+          </div>
+          
+          <div class="fg">
+            <label class="fl" style="font-weight:600; color:var(--g700)">Özgeçmiş Yükle (PDF Formatında) *</label>
+            <div style="border:2px dashed var(--g300); padding:20px; border-radius:8px; text-align:center; background:#fafafa; position:relative; transition:all 0.2s">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--g400); margin-bottom:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <div style="font-size:13px; font-weight:600; color:var(--g700)">
+                {{ publicApplyCv ? publicApplyCv.name : 'Dosya seçmek için tıklayın' }}
+              </div>
+              <div style="font-size:11px; color:var(--g400); margin-top:2px">Sadece PDF dosyaları kabul edilir (maks. 5MB)</div>
+              <input type="file" @change="onPublicCvSelected" required accept=".pdf" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer">
+            </div>
+          </div>
+          
+          <button type="submit" class="btn btn-primary" style="width:100%; padding:14px; font-weight:700; margin-top:16px; border-radius:8px; background:var(--primary); font-size:15px" :disabled="submittingPublic">
             <span v-if="submittingPublic">Başvurunuz Gönderiliyor...</span>
-            <span v-else>Başvuruyu Tamamla</span>
+            <span v-else>Başvuruyu Tamamla ✦</span>
           </button>
         </form>
       </div>
@@ -835,15 +880,21 @@ input:checked + .slider:before {
           <div class="page-hdr-title" style="font-size:24px; font-weight:700; color:var(--g800)">Kadro İhtiyaçları</div>
           <div class="page-hdr-sub" style="font-size:13px; color:var(--g500); margin-top:4px">Bütçe, aktif çalışan, yaklaşan ayrılış ve net işe alım ihtiyacını dönem bazında yönetin.</div>
         </div>
-        <button class="btn btn-primary" style="background:var(--primary); color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:6px">
-          + İhtiyaç talebi oluştur
-        </button>
+        <div style="display:flex; gap:10px; align-items:center">
+          <button @click="showHeadcountLayoutModal = true" class="btn btn-outline" style="border:1px solid var(--g300); color:var(--g700); padding:10px 16px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:6px; background:#fff">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            Görünümü Düzenle
+          </button>
+          <button @click="openNewPositionWizard()" class="btn btn-primary" style="background:var(--primary); color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:600; display:flex; align-items:center; gap:6px">
+            + Yeni Pozisyon
+          </button>
+        </div>
       </div>
 
       <div class="page-body" style="padding:24px; background:#F6F8F7; min-height:calc(100vh - 120px)">
         
         <!-- KPI Cards Grid (5 cards) -->
-        <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:16px; margin-bottom:24px">
+        <div v-if="headcountLayout.showKpis" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:16px; margin-bottom:24px">
           <!-- KPI 1 -->
           <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:4px">
             <span style="font-size:12px; color:var(--g500); font-weight:600">Onaylı kadro</span>
@@ -915,10 +966,12 @@ input:checked + .slider:before {
         </div>
 
         <!-- Monthly Trends & Action Plans Grid -->
-        <div style="display:grid; grid-template-columns:7fr 3fr; gap:20px; margin-bottom:20px">
+        <div v-if="headcountLayout.showChart || headcountLayout.showPlanner" 
+             :style="headcountLayout.showChart && headcountLayout.showPlanner ? 'display:grid; grid-template-columns:7fr 3fr' : 'display:block'" 
+             style="gap:20px; margin-bottom:20px">
           
           <!-- Monthly Deficit Trends Bar Chart -->
-          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px">
+          <div v-if="headcountLayout.showChart" class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px; width:100%">
             <div style="display:flex; justify-content:space-between; align-items:center">
               <h3 style="font-size:15px; font-weight:700; color:var(--g800); margin:0">Aylık Kadro İhtiyaç & Açık Dağılımı (FTE Deficit)</h3>
               <small style="font-size:12px; color:var(--g500)">Net Açık = Bütçe - Aktif Çalışan</small>
@@ -958,7 +1011,7 @@ input:checked + .slider:before {
           </div>
 
           <!-- Action Plans Sidebar (customizable) -->
-          <div class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px">
+          <div v-if="headcountLayout.showPlanner" class="card" style="background:#fff; border:1px solid var(--g200); padding:20px; border-radius:12px; display:flex; flex-direction:column; gap:16px; min-width:260px">
             <div style="display:flex; justify-content:space-between; align-items:center">
               <h3 style="font-size:15px; font-weight:700; color:var(--g800); margin:0">Aksiyon Planı</h3>
               <button @click="addActionPlan" class="btn btn-primary btn-sm" style="padding:4px 8px; font-size:11.5px">+ Ekle</button>
@@ -976,7 +1029,7 @@ input:checked + .slider:before {
         </div>
 
         <!-- Table card -->
-        <div class="card" style="background:#fff; border:1px solid var(--g200); border-radius:12px; overflow:hidden">
+        <div v-if="headcountLayout.showTable" class="card" style="background:#fff; border:1px solid var(--g200); border-radius:12px; overflow:hidden">
           <div style="padding:20px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center">
             <h3 style="font-size:16px; font-weight:700; color:var(--g800)">Pozisyon İhtiyaç planı</h3>
             
@@ -1046,6 +1099,38 @@ input:checked + .slider:before {
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Headcount Layout Edit Modal -->
+      <div v-if="showHeadcountLayoutModal" class="modal-backdrop" @click="showHeadcountLayoutModal = false" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:99999">
+        <div class="modal-content" @click.stop style="background:#fff; border-radius:12px; max-width:400px; width:90%; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.15)">
+          <div style="font-size:18px; font-weight:700; color:var(--g800); margin-bottom:8px">Görünümü Düzenle</div>
+          <div style="font-size:13px; color:var(--g500); margin-bottom:20px">Kadro ihtiyaçları sayfasında hangi alanların gösterileceğini belirleyin.</div>
+          
+          <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px">
+            <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer">
+              <span style="font-size:14px; font-weight:600; color:var(--g700)">KPI Kartları</span>
+              <input type="checkbox" v-model="headcountLayout.showKpis" style="width:16px; height:16px">
+            </label>
+            <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer">
+              <span style="font-size:14px; font-weight:600; color:var(--g700)">Aylık Açık Dağılım Grafiği</span>
+              <input type="checkbox" v-model="headcountLayout.showChart" style="width:16px; height:16px">
+            </label>
+            <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer">
+              <span style="font-size:14px; font-weight:600; color:var(--g700)">İK Aksiyon Planı</span>
+              <input type="checkbox" v-model="headcountLayout.showPlanner" style="width:16px; height:16px">
+            </label>
+            <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer">
+              <span style="font-size:14px; font-weight:600; color:var(--g700)">Pozisyon İhtiyaç Tablosu</span>
+              <input type="checkbox" v-model="headcountLayout.showTable" style="width:16px; height:16px">
+            </label>
+          </div>
+          
+          <div style="display:flex; gap:12px; justify-content:flex-end">
+            <button @click="showHeadcountLayoutModal = false" class="btn btn-outline" style="padding:8px 16px; border-radius:6px; font-size:13px; font-weight:600">İptal</button>
+            <button @click="saveHeadcountLayout" class="btn btn-primary" style="background:var(--primary); color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:13px">Kaydet</button>
+          </div>
         </div>
       </div>
 
@@ -4794,66 +4879,472 @@ input:checked + .slider:before {
     </div>
   </div>
 
-  <!-- NEW POSITION MODAL -->
-  <div v-if="showNewPositionModal" class="overlay" @click.self="showNewPositionModal=false">
-    <div class="modal modal-sm">
-      <div class="modal-hdr">
-        <div><div class="modal-title">Yeni Pozisyon</div></div>
-        <button class="modal-x" @click="showNewPositionModal=false">×</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-row">
-          <div class="fg">
-            <label class="fl">Otel *</label>
-            <select v-model.number="newPos.hotel_id" class="fs" @change="newPos.department_name = ''; newPos.sub_department = ''; newPos.title = ''">
-              <option value="">Otel Seçin</option>
-              <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
-            </select>
+  <!-- 6-STEP NEW POSITION WIZARD MODAL -->
+  <div v-if="showNewPositionModal" class="overlay" style="z-index:9999; background:rgba(15, 23, 42, 0.6); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center" @click.self="showNewPositionModal=false">
+    <div style="background:#fff; border-radius:16px; width:1100px; max-width:95vw; height:750px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
+      
+      <!-- Wizard Header -->
+      <div style="padding:20px 28px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center; background:#fff">
+        <div>
+          <div style="font-size:18px; font-weight:800; color:var(--g900); display:flex; align-items:center; gap:8px">
+            <span style="background:var(--primary-light); color:var(--primary); padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700">SIHİRBAZ</span>
+            Yeni Pozisyon & İş İlanı Oluştur
           </div>
-          <div class="fg">
-            <label class="fl">Ana Kategori (Departman) *</label>
-            <select v-model="newPos.department_name" class="fs" :disabled="!newPos.hotel_id" @change="newPos.sub_department = ''; newPos.title = ''">
-              <option value="">Departman Seçin</option>
-              <option v-for="d in filteredBudgetDepartments" :key="d" :value="d">{{ d }}</option>
-            </select>
+        </div>
+        <button class="modal-x" @click="showNewPositionModal=false" style="font-size:24px; color:var(--g400); background:none; border:none; cursor:pointer">×</button>
+      </div>
+
+      <!-- Wizard Content Body -->
+      <div style="flex:1; display:flex; overflow:hidden">
+        
+        <!-- STEP SIDEBAR (Left) -->
+        <div style="width:260px; border-right:1px solid var(--g200); background:#fafafa; padding:28px 20px; display:flex; flex-direction:column; gap:8px">
+          <div v-for="stepNum in [1,2,3,4,5,6]" :key="stepNum" 
+               style="display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:10px; transition:all 0.2s"
+               :style="currentWizardStep === stepNum ? 'background:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); border:1px solid var(--g200)' : ''">
+            <div style="width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700"
+                 :style="currentWizardStep === stepNum ? 'background:var(--primary); color:#fff' : currentWizardStep > stepNum ? 'background:#dcfce7; color:#16a34a' : 'background:var(--g100); color:var(--g500)'">
+              <span v-if="currentWizardStep > stepNum">✓</span>
+              <span v-else>{{ stepNum }}</span>
+            </div>
+            <div>
+              <div style="font-size:12px; font-weight:700" :style="currentWizardStep === stepNum ? 'color:var(--g800)' : 'color:var(--g500)'">
+                {{ 
+                  stepNum === 1 ? 'İhtiyaç & Kapsam' :
+                  stepNum === 2 ? 'Pozisyon Bilgileri' :
+                  stepNum === 3 ? 'Bütçe & Ücret' :
+                  stepNum === 4 ? 'Süreç & Ekip' :
+                  stepNum === 5 ? 'İlan & Başvuru' : 'Kontrol & Yayınla'
+                }}
+              </div>
+              <div style="font-size:10px; color:var(--g400)">
+                {{
+                  stepNum === 1 ? 'Onaylı kadro eşleme' :
+                  stepNum === 2 ? 'Çalışma koşulları' :
+                  stepNum === 3 ? 'Politika kontrolü' :
+                  stepNum === 4 ? 'Pipeline & Onaylar' :
+                  stepNum === 5 ? 'Kanal & QR Kod' : 'Özet & Onay'
+                }}
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-top:auto; background:var(--primary-light); padding:14px; border-radius:10px; border:1px solid #bbf7d0">
+            <div style="font-size:11px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:6px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+              Yardımcı İpucu
+            </div>
+            <div style="font-size:10.5px; color:var(--g600); margin-top:6px; line-height:1.4">
+              Headcount veritabanından prefill edilen pozisyonlar otomatik bütçeyle eşleştirilir ve onay süreci hızlanır.
+            </div>
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="fg">
-            <label class="fl">Alt Kategori</label>
-            <select v-model="newPos.sub_department" class="fs" :disabled="!newPos.department_name" @change="newPos.title = ''">
-              <option value="">Alt Kategori Seçin</option>
-              <option v-for="s in filteredBudgetSubDepartments" :key="s" :value="s">{{ s || 'Alt Kategori Yok' }}</option>
-            </select>
+        <!-- FORM CONTENT AREA (Middle) -->
+        <div style="flex:1; padding:32px; overflow-y:auto; display:flex; flex-direction:column; gap:24px">
+          
+          <!-- STEP 1: İhtiyaç & Kapsam -->
+          <div v-if="currentWizardStep === 1" style="display:flex; flex-direction:column; gap:20px">
+            <div style="font-size:16px; font-weight:700; color:var(--g800); border-bottom:1px solid var(--g100); padding-bottom:8px">1. Adım: İhtiyaç & Kapsam Tanımlama</div>
+            
+            <div v-if="isWizardPrefilled" style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:8px; font-size:12.5px; color:#16a34a; display:flex; align-items:center; gap:8px">
+              <span>✦</span> Bütçe İhtiyaç Analizinden otomatik dolduruldu. Kapsam alanları kilitlenmiştir.
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Otel / Tesis *</label>
+                <select v-model.number="newPos.hotel_id" class="fs" :disabled="isWizardPrefilled" @change="newPos.department_name = ''; newPos.sub_department = ''; newPos.title = ''">
+                  <option value="">Otel Seçin</option>
+                  <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">Ana Kategori (Departman) *</label>
+                <select v-model="newPos.department_name" class="fs" :disabled="isWizardPrefilled || !newPos.hotel_id" @change="newPos.sub_department = ''; newPos.title = ''">
+                  <option value="">Departman Seçin</option>
+                  <option v-for="d in filteredBudgetDepartments" :key="d" :value="d">{{ d }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Alt Kategori</label>
+                <select v-model="newPos.sub_department" class="fs" :disabled="isWizardPrefilled || !newPos.department_name" @change="newPos.title = ''">
+                  <option value="">Alt Kategori Seçin</option>
+                  <option v-for="s in filteredBudgetSubDepartments" :key="s" :value="s">{{ s || 'Alt Kategori Yok' }}</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">Pozisyon Başlığı *</label>
+                <select v-model="newPos.title" class="fs" :disabled="isWizardPrefilled || !newPos.department_name">
+                  <option value="">Pozisyon Seçin</option>
+                  <option v-for="t in filteredBudgetTitles" :key="t" :value="t">{{ t }}</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div class="fg">
-            <label class="fl">Pozisyon Başlığı *</label>
-            <select v-model="newPos.title" class="fs" :disabled="!newPos.department_name">
-              <option value="">Pozisyon Seçin</option>
-              <option v-for="t in filteredBudgetTitles" :key="t" :value="t">{{ t }}</option>
-            </select>
+
+          <!-- STEP 2: Pozisyon Bilgileri -->
+          <div v-if="currentWizardStep === 2" style="display:flex; flex-direction:column; gap:20px">
+            <div style="font-size:16px; font-weight:700; color:var(--g800); border-bottom:1px solid var(--g100); padding-bottom:8px">2. Adım: Pozisyon Detayları</div>
+            
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Seviye / Seniority *</label>
+                <select v-model="newPos.seniority_level" class="fs">
+                  <option>Junior</option>
+                  <option>Mid</option>
+                  <option>Senior</option>
+                  <option>Lead / Director</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">İstihdam Türü *</label>
+                <select v-model="newPos.employment_type" class="fs">
+                  <option>Tam zamanlı</option>
+                  <option>Yarı zamanlı (Part-time)</option>
+                  <option>Stajyer</option>
+                  <option>Dönemsel</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Sözleşme Tipi *</label>
+                <select v-model="newPos.contract_type" class="fs">
+                  <option>Belirsiz süreli</option>
+                  <option>Belirli süreli</option>
+                  <option>Sezonluk</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">İşe Alınacak Kişi Sayısı *</label>
+                <input v-model.number="newPos.headcount" type="number" class="fi" min="1">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Hedef Başlangıç Tarihi *</label>
+                <input v-model="newPos.target_date" type="date" class="fi">
+              </div>
+              <div class="fg">
+                <label class="fl">Çalışma Yeri / Şartları *</label>
+                <select v-model="newPos.location" class="fs">
+                  <option>Otelde / Yerinde</option>
+                  <option>Hibrit</option>
+                  <option>Uzaktan (Remote)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Lojman / Konaklama Desteği</label>
+                <select v-model="newPos.accommodation" class="fs">
+                  <option>Sağlanacak</option>
+                  <option>Sağlanmayacak</option>
+                  <option>Sadece Ulaşım Yardımı</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">Aranan Özellikler (Yetenekler - virgülle ayırın)</label>
+                <input v-model="newPos.required_skills_str" type="text" class="fi" placeholder="Örn: Servis Bilgisi, İletişim, İngilizce">
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 3: Bütçe & Ücret -->
+          <div v-if="currentWizardStep === 3" style="display:flex; flex-direction:column; gap:20px">
+            <div style="font-size:16px; font-weight:700; color:var(--g800); border-bottom:1px solid var(--g100); padding-bottom:8px">3. Adım: Bütçe ve Maaş Politikası Kontrolü</div>
+            
+            <!-- Real-time dynamic budget KPI indicators -->
+            <div style="background:var(--g50); border:1px solid var(--g200); padding:16px; border-radius:12px">
+              <div style="font-size:11px; font-weight:700; color:var(--g500); text-transform:uppercase; margin-bottom:12px">SİSTEM KADRO DURUM DEĞERLENDİRMESİ</div>
+              <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px">
+                <div style="background:#fff; padding:10px; border-radius:8px; border:1px solid var(--g200); text-align:center">
+                  <div style="font-size:11px; color:var(--g500)">Approved Bütçe</div>
+                  <b style="font-size:18px; color:var(--g900)">{{ newPos.headcount ? headcountData.kpis?.approved_budget || 24 : 0 }} FTE</b>
+                </div>
+                <div style="background:#fff; padding:10px; border-radius:8px; border:1px solid var(--g200); text-align:center">
+                  <div style="font-size:11px; color:var(--g500)">Aktif Çalışan</div>
+                  <b style="font-size:18px; color:var(--g900)">{{ newPos.headcount ? headcountData.kpis?.active_count || 18 : 0 }} FTE</b>
+                </div>
+                <div style="background:#fff; padding:10px; border-radius:8px; border:1px solid var(--g200); text-align:center">
+                  <div style="font-size:11px; color:var(--g500)">Net Kadro Açığı</div>
+                  <b style="font-size:18px; color:var(--red)">{{ newPos.headcount ? headcountData.kpis?.net_open || 6 : 0 }} FTE</b>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Taban Maaş / Alt Limit (TRY) *</label>
+                <input v-model.number="newPos.salary_min" type="number" class="fi" placeholder="Minimum net ücret">
+              </div>
+              <div class="fg">
+                <label class="fl">Hedeflenen Maaş (TRY) *</label>
+                <input v-model.number="newPos.salary_target" type="number" class="fi" placeholder="Hedef net ücret">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Tavan Maaş / Üst Limit (TRY) *</label>
+                <input v-model.number="newPos.salary_max" type="number" class="fi" placeholder="Maksimum net ücret">
+              </div>
+              <div class="fg">
+                <label class="fl">Teklif Onay Kuralı *</label>
+                <select v-model="newPos.offer_approval_rule" class="fs">
+                  <option>Otomatik onay (Bant içindeyse)</option>
+                  <option>Üst bant aşılırsa merkez onayı</option>
+                  <option>Her teklifte merkez İK onayı</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 4: Süreç & Ekip -->
+          <div v-if="currentWizardStep === 4" style="display:flex; flex-direction:column; gap:20px">
+            <div style="font-size:16px; font-weight:700; color:var(--g800); border-bottom:1px solid var(--g100); padding-bottom:8px">4. Adım: Süreç ve Onay Mekanizması</div>
+            
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">İşe Alım Pipeline Şablonu *</label>
+                <select v-model="newPos.pipeline_template" class="fs">
+                  <option>Standart İşe Alım Akışı</option>
+                  <option>Mavi Yaka Hızlı Akış</option>
+                  <option>Yönetici & Executive Süreci</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">Pozisyon Sorumlusu (Recruiter)</label>
+                <input v-model="newPos.hiring_manager" type="text" class="fi" placeholder="Ad Soyad girin">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Departman Yöneticisi (Hiring Manager)</label>
+                <input v-model="newPos.department_manager" type="text" class="fi" placeholder="Ad Soyad girin">
+              </div>
+            </div>
+
+            <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px">
+              <div style="font-size:13px; font-weight:700; color:var(--g700)">İŞ AKIŞI KURALLARI</div>
+              <label style="display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--g600); cursor:pointer">
+                <input v-model="newPos.rule_no_tech_without_hr" type="checkbox" style="margin-top:3px">
+                <span>İK Mülakat Raporu olmadan teknik mülakat aşamasına geçilemesin</span>
+              </label>
+              <label style="display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--g600); cursor:pointer">
+                <input v-model="newPos.rule_approve_outside_band" type="checkbox" style="margin-top:3px">
+                <span>Maaş politikası dışındaki tekliflerde merkez İK onayı istensin</span>
+              </label>
+              <label style="display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--g600); cursor:pointer">
+                <input v-model="newPos.rule_notify_new_application" type="checkbox" style="margin-top:3px">
+                <span>Yeni aday başvurusu yapıldığında pozisyon sorumlusuna bildirim gönder</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- STEP 5: İlan & Başvuru -->
+          <div v-if="currentWizardStep === 5" style="display:flex; flex-direction:column; gap:20px">
+            <div style="font-size:16px; font-weight:700; color:var(--g800); border-bottom:1px solid var(--g100); padding-bottom:8px">5. Adım: İlan ve Başvuru Formu Ayarları</div>
+            
+            <div class="fg">
+              <label class="fl">İlan Başlığı *</label>
+              <input v-model="newPos.job_ad_title" type="text" class="fi" placeholder="Örn: Sungate - Deneyimli Garson Arayışı">
+            </div>
+
+            <div class="fg">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+                <label class="fl" style="margin:0">İlan Detayı & Açıklaması *</label>
+                <button type="button" @click="aiGeneratePosition()" class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:11px; display:flex; align-items:center; gap:4px">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                  AI ile Otomatik Yaz
+                </button>
+              </div>
+              <textarea v-model="newPos.description" class="fta" rows="6" placeholder="Adayların göreceği iş tanımı, sorumluluklar ve aranan özellikler..."></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="fg">
+                <label class="fl">Yayın Dili</label>
+                <select v-model="newPos.job_ad_language" class="fs">
+                  <option>Türkçe</option>
+                  <option>İngilizce</option>
+                  <option>Rusça</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">Yayınlanacak Kanallar</label>
+                <div style="display:flex; gap:12px; margin-top:8px">
+                  <label style="font-size:12.5px; display:flex; align-items:center; gap:4px"><input v-model="newPos.channel_link_qr" type="checkbox"> QR & Link</label>
+                  <label style="font-size:12.5px; display:flex; align-items:center; gap:4px"><input v-model="newPos.channel_career_portal" type="checkbox"> Kariyer Sayfası</label>
+                  <label style="font-size:12.5px; display:flex; align-items:center; gap:4px"><input v-model="newPos.channel_linkedin" type="checkbox"> LinkedIn</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 6: Kontrol & Yayınla -->
+          <div v-if="currentWizardStep === 6" style="display:flex; flex-direction:column; gap:20px">
+            <div style="font-size:16px; font-weight:700; color:var(--g800); border-bottom:1px solid var(--g100); padding-bottom:8px">6. Adım: Son Kontrol ve Yayınlama Onayı</div>
+            
+            <div style="background:#f8fafc; border:1px solid var(--g200); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:14px">
+              <div style="font-size:12px; font-weight:700; color:var(--g500); text-transform:uppercase">İLANI YAYINLAMA ÖZETİ</div>
+              
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:13px">
+                <div><span style="color:var(--g500)">Otel:</span> <b style="color:var(--g800)">{{ getHotelName(newPos.hotel_id) || 'Tesis Belirtilmemiş' }}</b></div>
+                <div><span style="color:var(--g500)">Pozisyon:</span> <b style="color:var(--g800)">{{ newPos.title || 'Başlık Belirtilmemiş' }}</b></div>
+                <div><span style="color:var(--g500)">Sözleşme:</span> <b style="color:var(--g800)">{{ newPos.employment_type }} · {{ newPos.contract_type }}</b></div>
+                <div><span style="color:var(--g500)">Lojman:</span> <b style="color:var(--g800)">{{ newPos.accommodation }}</b></div>
+                <div><span style="color:var(--g500)">Kadro Adedi:</span> <b style="color:var(--g800)">{{ newPos.headcount }} kişi</b></div>
+                <div><span style="color:var(--g500)">Hedef Tarih:</span> <b style="color:var(--g800)">{{ newPos.target_date }}</b></div>
+                <div><span style="color:var(--g500)">Hedef Ücret:</span> <b style="color:var(--g800)">{{ newPos.salary_target ? newPos.salary_target.toLocaleString() + ' TRY' : 'Belirtilmemiş' }}</b></div>
+                <div><span style="color:var(--g500)">Onay Akışı:</span> <b style="color:var(--g800)">{{ newPos.offer_approval_rule }}</b></div>
+              </div>
+
+              <div style="border-top:1px solid var(--g200); padding-top:12px">
+                <span style="color:var(--g500); font-size:12px">İlan Başlığı:</span>
+                <div style="font-weight:700; color:var(--g800); font-size:13px; margin-top:2px">{{ newPos.job_ad_title }}</div>
+              </div>
+
+              <div v-if="!newPos.title || !newPos.hotel_id" style="background:#fff1f2; border:1px solid #fecdd3; padding:12px; border-radius:8px; color:#e11d48; font-size:12.5px">
+                <b>Hata:</b> Otel ve Pozisyon Başlığı alanları zorunludur. Lütfen 1. Adıma dönüp bu alanları doldurun.
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 7: Başarı & QR Kodu Ekranı -->
+          <div v-if="currentWizardStep === 7" style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:20px; padding:20px 0">
+            <div style="width:64px; height:64px; border-radius:50%; background:#dcfce7; display:flex; align-items:center; justify-content:center; color:#15803d; font-size:32px; font-weight:bold">
+              ✓
+            </div>
+            
+            <div>
+              <div style="font-size:22px; font-weight:800; color:var(--g900)">İş İlanı Başarıyla Yayınlandı!</div>
+              <div style="font-size:13px; color:var(--g500); margin-top:6px">Adaylar bu ilana artık dijital kanallar üzerinden başvurabilirler.</div>
+            </div>
+
+            <!-- QR Code Section -->
+            <div style="background:#f8fafc; border:1px solid var(--g200); border-radius:12px; padding:24px; display:flex; flex-direction:column; align-items:center; gap:16px; margin-top:8px">
+              <div style="font-size:11px; font-weight:700; color:var(--g500)">İLANA ÖZEL QR KOD</div>
+              
+              <img :src="newPos.qr_code_path || '/static/qrcodes/placeholder.png'" 
+                   alt="İlan QR Kodu" 
+                   style="width:160px; height:160px; border-radius:8px; border:4px solid #fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)">
+              
+              <div style="width:100%">
+                <div style="font-size:11px; color:var(--g400); margin-bottom:4px">İlan Başvuru Linki</div>
+                <div style="display:flex; gap:6px; width:340px">
+                  <input readonly :value="`${window.location.origin}/portal/job/${newPos.id}`" 
+                         style="flex:1; font-size:12px; padding:6px 10px; background:#fff; border:1px solid var(--g200); border-radius:6px" id="wizard-link-input">
+                  <button @click="copyShareLink(`${window.location.origin}/portal/job/${newPos.id}`)" class="btn btn-outline btn-sm" style="padding:6px 12px; font-size:11.5px">Kopyala</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- LIVE SUMMARY PANEL (Right) -->
+        <div v-if="currentWizardStep < 7" style="width:280px; border-left:1px solid var(--g200); background:#fcfcfc; padding:24px 20px; display:flex; flex-direction:column; gap:20px; overflow-y:auto">
+          <div style="font-size:11px; font-weight:700; color:var(--g500); letter-spacing:0.05em; text-transform:uppercase">CANLI ÖZET</div>
+          
+          <div style="display:flex; flex-direction:column; gap:16px">
+            <!-- Header Summary Card -->
+            <div style="border-bottom:1px solid var(--g200); padding-bottom:14px">
+              <div style="font-size:18px; font-weight:800; color:var(--g800)">{{ newPos.title || 'Pozisyon Seçilmedi' }}</div>
+              <div style="font-size:12px; color:var(--g500); margin-top:2px">{{ getHotelName(newPos.hotel_id) || 'Tesis Seçilmedi' }} · {{ newPos.department_name || 'Departman' }}</div>
+            </div>
+
+            <!-- Details -->
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:12px">
+              <div style="display:flex; justify-content:space-between">
+                <span style="color:var(--g500)">İstihdam:</span>
+                <span style="font-weight:700; color:var(--g800)">{{ newPos.employment_type }}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between">
+                <span style="color:var(--g500)">Sözleşme:</span>
+                <span style="font-weight:700; color:var(--g800)">{{ newPos.contract_type }}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between">
+                <span style="color:var(--g500)">Kadro:</span>
+                <span style="font-weight:700; color:var(--g800)">{{ newPos.headcount }} kişi</span>
+              </div>
+              <div style="display:flex; justify-content:space-between">
+                <span style="color:var(--g500)">Ücret Bandı:</span>
+                <span style="font-weight:700; color:var(--g800)" v-if="newPos.salary_min || newPos.salary_max">
+                  {{ newPos.salary_min ? newPos.salary_min.toLocaleString() : '?' }} - {{ newPos.salary_max ? newPos.salary_max.toLocaleString() : '?' }} TRY
+                </span>
+                <span style="font-weight:700; color:var(--g800)" v-else>-</span>
+              </div>
+              <div style="display:flex; justify-content:space-between">
+                <span style="color:var(--g500)">Sorumlu:</span>
+                <span style="font-weight:700; color:var(--g800)">{{ newPos.hiring_manager || '-' }}</span>
+              </div>
+            </div>
+            
+            <!-- SkillMatch Assistant Badge -->
+            <div style="background:#fff; border:1px solid var(--g200); border-radius:10px; padding:12px; display:flex; gap:8px; align-items:flex-start; margin-top:8px">
+              <span style="color:var(--primary); font-size:14px">✦</span>
+              <div style="font-size:11px; line-height:1.4">
+                <b style="color:var(--g800)">SkillMatch Asistanı:</b>
+                <div style="color:var(--g500); margin-top:2px">
+                  {{ newPos.title ? 'Seçilen kadro için organizasyon bütçe kontrolü yapıldı.' : 'Pozisyon seçildiğinde bütçe verileri buraya işlenecektir.' }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <button class="btn btn-secondary btn-sm" style="margin-bottom:12px" @click="aiGeneratePosition()" :disabled="!newPos.title">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          AI ile Öneri Al
-        </button>
-        <div class="form-row">
-          <div class="fg"><label class="fl">Seviye</label><select v-model="newPos.seniority_level" class="fs"><option value="">Seçin</option><option>Junior</option><option>Mid</option><option>Senior</option></select></div>
+      </div>
+
+      <!-- Wizard Footer -->
+      <div style="padding:16px 28px; border-top:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center; background:#fff">
+        <div>
+          <!-- Back Button -->
+          <button v-if="currentWizardStep > 1 && currentWizardStep < 7" 
+                  @click="currentWizardStep--" 
+                  class="btn btn-outline" 
+                  style="padding:10px 20px; font-weight:600; border-radius:8px">
+            ← Geri Dön
+          </button>
         </div>
-        <div class="fg"><label class="fl">İş Tanımı</label><textarea v-model="newPos.description" class="fta" rows="3" placeholder="Pozisyon açıklaması..."></textarea></div>
-        <div class="fg"><label class="fl">Gerekli Yetenekler</label><input v-model="newPos.required_skills_str" class="fi" placeholder="Python, SQL, Power BI (virgülle ayırın)"></div>
-        <div class="form-row">
-          <div class="fg"><label class="fl">Min Maaş (TRY)</label><input v-model.number="newPos.salary_min" class="fi" type="number" placeholder="45000"></div>
-          <div class="fg"><label class="fl">Max Maaş (TRY)</label><input v-model.number="newPos.salary_max" class="fi" type="number" placeholder="70000"></div>
+        
+        <div style="font-size:12.5px; color:var(--g500)" v-if="currentWizardStep < 7">
+          Adım {{ currentWizardStep }} / 6
+        </div>
+
+        <div>
+          <!-- Next / Publish Buttons -->
+          <button v-if="currentWizardStep < 6" 
+                  @click="currentWizardStep++" 
+                  class="btn btn-primary" 
+                  style="background:var(--primary); color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:700">
+            Devam Et →
+          </button>
+          
+          <button v-else-if="currentWizardStep === 6" 
+                  @click="savePosition()" 
+                  class="btn btn-primary" 
+                  style="background:#16a34a; color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:700">
+            Pozisyonu Yayınla ✦
+          </button>
+
+          <button v-else-if="currentWizardStep === 7" 
+                  @click="showNewPositionModal = false" 
+                  class="btn btn-primary" 
+                  style="background:var(--primary); color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:700">
+            Sihirbazı Kapat
+          </button>
         </div>
       </div>
-      <div class="modal-ftr">
-        <button class="btn btn-secondary" @click="showNewPositionModal=false">İptal</button>
-        <button class="btn btn-primary" @click="savePosition()">Kaydet</button>
-      </div>
+
     </div>
   </div>
 

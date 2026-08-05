@@ -100,6 +100,26 @@ class Position(Base):
     hotel_id = Column(Integer, ForeignKey("hotels.id"), nullable=True)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     
+    # Wizard and Job Ad fields
+    employment_type = Column(String, nullable=True)
+    contract_type = Column(String, nullable=True)
+    accommodation = Column(String, nullable=True)
+    salary_target = Column(Integer, nullable=True)
+    offer_approval_rule = Column(String, nullable=True)
+    pipeline_template = Column(String, nullable=True)
+    department_manager = Column(String, nullable=True)
+    rule_no_tech_without_hr = Column(Boolean, default=False)
+    rule_approve_outside_band = Column(Boolean, default=False)
+    rule_notify_new_application = Column(Boolean, default=False)
+    job_ad_title = Column(String, nullable=True)
+    job_ad_description = Column(Text, nullable=True)
+    application_form_fields = Column(JSON, nullable=True)
+    job_ad_language = Column(String, nullable=True)
+    channel_link_qr = Column(Boolean, default=False)
+    channel_career_portal = Column(Boolean, default=False)
+    channel_linkedin = Column(Boolean, default=False)
+    qr_code_path = Column(String, nullable=True)
+
     applications = relationship("Application", back_populates="position", cascade="all, delete-orphan")
 
 # ─── YENİ (v4) ───────────────────────────────────────────────────────────────

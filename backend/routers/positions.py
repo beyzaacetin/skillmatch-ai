@@ -37,6 +37,26 @@ def get_pdf_font():
     return "Helvetica", "Helvetica-Bold"
 
 
+import urllib.request
+import urllib.parse
+import os
+
+def generate_qr_code_helper(data: str, filename: str) -> str:
+    try:
+        encoded_data = urllib.parse.quote(data)
+        url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_data}"
+        upload_dir = "backend/static/qrcodes"
+        os.makedirs(upload_dir, exist_ok=True)
+        dest_path = os.path.join(upload_dir, filename)
+        
+        # Download and save the image
+        urllib.request.urlretrieve(url, dest_path)
+        return f"/static/qrcodes/{filename}"
+    except Exception as e:
+        print(f"QR Generation helper error: {e}")
+        return "/static/qrcodes/placeholder.png"
+
+
 @router.post("/", response_model=schemas.Position)
 def create_position(
     position: schemas.PositionCreate, 
@@ -47,6 +67,18 @@ def create_position(
     db.add(db_position)
     db.commit()
     db.refresh(db_position)
+    
+    # Generate QR Code and apply link
+    from config import settings
+    try:
+        apply_url = f"{settings.APP_URL}/portal/job/{db_position.id}"
+        qr_filename = f"position_{db_position.id}.png"
+        db_position.qr_code_path = generate_qr_code_helper(apply_url, qr_filename)
+        db.commit()
+        db.refresh(db_position)
+    except Exception as qr_ex:
+        print(f"Failed to generate QR code for position {db_position.id}: {qr_ex}")
+
     from services.audit_service import audit_service
     audit_service.log(db, current_user, "position_created", "position", db_position.id, {"title": db_position.title})
     return db_position
