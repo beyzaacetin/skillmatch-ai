@@ -571,3 +571,26 @@ def get_monthly_trends(
         })
         
     return trends
+
+
+@router.get("/debug")
+def debug_headcount(db: Session = Depends(get_db)):
+    count = db.query(models.WorkforceBudgetRecord).count()
+    months = db.query(models.WorkforceBudgetRecord.month_of_year).distinct().all()
+    hotels = db.query(models.WorkforceBudgetRecord.hotel_code).distinct().all()
+    first_few = db.query(models.WorkforceBudgetRecord).limit(10).all()
+    return {
+        "total_records": count,
+        "unique_months": [m[0] for m in months],
+        "unique_hotels": [h[0] for h in hotels],
+        "first_few": [
+            {
+                "hotel_code": r.hotel_code,
+                "department": r.department,
+                "position_title": r.position_title,
+                "month": r.month_of_year,
+                "fte": r.total_fte
+            }
+            for r in first_few
+        ]
+    }
