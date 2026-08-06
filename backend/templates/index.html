@@ -348,10 +348,14 @@ input:checked + .slider:before {
   <!-- ─── MAIN ─────────────────────────────────────────────────── -->
   <div class="main">
 
+    <!-- MOBILE SIDEBAR OVERLAY & TOGGLE -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="document.querySelector('.sidebar').classList.remove('open'); this.classList.remove('open')"></div>
+
     <!-- DASHBOARD -->
     <template v-if="page==='dashboard'">
       <!-- Header: Breadcrumb + Actions -->
       <header class="appHeader">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
         <div class="crumb">
           {{ dashboardHotelFilter ? getHotelName(dashboardHotelFilter) : 'Rixos Türkiye' }}
           <span>/</span>
@@ -888,6 +892,7 @@ input:checked + .slider:before {
     <template v-if="page==='headcount'">
       <!-- Header -->
       <div class="page-hdr" style="background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px; display:flex; justify-content:space-between; align-items:center">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
         <div>
           <div style="font-size:11px; font-weight:700; color:var(--g500); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px">İŞ GÜCÜ PLANLAMA</div>
           <div class="page-hdr-title" style="font-size:24px; font-weight:700; color:var(--g800)">Kadro İhtiyaçları</div>
@@ -1288,7 +1293,8 @@ input:checked + .slider:before {
 
     <!-- TALENT POOL -->
     <template v-if="page==='talent'">
-      <div class="page-hdr" style="background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px">
+      <div class="page-hdr" style="background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px; display:flex; gap:12px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
         <div>
           <div class="page-hdr-title">
             <span v-if="talentSubTab==='pool'">Aday Havuzu</span>
@@ -1897,10 +1903,11 @@ input:checked + .slider:before {
     </template>
 
     <template v-if="page==='jobs'">
-      
+
       <!-- PAGE 1: POSITIONS LIST -->
       <div v-if="!selectedPosition">
-        <div class="page-hdr" style="padding: 16px 24px;">
+        <div class="page-hdr" style="padding: 16px 24px; display:flex; gap:12px">
+          <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
           <div>
             <div class="page-hdr-title">Pozisyon Yönetimi</div>
             <div class="page-hdr-sub">{{ positions.length }} pozisyon · {{ positions.filter(p => p.is_active).length }} aktif · {{ positions.filter(p => p.priority === 'Kritik').length }} kritik</div>
@@ -2687,8 +2694,9 @@ input:checked + .slider:before {
 
     <!-- INTERVIEWS -->
     <template v-if="page==='interviews'">
-      <div class="page-hdr" style="height: auto; flex-direction: column; align-items: flex-start; padding: 15px 24px; gap: 10px;">
-        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+      <div class="page-hdr" style="height: auto; flex-direction: row; align-items: flex-start; padding: 15px 24px; gap: 10px;">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
+        <div style="display: flex; justify-content: space-between; width: calc(100% - 44px); align-items: center;">
           <div>
             <div class="page-hdr-title">Mülakatlar</div>
             <div class="page-hdr-sub">İşe alım mülakat süreci ve AI asistan araçları</div>
@@ -2960,6 +2968,7 @@ input:checked + .slider:before {
     <!-- ANALYTICS -->
     <template v-if="page==='analytics'">
       <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;background:#fff;border-bottom:1px solid var(--g200);padding:20px 24px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu" style="order:-1">☰</button>
         <div>
           <div class="page-hdr-title" style="font-family:'Georgia', 'Times New Roman', serif;font-size:24px;font-weight:700;color:var(--primary)">AI Intelligence Center</div>
           <div class="page-hdr-sub" style="font-size:13px;color:var(--g500)">Yapay Zeka destekli aday havuzu, eşleşme analitiği ve gelecek öngörüleri</div>
@@ -3264,9 +3273,12 @@ input:checked + .slider:before {
 
     <!-- TRACKING PAGE -->
     <template v-if="page==='tracking'">
-      <div class="page-hdr">
-        <div class="page-hdr-title">Takip Sayfası</div>
-        <div class="page-hdr-sub">Süreç özetleri ve bekleyen aksiyonlar</div>
+      <div class="page-hdr" style="display:flex; gap:12px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
+        <div>
+          <div class="page-hdr-title">Takip Sayfası</div>
+          <div class="page-hdr-sub">Süreç özetleri ve bekleyen aksiyonlar</div>
+        </div>
       </div>
       <div class="page-body">
         <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
@@ -3330,7 +3342,8 @@ input:checked + .slider:before {
 
     <!-- SYSTEM SETTINGS (SİSTEM AYARLARI) -->
     <template v-if="page==='settings'">
-      <div class="page-hdr" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px">
+      <div class="page-hdr" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px; gap:12px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
         <div>
           <div class="page-hdr-title" style="font-family:'Georgia', serif; font-size:24px; font-weight:700; color:var(--primary)">Sistem Ayarları</div>
           <div class="page-hdr-sub" style="font-size:13px; color:var(--g500)">Organizasyon yapısı, roller, dinamik parametreler ve denetim günlükleri</div>
@@ -4095,7 +4108,8 @@ input:checked + .slider:before {
 
     <!-- AI TALENT SEARCH PAGE -->
     <template v-if="page==='ai_search'">
-      <div class="page-hdr">
+      <div class="page-hdr" style="display:flex; gap:12px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
         <div>
           <div class="page-hdr-title">AI Talent Search</div>
           <div class="page-hdr-sub">Doğal dil aramaları ile tüm aday havuzunda akıllı eşleşmeler bulun</div>
@@ -4168,7 +4182,8 @@ input:checked + .slider:before {
 
     <!-- FULL CANDIDATE PROFILE PAGE -->
     <template v-if="page==='candidate_profile'">
-      <div class="page-hdr" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px">
+      <div class="page-hdr" style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-bottom:1px solid var(--g200); padding:20px 24px; gap:12px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
         <div style="display:flex; align-items:center; gap:16px">
           <button class="btn btn-outline btn-sm" @click="goBackToCandidates()">&larr; Geri Dön</button>
           <div class="cand-av" style="width:48px; height:48px; font-size:20px; background:var(--primary-light); color:var(--primary)">
