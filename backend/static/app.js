@@ -12,7 +12,12 @@ createApp({
       '/interviews': 'interviews',
       '/tasks': 'tasks',
       '/ai_search': 'ai_search',
-      '/users': 'users'
+      '/users': 'users',
+      '/headcount': 'headcount',
+      '/staffing': 'staffing',
+      '/campaigns': 'campaigns',
+      '/onboarding': 'onboarding',
+      '/blacklist': 'blacklist'
     };
     const page = ref(pathMap[window.location.pathname] || 'dashboard');
 
@@ -26,12 +31,32 @@ createApp({
     const headcountMonthlyTrends = ref([]);
     const headcountActionPlans = ref([]);
     const showHeadcountLayoutModal = ref(false);
-    const headcountLayout = ref(JSON.parse(localStorage.getItem('headcount_layout') || JSON.stringify({
+    const HEADCOUNT_COLUMNS = [
+      { key: 'budget', label: 'Bütçe' },
+      { key: 'active', label: 'Aktif' },
+      { key: 'confirmed', label: 'Kesin giriş' },
+      { key: 'netOpen', label: 'Net açık' },
+      { key: 'candidates', label: 'Aday' },
+      { key: 'salaryBand', label: 'Ücret bandı' },
+      { key: 'status', label: 'Durum' },
+      { key: 'action', label: 'İşe alım aksiyonu' }
+    ];
+    const DEFAULT_HEADCOUNT_LAYOUT = {
       showKpis: true,
       showChart: true,
       showPlanner: true,
-      showTable: true
-    })));
+      showTable: true,
+      columns: Object.fromEntries(HEADCOUNT_COLUMNS.map(c => [c.key, true]))
+    };
+    const headcountLayout = ref({
+      ...DEFAULT_HEADCOUNT_LAYOUT,
+      ...JSON.parse(localStorage.getItem('headcount_layout') || '{}'),
+      columns: {
+        ...DEFAULT_HEADCOUNT_LAYOUT.columns,
+        ...(JSON.parse(localStorage.getItem('headcount_layout') || '{}').columns || {})
+      }
+    });
+    const showHeadcountColumnsModal = ref(false);
 
     function saveHeadcountLayout() {
       localStorage.setItem('headcount_layout', JSON.stringify(headcountLayout.value));
@@ -509,7 +534,7 @@ createApp({
         dashboardHotelFilter.value = currentUser.value.hotel_access_ids[0];
         headcountFilter.value.hotel_id = currentUser.value.hotel_access_ids[0];
       }
-      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings(), loadHeadcount(), loadBudgetPositions(), loadPipelineTemplates()]);
+      await Promise.all([loadCandidates(), loadPositions(), loadAnalytics(), loadPendingApprovals(), loadSettings(), loadDashboardStats(), loadDashboardSettings(), loadHeadcount(), loadBudgetPositions(), loadPipelineTemplates(), loadCampaigns()]);
     }
 
     async function loadDashboardSettings() {
@@ -761,6 +786,21 @@ createApp({
       } catch (e) {
         console.error('Error loading budget positions:', e);
       }
+    }
+
+    async function downloadBudgetTemplate() {
+      try {
+        const headers = {};
+        if (token.value) headers['Authorization'] = `Bearer ${token.value}`;
+        const r = await fetch('/api/headcount/budget-template', { headers });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'kadro_butce_sablonu.xlsx';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) { showToast('Şablon indirilemedi: ' + e.message, 'error'); }
     }
 
     async function uploadHeadcountExcel(event) {
@@ -3486,7 +3526,7 @@ createApp({
 
       // Headcount state and methods
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,
-      loadHeadcount, uploadHeadcountExcel, openHeadcountDetails, toggleHeadcountJobActive, createPositionFromBudget,
+      loadHeadcount, uploadHeadcountExcel, downloadBudgetTemplate, openHeadcountDetails, toggleHeadcountJobActive, createPositionFromBudget,
       headcountMonthlyTrends, headcountActionPlans, addActionPlan, removeActionPlan,
 
       // New v2 states
@@ -3590,6 +3630,8 @@ createApp({
       filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
       salaryStats,
       showHeadcountLayoutModal,
+      showHeadcountColumnsModal,
+      HEADCOUNT_COLUMNS,
       headcountLayout,
       saveHeadcountLayout,
       pendingApprovals, loadPendingApprovals, resolveApproval, uploadSalaryPolicyExcel,

@@ -315,7 +315,7 @@ input:checked + .slider:before {
         </button>
         <button class="nav-item" :class="{active: page==='campaigns'}" @click="page='campaigns'">
           <span class="nav-icon">⌗</span> Kampanyalar &amp; QR
-          <span class="nav-badge" v-if="dashboardStatsData.pending_offers > 0">{{ dashboardStatsData.pending_offers }}</span>
+          <span class="nav-badge" v-if="campaigns.length">{{ campaigns.length }}</span>
         </button>
         <button class="nav-item" :class="{active: page==='onboarding'}" @click="page='onboarding'">
           <span class="nav-icon">✓</span> İşe Giriş
@@ -364,7 +364,7 @@ input:checked + .slider:before {
         <div class="headerActions">
           <button class="iconButton" title="Ara">⌕</button>
           <button class="iconButton notification" title="Bildirimler">
-            ♢<i>{{ (dashboardStatsData.action_items || []).length || 4 }}</i>
+            ♢<i v-if="(dashboardStatsData.action_items || []).length">{{ (dashboardStatsData.action_items || []).length }}</i>
           </button>
           <div class="dateChip">TR</div>
         </div>
@@ -1061,8 +1061,8 @@ input:checked + .slider:before {
               <!-- Hidden file picker -->
               <input type="file" ref="headcountExcelFileInput" @change="uploadHeadcountExcel" style="display:none" accept=".xlsx,.xls">
               
-              <button class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Şablon indir</button>
-              <button class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Kolonlar ⚙</button>
+              <button @click="downloadBudgetTemplate()" class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Şablon indir</button>
+              <button @click="showHeadcountColumnsModal = true" class="btn btn-outline" style="padding:6px 12px; font-size:12.5px">Kolonlar ⚙</button>
             </div>
           </div>
           
@@ -1070,14 +1070,14 @@ input:checked + .slider:before {
             <thead>
               <tr>
                 <th>POZİSYON / OTEL</th>
-                <th style="text-align:center">BÜTÇE</th>
-                <th style="text-align:center">AKTİF</th>
-                <th style="text-align:center">KESİN GİRİŞ</th>
-                <th style="text-align:center">NET AÇIK</th>
-                <th style="text-align:center">ADAY</th>
-                <th>ÜCRET BANDI</th>
-                <th>DURUM</th>
-                <th>İŞE ALIM AKSIYONU</th>
+                <th v-if="headcountLayout.columns.budget" style="text-align:center">BÜTÇE</th>
+                <th v-if="headcountLayout.columns.active" style="text-align:center">AKTİF</th>
+                <th v-if="headcountLayout.columns.confirmed" style="text-align:center">KESİN GİRİŞ</th>
+                <th v-if="headcountLayout.columns.netOpen" style="text-align:center">NET AÇIK</th>
+                <th v-if="headcountLayout.columns.candidates" style="text-align:center">ADAY</th>
+                <th v-if="headcountLayout.columns.salaryBand">ÜCRET BANDI</th>
+                <th v-if="headcountLayout.columns.status">DURUM</th>
+                <th v-if="headcountLayout.columns.action">İŞE ALIM AKSIYONU</th>
                 <th style="width:40px"></th>
               </tr>
             </thead>
@@ -1087,17 +1087,19 @@ input:checked + .slider:before {
                   <div style="font-weight:600; color:var(--g800)">{{ r.position_title }}</div>
                   <div style="font-size:12px; color:var(--g500)">{{ r.hotel_name }} · {{ r.department }}</div>
                 </td>
-                <td style="text-align:center; font-weight:600">{{ r.budget }}</td>
-                <td style="text-align:center">{{ r.active }}</td>
-                <td style="text-align:center">{{ r.confirmed_starters }}</td>
-                <td style="text-align:center; font-weight:700; color:var(--red)" v-if="r.net_open > 0">{{ r.net_open }}</td>
-                <td style="text-align:center; font-weight:700; color:var(--green)" v-else>0</td>
-                <td style="text-align:center">
+                <td v-if="headcountLayout.columns.budget" style="text-align:center; font-weight:600">{{ r.budget }}</td>
+                <td v-if="headcountLayout.columns.active" style="text-align:center">{{ r.active }}</td>
+                <td v-if="headcountLayout.columns.confirmed" style="text-align:center">{{ r.confirmed_starters }}</td>
+                <template v-if="headcountLayout.columns.netOpen">
+                  <td style="text-align:center; font-weight:700; color:var(--red)" v-if="r.net_open > 0">{{ r.net_open }}</td>
+                  <td style="text-align:center; font-weight:700; color:var(--green)" v-else>0</td>
+                </template>
+                <td v-if="headcountLayout.columns.candidates" style="text-align:center">
                   <span class="badge b-applied" v-if="r.candidates > 0">{{ r.candidates }}</span>
                   <span v-else style="color:var(--g400)">0</span>
                 </td>
-                <td>{{ r.salary_band }} TL</td>
-                <td>
+                <td v-if="headcountLayout.columns.salaryBand">{{ r.salary_band }} TL</td>
+                <td v-if="headcountLayout.columns.status">
                   <span class="badge" :class="{
                     'b-rejected': r.status === 'Kritik',
                     'b-applied': r.status === 'İlan gerekli',
@@ -1107,7 +1109,7 @@ input:checked + .slider:before {
                     {{ r.status }}
                   </span>
                 </td>
-                <td @click.stop>
+                <td v-if="headcountLayout.columns.action" @click.stop>
                   <span v-if="r.has_job_ad" class="badge b-hired" style="font-weight:600">✓ İlan Aktif</span>
                   <button v-else @click="createPositionFromBudget(r)" class="btn btn-outline btn-sm" style="padding:4px 8px; font-size:11.5px; border-color:var(--primary); color:var(--primary)">
                     ✦ İlan Oluştur
@@ -1117,6 +1119,24 @@ input:checked + .slider:before {
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Headcount Columns Modal -->
+      <div v-if="showHeadcountColumnsModal" class="modal-backdrop" @click="showHeadcountColumnsModal = false" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:99999">
+        <div class="modal-content" @click.stop style="background:#fff; border-radius:12px; max-width:400px; width:90%; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.15)">
+          <div style="font-size:18px; font-weight:700; color:var(--g800); margin-bottom:8px">Kolonlar</div>
+          <div style="font-size:13px; color:var(--g500); margin-bottom:20px">Pozisyon ihtiyaç planı tablosunda hangi kolonların görüneceğini seçin.</div>
+          <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px">
+            <label v-for="col in HEADCOUNT_COLUMNS" :key="col.key" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer">
+              <span style="font-size:13px; color:var(--g700)">{{ col.label }}</span>
+              <input type="checkbox" v-model="headcountLayout.columns[col.key]">
+            </label>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px">
+            <button @click="showHeadcountColumnsModal = false" class="btn btn-outline" style="padding:8px 16px; border-radius:6px; font-size:13px; font-weight:600">İptal</button>
+            <button @click="saveHeadcountLayout(); showHeadcountColumnsModal = false" class="btn btn-primary" style="padding:8px 16px; border-radius:6px; font-size:13px; font-weight:600">Kaydet</button>
+          </div>
         </div>
       </div>
 

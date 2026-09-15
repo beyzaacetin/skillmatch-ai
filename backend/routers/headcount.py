@@ -3,6 +3,7 @@ import io
 import pandas as pd
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from database import get_db
@@ -20,6 +21,41 @@ def get_hotel_code_by_id(hotel_id: int, db: Session) -> Optional[str]:
 def get_hotel_id_by_code(hotel_code: str, db: Session) -> Optional[int]:
     hotel = db.query(models.Hotel).filter(models.Hotel.code == hotel_code).first()
     return hotel.id if hotel else None
+
+BUDGET_TEMPLATE_COLUMNS = ['Otel', 'Otel_Alt', 'Ana Kategori', 'Alt Kategori',
+                           'Tanım (Pozisyon/İsim/Grade)', 'MonthOfYear', 'Toplam FTE']
+
+
+@router.get("/budget-template")
+def download_budget_template(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Excel template with exactly the columns upload_headcount_excel requires,
+    pre-filled with one example row using a real hotel code."""
+    hotel = db.query(models.Hotel).first()
+    example = [
+        hotel.code if hotel and hotel.code else 'SUN',
+        'Ana Otel',
+        'Yiyecek ve İçecek',
+        'Servis',
+        'Garson',
+        1,
+        4.0,
+    ]
+    df = pd.DataFrame([example], columns=BUDGET_TEMPLATE_COLUMNS)
+
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Butce')
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="kadro_butce_sablonu.xlsx"'},
+    )
+
 
 @router.post("/upload-excel")
 def upload_headcount_excel(
