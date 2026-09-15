@@ -323,8 +323,12 @@ def get_headcount_summary(
                 models.Application.status.in_(["applied", "screening", "hr_interview", "tech_interview", "manager_interview", "offer"])
             ).count()
         
-        budget_fte = int(agg["budget_fte"])
-        net_open = max(0, budget_fte - active_count - confirmed_count)
+        # int() truncated every row before summing, so the page total came out
+        # systematically below the Excel's SUM of "Toplam FTE" (e.g. 1121 against
+        # 1185.58 over 120 rows). Keep the real FTE and round only where the value
+        # has to be a whole number of people.
+        budget_fte = round(agg["budget_fte"], 2)
+        net_open = max(0, round(budget_fte) - active_count - confirmed_count)
         
         # Calculate salary band (from SalaryPolicy or default)
         sal_policy = db.query(models.SalaryPolicy).filter(
@@ -397,7 +401,7 @@ def get_headcount_summary(
 
     return {
         "kpis": {
-            "approved_budget": int(total_budget_fte),
+            "approved_budget": round(total_budget_fte, 2),
             "active_count": int(total_active_fte),
             "occupancy_rate": round(occupancy_rate, 1),
             "net_open": int(total_net_open),
