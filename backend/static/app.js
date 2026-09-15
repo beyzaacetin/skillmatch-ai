@@ -2016,6 +2016,18 @@ createApp({
       }
     });
 
+    // Every modal already closes on a backdrop click (@click.self on .overlay),
+    // but nothing listened for Escape, so the only way out of ~20 modals was to
+    // find the backdrop. Re-use the handler that is already there.
+    window.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      // .overlay is position:fixed, for which offsetParent is always null
+      const open = [...document.querySelectorAll('.overlay, .modal-backdrop, .modal-overlay')]
+        .filter(el => el.getBoundingClientRect().width > 0);
+      const top = open[open.length - 1];
+      if (top) top.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
     // Handle browser back and forward button navigation
     window.addEventListener('popstate', () => {
       const matchedPage = pathMap[window.location.pathname] || 'dashboard';
