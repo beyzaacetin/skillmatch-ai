@@ -3,13 +3,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 import models, schemas, auth, database
-from datetime import datetime
+from datetime import datetime, date
 
 router = APIRouter()
 
-@router.get("/", response_model=list)
+@router.get("/", response_model=List[schemas.StaffingNeedOut])
 def get_staffing_needs(
     hotel_id: Optional[int] = Query(None),
+    department_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
     db: Session = Depends(database.get_db),
@@ -18,11 +19,13 @@ def get_staffing_needs(
     q = db.query(models.StaffingNeed)
     if hotel_id:
         q = q.filter(models.StaffingNeed.hotel_id == hotel_id)
+    if department_id:
+        q = q.filter(models.StaffingNeed.department_id == department_id)
     if status:
-        q = q.filter(models.StaffingNeed.status == status)
+        q = q.filter(func.lower(models.StaffingNeed.status) == status.lower())
     if priority:
-        q = q.filter(models.StaffingNeed.priority == priority)
-    return q.all()
+        q = q.filter(func.lower(models.StaffingNeed.priority) == priority.lower())
+    return q.order_by(models.StaffingNeed.created_at.desc()).all()
 
 @router.post("/", response_model=dict)
 def create_manual_staffing_need(
@@ -30,11 +33,26 @@ def create_manual_staffing_need(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
+    if not payload.get("hotel_id"):
+        raise HTTPException(status_code=400, detail="Otel seçilmelidir.")
+    if not payload.get("position_title"):
+        raise HTTPException(status_code=400, detail="Pozisyon başlığı zorunludur.")
+
+    needed_by = payload.get("needed_by")
+    if needed_by:
+        try:
+            needed_by = date.fromisoformat(needed_by)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="İhtiyaç tarihi GG.AA.YYYY biçiminde okunamadı.")
+    else:
+        needed_by = None
+
     need = models.StaffingNeed(
         hotel_id=payload["hotel_id"],
-        department_id=payload.get("department_id"),
+        department_id=payload.get("department_id") or None,
         position_title=payload["position_title"],
         needed_fte=payload.get("needed_fte", 1.0),
+        needed_by=needed_by,
         priority=payload.get("priority", "normal"),
         source="manual",
         notes=payload.get("notes")
@@ -138,10 +156,12 @@ def staffing_needs_summary(
     all_needs = q.all()
     pending = sum(1 for n in all_needs if n.status == "pending")
     approved = sum(1 for n in all_needs if n.status == "approved")
-    total_gap = sum(n.needed_fte for n in all_needs if n.status == "pending")
-    
+    rejected = sum(1 for n in all_needs if n.status == "rejected")
+    total_gap = sum(n.needed_fte or 0 for n in all_needs if n.status == "pending")
+
     return {
         "pending_count": pending,
         "approved_count": approved,
-        "total_gap_fte": total_gap
+        "rejected_count": rejected,
+        "total_gap_fte": round(total_gap, 2)
     }

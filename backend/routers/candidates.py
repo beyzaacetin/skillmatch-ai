@@ -363,10 +363,26 @@ def blacklist_candidate(
     
     reason_code = payload.get("reason_code")
     evidence = payload.get("evidence")
-    notes = payload.get("notes")
-    
+    notes = payload.get("notes") or payload.get("reason")
+
+    # The candidate list toggles the flag off again, so removal has to be possible here.
+    if payload.get("is_blacklisted") is False:
+        c.is_blacklisted = False
+        c.blacklist_reason = None
+        db.commit()
+        _log(db, "candidate_blacklist_removed", "candidate", c.id, {"is_blacklisted": False}, current_user)
+        db.commit()
+        return {"is_blacklisted": False, "reason": None}
+
     c.is_blacklisted = True
-    c.blacklist_reason = f"[{reason_code}] {notes or ''} - Kanıt: {evidence or ''}"
+    parts = []
+    if reason_code:
+        parts.append(f"[{reason_code}]")
+    if notes:
+        parts.append(notes)
+    if evidence:
+        parts.append(f"Kanıt: {evidence}")
+    c.blacklist_reason = " ".join(parts) or "Sebep belirtilmemiş"
     
     if hasattr(c, 'blacklist_reason_code'):
         setattr(c, 'blacklist_reason_code', reason_code)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Float, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Date, Float, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -792,6 +792,7 @@ class StaffingNeed(Base):
     position_title = Column(String, nullable=False)
     position_code = Column(String, nullable=True)
     needed_fte = Column(Float, default=1.0)  # budget_fte - active_fte gap
+    needed_by = Column(Date, nullable=True)  # en geç ne zaman ihtiyaç var
     priority = Column(String, default="normal")  # urgent, high, normal, low
     status = Column(String, default="pending")  # pending, approved, rejected, position_created, cancelled
     approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)

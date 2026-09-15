@@ -216,7 +216,9 @@ try:
             "ALTER TABLE candidates ADD COLUMN phone_normalized VARCHAR(255)",
 
             "ALTER TABLE match_scores ADD COLUMN skill_score FLOAT",
-            "ALTER TABLE match_scores ADD COLUMN certification_score FLOAT"
+            "ALTER TABLE match_scores ADD COLUMN certification_score FLOAT",
+
+            "ALTER TABLE staffing_needs ADD COLUMN needed_by DATE"
         ]
         for q in queries:
             try:

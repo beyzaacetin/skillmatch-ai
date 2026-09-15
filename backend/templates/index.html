@@ -1781,9 +1781,9 @@ input:checked + .slider:before {
            </select>
            <select v-model="staffingNeedsFilter.status" class="form-input">
              <option value="">Tüm Durumlar</option>
-             <option value="PENDING">Bekleyen</option>
-             <option value="APPROVED">Onaylanan</option>
-             <option value="REJECTED">Reddedilen</option>
+             <option value="pending">Bekleyen</option>
+             <option value="approved">Onaylanan</option>
+             <option value="rejected">Reddedilen</option>
            </select>
            <select v-model="staffingNeedsFilter.priority" class="form-input">
              <option value="">Tüm Öncelikler</option>
@@ -1798,15 +1798,15 @@ input:checked + .slider:before {
         <div class="summary-cards" style="display:flex; gap:16px; margin-bottom: 24px;">
            <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
              <div style="font-size:12px; color:#666;">Bekleyen</div>
-             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.pending || 0}}</div>
+             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.pending_count || 0}}</div>
            </div>
            <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
              <div style="font-size:12px; color:#666;">Onaylanan</div>
-             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.approved || 0}}</div>
+             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.approved_count || 0}}</div>
            </div>
            <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
              <div style="font-size:12px; color:#666;">Reddedilen</div>
-             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.rejected || 0}}</div>
+             <div style="font-size:24px; font-weight:bold; color:var(--primary, #173D34);">{{staffingNeedsSummary.rejected_count || 0}}</div>
            </div>
            <div class="kpiCard" style="flex:1; padding:16px; background:#fff; border-radius:8px; border:1px solid #eaeaea;">
              <div style="font-size:12px; color:#666;">Toplam Açık FTE</div>
@@ -1822,6 +1822,7 @@ input:checked + .slider:before {
                 <th style="padding:12px 16px;">Departman</th>
                 <th style="padding:12px 16px;">Pozisyon</th>
                 <th style="padding:12px 16px;">İhtiyaç FTE</th>
+                <th style="padding:12px 16px;">En geç</th>
                 <th style="padding:12px 16px;">Öncelik</th>
                 <th style="padding:12px 16px;">Durum</th>
                 <th style="padding:12px 16px; text-align:right;">İşlemler</th>
@@ -1833,19 +1834,22 @@ input:checked + .slider:before {
                 <td style="padding:12px 16px;">{{ getDeptName ? getDeptName(need.department_id) : need.department_id }}</td>
                 <td style="padding:12px 16px;">{{ need.position_title }}</td>
                 <td style="padding:12px 16px;">{{ need.needed_fte }}</td>
+                <td style="padding:12px 16px;">{{ need.needed_by ? new Date(need.needed_by).toLocaleDateString('tr-TR') : '—' }}</td>
                 <td style="padding:12px 16px;">
-                  <span style="padding:4px 8px; border-radius:4px; font-size:12px; background:#e8f4f0; color:var(--primary);">
-                    {{ need.priority }}
+                  <span style="padding:4px 8px; border-radius:4px; font-size:12px; background:var(--color-mint); color:var(--color-primary);">
+                    {{ staffingPriorityLabel(need.priority) }}
                   </span>
                 </td>
-                <td style="padding:12px 16px;">{{ need.status }}</td>
+                <td style="padding:12px 16px;">
+                  <span class="badge" :class="staffingStatusClass(need.status)">{{ staffingStatusLabel(need.status) }}</span>
+                </td>
                 <td style="padding:12px 16px; text-align:right;">
-                  <button v-if="need.status === 'PENDING'" class="btn btn-secondary" style="margin-right:8px; padding:4px 12px; font-size:12px;" @click="approveStaffingNeed(need.id)">Onayla</button>
-                  <button v-if="need.status === 'PENDING'" class="btn" style="padding:4px 12px; font-size:12px; color:red; border:1px solid red; border-radius:4px; background:none;" @click="rejectStaffingNeed(need.id)">Reddet</button>
+                  <button v-if="need.status === 'pending'" class="btn btn-secondary" style="margin-right:8px; padding:4px 12px; font-size:12px;" @click="approveStaffingNeed(need.id)">Onayla</button>
+                  <button v-if="need.status === 'pending'" class="btn" style="padding:4px 12px; font-size:12px; color:var(--color-danger-text); border:1px solid var(--color-danger-text); border-radius:4px; background:none;" @click="rejectStaffingNeed(need.id)">Reddet</button>
                 </td>
               </tr>
               <tr v-if="staffingNeeds.length === 0">
-                <td colspan="7" style="padding:24px; text-align:center; color:#666;">Kayıt bulunamadı.</td>
+                <td colspan="8" style="padding:24px; text-align:center; color:#666;">Kayıt bulunamadı.</td>
               </tr>
             </tbody>
           </table>
@@ -1863,12 +1867,14 @@ input:checked + .slider:before {
             <div>
               <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Otel</label>
               <select v-model="newStaffingNeed.hotel_id" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <option value="">Otel seçin…</option>
                 <option v-for="hotel in settingsData.hotels" :key="hotel.id" :value="hotel.id">{{hotel.name}}</option>
               </select>
             </div>
             <div>
               <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Departman</label>
               <select v-model="newStaffingNeed.department_id" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <option value="">Departman seçin…</option>
                 <option v-for="dept in settingsData.departments" :key="dept.id" :value="dept.id">{{dept.name}}</option>
               </select>
             </div>
@@ -1879,6 +1885,10 @@ input:checked + .slider:before {
             <div>
               <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">FTE (Tam Zamanlı Eşdeğer)</label>
               <input v-model.number="newStaffingNeed.needed_fte" type="number" step="0.1" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">En geç ne zaman ihtiyaç var?</label>
+              <input v-model="newStaffingNeed.needed_by" type="date" class="form-input" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
             </div>
             <div>
               <label style="display:block; margin-bottom:4px; font-size:12px; color:#666;">Öncelik</label>

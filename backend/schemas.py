@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import List, Optional, Any
-from datetime import datetime
+from datetime import datetime, date
 
 class CandidateBase(BaseModel):
     name: Optional[str] = None
@@ -135,7 +135,9 @@ class Candidate(CandidateBase):
 class PositionBase(BaseModel):
     title: str
     department: Optional[str] = None
-    description: str
+    # nullable in the DB (models.Position.description), and positions created by
+    # approving a staffing need have none - a required str here 500s the whole list
+    description: Optional[str] = None
     required_skills: Optional[List[str]] = []
     preferred_skills: Optional[List[str]] = []
     min_experience_years: Optional[int] = 0
@@ -821,6 +823,28 @@ class RecruitmentCampaignOut(BaseModel):
     qr_code_path: Optional[str] = None
     utm_url: Optional[str] = None
     created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class StaffingNeedOut(BaseModel):
+    id: int
+    hotel_id: int
+    department_id: Optional[int] = None
+    organization_node_id: Optional[int] = None
+    position_title: str
+    position_code: Optional[str] = None
+    needed_fte: Optional[float] = None
+    needed_by: Optional[date] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    source: Optional[str] = None
+    notes: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    approved_by_id: Optional[int] = None
+    approved_at: Optional[datetime] = None
+    created_position_id: Optional[int] = None
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 

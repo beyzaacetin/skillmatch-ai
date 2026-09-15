@@ -326,9 +326,9 @@ createApp({
     // Staffing Needs Refs
     const staffingNeeds = ref([]);
     const staffingNeedsFilter = ref({ hotel_id: '', department_id: '', status: '', priority: '' });
-    const staffingNeedsSummary = ref({ pending: 0, approved: 0, rejected: 0, total_gap_fte: 0 });
+    const staffingNeedsSummary = ref({ pending_count: 0, approved_count: 0, rejected_count: 0, total_gap_fte: 0 });
     const showNewStaffingNeedModal = ref(false);
-    const newStaffingNeed = ref({ hotel_id: '', department_id: '', position_title: '', needed_fte: 1, priority: 'normal', notes: '' });
+    const newStaffingNeed = ref({ hotel_id: '', department_id: '', position_title: '', needed_fte: 1, needed_by: '', priority: 'normal', notes: '' });
 
     // Settings modals
     const showOrgModal = ref(false);
@@ -1288,7 +1288,8 @@ createApp({
       const reason = c.is_blacklisted ? null : prompt('Kara listeye alma sebebi:', 'Uygun olmayan davranış');
       if (!c.is_blacklisted && reason === null) return;
       try {
-        const res = await api('PATCH', `/api/candidates/${c.id}/blacklist`, { reason });
+        const res = await api('POST', `/api/candidates/${c.id}/blacklist`,
+          c.is_blacklisted ? { is_blacklisted: false } : { reason });
         c.is_blacklisted = res.is_blacklisted;
         c.blacklist_reason = res.reason;
         if (c.is_blacklisted) alert('Aday kara listeye alındı.');
@@ -1939,6 +1940,7 @@ createApp({
       if (p === 'analytics' || p === 'tracking') loadAnalytics();
       if (p === 'interviews') loadAllInterviews();
       if (p === 'headcount') loadHeadcount();
+      if (p === 'staffing') loadStaffingNeeds();
 
       // Synchronize browser URL history with current page state
       const reversePathMap = {
@@ -1951,7 +1953,8 @@ createApp({
         tasks: '/tasks',
         ai_search: '/ai_search',
         users: '/users',
-        headcount: '/headcount'
+        headcount: '/headcount',
+        staffing: '/staffing'
       };
       const targetPath = reversePathMap[p] || '/';
       if (window.location.pathname !== targetPath) {
@@ -2194,7 +2197,7 @@ createApp({
         work_model: 'Ofis'
       };
       try {
-        const dec = await api('GET', `/api/applications/${appId}/decision`);
+        const dec = await api('GET', `/api/positions/applications/${appId}/decision`);
         if (dec) {
           decisionData.value = dec;
         }
@@ -2219,7 +2222,7 @@ createApp({
           start_date: decisionData.value.start_date,
           work_model: decisionData.value.work_model
         };
-        await api('POST', `/api/applications/${activeDecisionApp.value.id}/decision`, payload);
+        await api('POST', `/api/positions/applications/${activeDecisionApp.value.id}/decision`, payload);
         showToast('İşe alım kararı başarıyla kaydedildi.', 'success');
         await loadWorkspace(selectedPosition.value.id);
       } catch (e) {
@@ -2801,6 +2804,18 @@ createApp({
       const d = settingsData.value.departments.find(x => x.id === id);
       return d ? d.name : 'Bilinmeyen Departman';
     }
+    const STAFFING_STATUS_TR = { pending: 'Bekliyor', approved: 'Onaylandı', rejected: 'Reddedildi', position_created: 'Pozisyon açıldı', cancelled: 'İptal edildi' };
+    const STAFFING_PRIORITY_TR = { urgent: 'Acil', high: 'Yüksek', normal: 'Normal', low: 'Düşük' };
+    function staffingStatusLabel(st) {
+      return STAFFING_STATUS_TR[(st || '').toLowerCase()] || st || '-';
+    }
+    function staffingPriorityLabel(pr) {
+      return STAFFING_PRIORITY_TR[(pr || '').toLowerCase()] || pr || '-';
+    }
+    function staffingStatusClass(st) {
+      const map = { pending: 'b-screening', approved: 'b-hired', rejected: 'b-rejected', position_created: 'b-offer', cancelled: 'b-rejected' };
+      return map[(st || '').toLowerCase()] || 'b-applied';
+    }
     function formatAuditDate(ds) {
       if (!ds) return '-';
       const d = new Date(ds);
@@ -3243,9 +3258,10 @@ createApp({
       try {
         const params = new URLSearchParams();
         if (staffingNeedsFilter.value.hotel_id) params.append('hotel_id', staffingNeedsFilter.value.hotel_id);
+        if (staffingNeedsFilter.value.department_id) params.append('department_id', staffingNeedsFilter.value.department_id);
         if (staffingNeedsFilter.value.status) params.append('status', staffingNeedsFilter.value.status);
         if (staffingNeedsFilter.value.priority) params.append('priority', staffingNeedsFilter.value.priority);
-        staffingNeeds.value = await api('GET', '/api/staffing-needs?' + params.toString());
+        staffingNeeds.value = await api('GET', '/api/staffing-needs/?' + params.toString());
         staffingNeedsSummary.value = await api('GET', '/api/staffing-needs/summary');
       } catch(e) { showToast('Kadro ihtiyaçları yüklenemedi: ' + e.message, 'error'); }
     }
@@ -3260,10 +3276,10 @@ createApp({
 
     async function createStaffingNeed() {
       try {
-        await api('POST', '/api/staffing-needs', newStaffingNeed.value);
+        await api('POST', '/api/staffing-needs/', newStaffingNeed.value);
         showToast('Kadro ihtiyacı oluşturuldu.', 'success');
         showNewStaffingNeedModal.value = false;
-        newStaffingNeed.value = { hotel_id: '', department_id: '', position_title: '', needed_fte: 1, priority: 'normal', notes: '' };
+        newStaffingNeed.value = { hotel_id: '', department_id: '', position_title: '', needed_fte: 1, needed_by: '', priority: 'normal', notes: '' };
         await loadStaffingNeeds();
       } catch(e) { showToast('Oluşturma hatası: ' + e.message, 'error'); }
     }
@@ -3485,6 +3501,7 @@ createApp({
       // Staffing Needs
       staffingNeeds, staffingNeedsFilter, staffingNeedsSummary, showNewStaffingNeedModal, newStaffingNeed,
       loadStaffingNeeds, autoDetectStaffingNeeds, createStaffingNeed, approveStaffingNeed, rejectStaffingNeed,
+      staffingStatusLabel, staffingPriorityLabel, staffingStatusClass,
 
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,
