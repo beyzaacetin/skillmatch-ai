@@ -229,6 +229,30 @@ def test_blacklist_can_be_added_and_removed(as_admin):
     assert off.json()["is_blacklisted"] is False
 
 
+# ── CV parsing without an API key ────────────────────────────────────────────
+
+def test_cv_fallback_reads_the_file_instead_of_inventing_a_person():
+    """With no GEMINI_API_KEY the parser returned a fixed persona ("Mock
+    Candidate", a senior Python developer) that was written into the candidate
+    record as if it had been read from the upload."""
+    from services.ai_analyzer import extract_basic_cv_data
+
+    data = extract_basic_cv_data(
+        "Ayse Yildirim\n"
+        "Kat Hizmetleri Gorevlisi\n"
+        "ayse.yildirim@ornek.com\n"
+        "+90 532 444 55 66\n"
+    )
+    assert data["name"] == "Ayse Yildirim"
+    assert data["email"] == "ayse.yildirim@ornek.com"
+    assert "532" in data["phone"]
+    # nothing is invented for the fields only the AI could fill
+    assert data["skills"] == []
+    assert data["experience"] == []
+    assert data["seniority_level"] is None
+    assert "analiz edilmedi" in data["summary"]
+
+
 # ── frontend wiring (static checks, no browser needed) ───────────────────────
 
 def test_every_nav_target_has_a_page_template():

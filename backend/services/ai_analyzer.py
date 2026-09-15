@@ -2,6 +2,7 @@ from config import settings
 import google.generativeai as genai
 import os
 import json
+import re
 from dotenv import load_dotenv
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
@@ -17,8 +18,7 @@ def analyze_cv(text: str):
     Analyzes CV text using Gemini to extract structured data.
     """
     if not API_KEY:
-        # Return mock data if no API key is found
-        return get_mock_data()
+        return extract_basic_cv_data(text)
 
     model = genai.GenerativeModel(settings.GEMINI_MODEL, generation_config={"response_mime_type": "application/json"})
     
@@ -71,28 +71,54 @@ def analyze_cv(text: str):
         return data
     except Exception as e:
         print(f"AI Analysis failed: {e}")
-        return get_mock_data()
+        return extract_basic_cv_data(text)
 
 
-def get_mock_data():
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+PHONE_RE = re.compile(r"(?:\+90|0)?[\s.-]?\(?5\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}")
+NAME_RE = re.compile(r"^[A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+){1,3}$")
+
+
+def extract_basic_cv_data(text: str) -> dict:
+    """Best-effort read of a CV without the AI.
+
+    This used to return a fixed sample persona ("Mock Candidate", a senior
+    Python developer), which was written straight into the candidate record and
+    read as if it had come from the uploaded file. Pull out what can actually be
+    read from the text and leave the AI-only fields empty rather than inventing
+    a profile.
+    """
+    text = text or ""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+    email_match = EMAIL_RE.search(text)
+    phone_match = PHONE_RE.search(text)
+
+    name = None
+    for line in lines[:15]:
+        if NAME_RE.match(line):
+            name = line
+            break
+    if not name and email_match:
+        name = email_match.group(0).split("@")[0].replace(".", " ").replace("_", " ").title()
+    if not name and lines:
+        name = lines[0][:80]
+
     return {
-        "name": "Mock Candidate",
-        "email": "mock@example.com",
-        "phone": "555-0123",
-        "summary": "Experienced developer with a passion for AI.",
-        "skills": ["Python", "React", "FastAPI", "Docker"],
-        "experience": [
-            {"title": "Senior Developer", "company": "Tech Corp", "years": "2020-Present", "description": "Leading backend team."}
-        ],
-        "education": [
-            {"degree": "BS Computer Science", "school": "University of Tech", "year": "2018"}
-        ],
-        "certifications": ["AWS Certified"],
-        "projects": ["SkillMatch AI"],
-        "seniority_level": "Senior",
-        "seniority_score": 90.0,
-        "strengths": ["System Design", "Leadership"],
-        "areas_for_improvement": ["Public Speaking"]
+        "name": name or "İsimsiz Aday",
+        "email": email_match.group(0) if email_match else None,
+        "phone": phone_match.group(0).strip() if phone_match else None,
+        "summary": "Bu CV yapay zeka ile analiz edilmedi (GEMINI_API_KEY tanımlı değil). "
+                   "Ad, e-posta ve telefon dosyadan okundu; diğer alanlar boş bırakıldı.",
+        "skills": [],
+        "experience": [],
+        "education": [],
+        "certifications": [],
+        "projects": [],
+        "seniority_level": None,
+        "seniority_score": None,
+        "strengths": [],
+        "areas_for_improvement": []
     }
 
 def compare_candidates(candidate1: dict, candidate2: dict, position: dict = None) -> dict:
