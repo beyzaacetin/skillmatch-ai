@@ -9,6 +9,7 @@ from sqlalchemy import func, and_, or_
 from database import get_db
 import models
 import auth
+from config import settings
 from datetime import datetime
 
 router = APIRouter()
@@ -374,9 +375,8 @@ def get_headcount_summary(
         total_confirmed_starters += confirmed_count
 
     # Fallbacks for empty states to keep visual consistency with Screenshot 4
-    if not rows:
-        # If database is completely empty and no Excel uploaded, return mock data
-        # matching Screenshot 4 so the user gets a working experience immediately.
+    if not rows and settings.DEMO_DATA:
+        # Showcase rows for an empty database; off unless DEMO_DATA is set.
         rows = [
             {"position_title": "Garson", "hotel_name": "Rixos Sungate", "hotel_code": "SUN", "hotel_id": 3, "department": "Yiyecek & İçecek", "budget": 48, "active": 39, "confirmed_starters": 2, "net_open": 7, "candidates": 26, "salary_band": "36-42K", "status": "Kritik", "has_job_ad": True, "position_id": 1},
             {"position_title": "Lifeguard", "hotel_name": "Rixos Sungate", "hotel_code": "SUN", "hotel_id": 3, "department": "Recreation", "budget": 10, "active": 9, "confirmed_starters": 0, "net_open": 1, "candidates": 0, "salary_band": "39-45K", "status": "İlan gerekli", "has_job_ad": False, "position_id": 2},

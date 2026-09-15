@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:8000"
 
     # Feature Flags
+    # When the real query comes back empty, the dashboard and the headcount table
+    # used to substitute hard-coded sample rows - candidate names, interview times,
+    # activity log entries and FTE figures - which read as real data. Off by
+    # default; set DEMO_DATA=true to get the showcase numbers back.
+    DEMO_DATA: bool = False
     ENABLE_CAMPAIGN_QR: bool = True
     ENABLE_OCR_ONBOARDING: bool = True
     ENABLE_SALARY_APPROVAL: bool = True

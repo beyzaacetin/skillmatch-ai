@@ -394,6 +394,20 @@ def test_dashboard_stats():
     db.add(budget)
     db.commit()
 
+    # The dashboard no longer substitutes sample rows when a query comes back
+    # empty, so this needs a real position for active_positions to be populated
+    # (and, with no applications on it, for an action item to be raised).
+    position = models.Position(
+        title="Garson",
+        hotel_id=hotel.id,
+        department_id=dept.id,
+        description="Servis ekibi",
+        is_active=True,
+        headcount=10,
+    )
+    db.add(position)
+    db.commit()
+
     def mock_get_current_user():
         return test_user
         

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import models, schemas, database
+from config import settings
 import auth
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -234,7 +235,7 @@ def get_department_performance(db: Session = Depends(database.get_db)):
             "hired_count": hired,
             "hiring_rate": round((hired / apps * 100), 1) if apps > 0 else 0.0
         })
-    if not data:
+    if not data and settings.DEMO_DATA:
         data = [{"department": "Teknoloji", "jobs_count": 1, "applications_count": 5, "hired_count": 1, "hiring_rate": 20.0}]
     return data
 
@@ -256,7 +257,7 @@ def get_interviewer_performance(db: Session = Depends(database.get_db)):
             "interviews_count": count,
             "avg_score": round(avg_score, 1) if avg_score else 0.0
         })
-    if not data:
+    if not data and settings.DEMO_DATA:
         data = [{"interviewer_name": "Demo Admin", "interviews_count": 2, "avg_score": 7.5}]
     return data
 
@@ -300,7 +301,7 @@ def get_cost_by_department(db: Session = Depends(database.get_db)):
             "cost_per_hire": cost_per_hire,
             "currency": "TRY"
         })
-    if not data:
+    if not data and settings.DEMO_DATA:
         data = [{"department": "Teknoloji", "cost_per_hire": 15000, "currency": "TRY"}]
     return data
 
@@ -363,7 +364,7 @@ def get_salary_report(db: Session = Depends(database.get_db), current_user: Opti
         pass
 
     # Default mockup data if DB is empty to display nice UI
-    if not policy_benchmarks:
+    if not policy_benchmarks and settings.DEMO_DATA:
         policy_benchmarks = [
             {"hotel": "Rixos Sungate", "position": "Garson", "min_salary": 30000, "target_salary": 35000, "max_salary": 40000},
             {"hotel": "Rixos Tekirova", "position": "Resepsiyonist", "min_salary": 32000, "target_salary": 38000, "max_salary": 44000}
@@ -404,14 +405,14 @@ def get_dashboard_stats(
     total_hired = hired_query.count()
 
     total_open_headcount = max(0, total_budget - total_hired)
-    if total_open_headcount == 0:
+    if total_open_headcount == 0 and settings.DEMO_DATA:
         total_open_headcount = 127
 
     active_query = db.query(models.Application).filter(models.Application.status.in_(["applied", "screening", "hr_interview", "tech_interview", "manager_interview", "offer"]))
     if active_hotel_id:
         active_query = active_query.join(models.Position).filter(models.Position.hotel_id == active_hotel_id)
     active_candidates = active_query.count()
-    if active_candidates == 0:
+    if active_candidates == 0 and settings.DEMO_DATA:
         active_candidates = 1248
 
     today_start = datetime.combine(datetime.today(), datetime.min.time())
@@ -426,14 +427,14 @@ def get_dashboard_stats(
             db.query(models.Position.id).filter(models.Position.hotel_id == active_hotel_id)
         ))
     today_interviews_count = interviews_query.count()
-    if today_interviews_count == 0:
+    if today_interviews_count == 0 and settings.DEMO_DATA:
         today_interviews_count = 18
 
     offers_query = db.query(models.Application).filter(models.Application.status == "offer")
     if active_hotel_id:
         offers_query = offers_query.join(models.Position).filter(models.Position.hotel_id == active_hotel_id)
     pending_offers_count = offers_query.count()
-    if pending_offers_count == 0:
+    if pending_offers_count == 0 and settings.DEMO_DATA:
         pending_offers_count = 7
 
     # NEW: Total FTE gap (from WorkforcePlanLine)
@@ -579,7 +580,7 @@ def get_dashboard_stats(
             "status_type": status_type
         })
 
-    if not active_positions_list:
+    if not active_positions_list and settings.DEMO_DATA:
         active_positions_list = [
             {"id": 1, "title": "Garson", "department": "Yiyecek & İçecek", "applications_count": 26, "interviews_count": 8, "offers_count": 2, "hires_count": 3, "status_text": "7 açık kadro", "status_type": "deficit"},
             {"id": 2, "title": "Lifeguard", "department": "Recreation", "applications_count": 0, "interviews_count": 0, "offers_count": 0, "hires_count": 0, "status_text": "Aday bulunamadı", "status_type": "empty"},
@@ -611,7 +612,7 @@ def get_dashboard_stats(
             "details": f"{pos.title} - Çevrim içi görüşme"
         })
 
-    if not schedule_list:
+    if not schedule_list and settings.DEMO_DATA:
         schedule_list = [
             {"id": 1, "time": "10:30", "candidate_name": "Ahmet Yılmaz", "position_title": "Garson", "type_label": "İK Mülakatı", "details": "Garson - Çevrim içi görüşme"},
             {"id": 2, "time": "14:00", "candidate_name": "Elif Demir", "position_title": "Resepsiyonist", "type_label": "Teknik Mülakat", "details": "Resepsiyonist - Ön Büro Müdürü"},
@@ -702,7 +703,7 @@ def get_dashboard_stats(
                 "match_score": int(best_score)
             })
 
-    if not new_candidates_list:
+    if not new_candidates_list and settings.DEMO_DATA:
         new_candidates_list = [
             {"id": 1, "name": "Ahmet Yılmaz", "position": "Garson", "hotel": "Rixos Sungate", "match_score": 91},
             {"id": 2, "name": "Elif Demir", "position": "Resepsiyonist", "hotel": "Rixos Premium Belek", "match_score": 87},
@@ -717,53 +718,68 @@ def get_dashboard_stats(
 
     pending_approvals_count = db.query(models.OfferApprovalRequest).filter_by(status="PENDING").count()
 
-    action_items = [
-        {
+    # Two of these have a real query behind them; the rest were fixed strings with
+    # no source at all, and the counts were floored with max() so a genuine 0 or 1
+    # still read as 3 or 1. Only report what is actually there.
+    action_items = []
+
+    if expiring_count > 0:
+        action_items.append({
             "id": "expiring_locks",
-            "title": f"{max(3, expiring_count)} adayın sahiplik süresi doluyor",
-            "description": "Ortak havuza aktarılmasına 1 gün kaldı",
+            "title": f"{expiring_count} adayın sahiplik süresi doluyor",
+            "description": "Ortak havuza aktarılmasına 2 günden az kaldı",
             "time": "Bugün",
             "action_text": "Adayları incele →",
             "target_page": "talent",
             "target_sub_tab": "pool"
-        },
-        {
-            "id": "missing_reports",
-            "title": "2 mülakat raporu eksik",
-            "description": "Dün tamamlanan görüşmelerin sonuçları girilmedi",
-            "time": "4 saat önce",
-            "action_text": "Raporları tamamla →",
-            "target_page": "interviews",
-            "target_sub_tab": "list"
-        },
-        {
+        })
+
+    if pending_approvals_count > 0:
+        action_items.append({
             "id": "pending_approvals",
-            "title": f"{max(1, pending_approvals_count)} teklif merkez onayı bekliyor",
-            "description": "Aşçı pozisyonu · Üst bandın %6 üzerinde",
-            "time": "2 saat önce",
+            "title": f"{pending_approvals_count} teklif merkez onayı bekliyor",
+            "description": "Maaş politikası dışında kalan teklifler",
+            "time": "",
             "action_text": "Teklifi görüntüle →",
             "target_page": "talent",
             "target_sub_tab": "approvals"
-        },
-        {
+        })
+
+    empty_pipeline_positions = [p for p in active_positions_list if p["applications_count"] == 0]
+    if empty_pipeline_positions:
+        first = empty_pipeline_positions[0]
+        extra = f" (+{len(empty_pipeline_positions) - 1})" if len(empty_pipeline_positions) > 1 else ""
+        action_items.append({
             "id": "empty_pipeline",
-            "title": "Lifeguard pozisyonunda aday yok",
-            "description": "1 açık kadro var ancak ilan ve uygun aday bulunmuyor",
-            "time": "Dün",
+            "title": f"{first['title']} pozisyonunda aday yok{extra}",
+            "description": "Açık kadro var ancak uygun aday bulunmuyor",
+            "time": "",
             "action_text": "İlan oluştur →",
             "target_page": "jobs",
             "target_sub_tab": ""
-        },
-        {
-            "id": "new_applications",
-            "title": "9 yeni kapı başvurusu geldi",
-            "description": "Garson ve Kat Hizmetleri pozisyonları",
-            "time": "35 dk önce",
-            "action_text": "Başvuruları aç →",
-            "target_page": "talent",
-            "target_sub_tab": "pool"
-        }
-    ]
+        })
+
+    if settings.DEMO_DATA and not action_items:
+        action_items = [
+            {
+                "id": "missing_reports",
+                "title": "2 mülakat raporu eksik",
+                "description": "Dün tamamlanan görüşmelerin sonuçları girilmedi",
+                "time": "4 saat önce",
+                "action_text": "Raporları tamamla →",
+                "target_page": "interviews",
+                "target_sub_tab": "list"
+            },
+            {
+                "id": "new_applications",
+                "title": "9 yeni kapı başvurusu geldi",
+                "description": "Garson ve Kat Hizmetleri pozisyonları",
+                "time": "35 dk önce",
+                "action_text": "Başvuruları aç →",
+                "target_page": "talent",
+                "target_sub_tab": "pool"
+            }
+        ]
 
     recent_logs = db.query(models.ImmutableAuditLog).order_by(models.ImmutableAuditLog.created_at.desc()).limit(5).all()
     recent_activities_list = []
@@ -784,7 +800,7 @@ def get_dashboard_stats(
             "details": detail_msg
         })
     
-    if not recent_activities_list:
+    if not recent_activities_list and settings.DEMO_DATA:
         recent_activities_list = [
             {"id": 1, "user_name": "Şule Sıray", "action": "Aday Değerlendirme", "time": "15:42", "details": "Ahmet Yılmaz için mülakat değerlendirme raporu girildi."},
             {"id": 2, "user_name": "Can Öz", "action": "Teklif Onay", "time": "14:15", "details": "Garson pozisyonu bütçe aşım talebi onaylandı."},

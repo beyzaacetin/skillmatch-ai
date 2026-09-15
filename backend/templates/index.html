@@ -1780,6 +1780,7 @@ input:checked + .slider:before {
     <!-- STAFFING NEEDS PAGE -->
     <template v-if="page==='staffing'">
       <header class="appHeader">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu">☰</button>
         <div class="crumb">
           <b>Kadro İhtiyacı Yönetimi</b>
         </div>

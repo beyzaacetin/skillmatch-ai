@@ -2107,3 +2107,58 @@ i.offerDot { background: var(--amber); }
   }
 }
 
+
+/* ── Yatay taşma düzeltmesi (mobil) ──────────────────────────────────────────
+   Grid ve flex track'leri varsayılan olarak min-content'in altına inemez, bu
+   yüzden tek kolona düşen dashboard yine 390px'e sığmıyor ve tarayıcı sayfayı
+   küçültüyordu (390px telefonda layout viewport 562-718px'e çıkıyor, 480px ve
+   360px kuralları hiç devreye girmiyordu). min-width:0 track'in daralmasına
+   izin verir; geniş tablolar kırpılmak yerine yatay kayar. */
+@media (max-width: 768px) {
+  .personalLayout { grid-template-columns: minmax(0, 1fr); }
+  .personalLeft, .personalCenter, .personalRight { min-width: 0; }
+  .personalLayout section.widgetBox,
+  .personalLayout .widgetBox { min-width: 0; max-width: 100%; }
+
+  /* 2fr 60px 60px 60px 70px 100px + 5x8px gap = 390px taban; widget 342px.
+     Kolon hizası bozulmasın diye satırlar birlikte yatay kayıyor. */
+  .roleBoard { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .roleBoardHead, .roleBoard > article { min-width: 420px; }
+
+  .enterprise-table-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Geniş tablolar kırpılmak yerine kutularının içinde yatay kaysın. Tablo
+     sarmalayıcılarının çoğunda satır içi overflow:hidden var; satır içi stil
+     media query'yi ezdiği için burada !important şart. (Tablonun kendisine
+     display:block vermek thead'i kutudan kaçırıyor, o yüzden sarmalayıcı.) */
+  .page-body .card:has(> table),
+  .page-body .card:has(> .tbl) {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Satır içi repeat(N, 1fr) gridleri 390px'e sığmıyor ve satır içi stil
+     media query'yi ezdiği için !important ile esnetiliyor. */
+  .page-body [style*="grid-template-columns:repeat"],
+  .page-body [style*="grid-template-columns: repeat"] {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  }
+
+  /* Satır içi flex sıraları (filtre çubukları, buton grupları) sarsın. */
+  .page-body [style*="display:flex"],
+  .page-body [style*="display: flex"] { flex-wrap: wrap; }
+
+  /* Sınıf tabanlı sabit kolonlu gridler de daralsın. */
+  .positions-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+  /* Bazı kartlarda satır içi min-width var (örn. Aksiyon Planı min-width:260px);
+     390px ekranda hiçbir kart viewport'tan geniş bir taban dayatmamalı. */
+  .page-body .card { min-width: 0 !important; }
+  .page-body .card > div { min-width: 0; }
+  .page-body .card .btn { max-width: 100%; }
+}
