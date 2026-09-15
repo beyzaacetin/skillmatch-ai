@@ -3102,10 +3102,10 @@ createApp({
 
     async function loadPublicWalkinDetails(hotelId) {
       try {
-        const res = await fetch(`/api/portal/walk-in/${hotelId}`);
+        const res = await fetch(`/api/portal/public/walk-in/hotel/${hotelId}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Walk-in bilgileri yüklenemedi.');
-        publicBranding.value = data;
+        publicBranding.value = { ...data, hotel_id: hotelId };
         walkinForm.value.position_title = '';
       } catch (err) {
         showToast('Otel walk-in bilgileri yüklenemedi: ' + err.message, 'error');
@@ -3174,7 +3174,7 @@ createApp({
         formData.append('kvkk_consent', walkinForm.value.kvkk_consent);
         formData.append('cv_file', walkinCv.value);
 
-        const url = `/api/portal/walk-in/${publicBranding.value.hotel_id}/apply`;
+        const url = `/api/portal/public/walk-in/hotel/${publicBranding.value.hotel_id}/apply`;
         const res = await fetch(url, {
           method: 'POST',
           body: formData

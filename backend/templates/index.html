@@ -467,21 +467,7 @@ input:checked + .slider:before {
                   </article>
                 </template>
                 <template v-else>
-                  <article>
-                    <time>10:30</time><i class="interviewDot"></i>
-                    <div><b>Ahmet Yılmaz · İK Mülakatı</b><span>Garson · Çevrim içi görüşme</span></div>
-                    <button @click="page='interviews'">Başlat</button>
-                  </article>
-                  <article>
-                    <time>14:00</time><i class="techDot"></i>
-                    <div><b>Elif Demir · Teknik Mülakat</b><span>Resepsiyonist · Ön Büro Müdürü</span></div>
-                    <button @click="page='interviews'">Detay</button>
-                  </article>
-                  <article>
-                    <time>16:30</time><i class="offerDot"></i>
-                    <div><b>Ücret teklif değerlendirmesi</b><span>Can Öz · Aşçı</span></div>
-                    <button @click="page='interviews'">Detay</button>
-                  </article>
+                  <p class="personalEmpty">Bugün planlanmış görüşme yok.</p>
                 </template>
               </div>
             </section>
@@ -525,26 +511,7 @@ input:checked + .slider:before {
                 </article>
               </template>
               <template v-else>
-                <article @click="page='jobs'" style="cursor:pointer">
-                  <div><b>Garson</b><small>Yiyecek &amp; İçecek</small></div>
-                  <strong>26</strong><strong>8</strong><strong>2</strong><strong>3</strong>
-                  <span class="personalState danger">7 açık kadro</span>
-                </article>
-                <article @click="page='jobs'" style="cursor:pointer">
-                  <div><b>Lifeguard</b><small>Recreation</small></div>
-                  <strong>0</strong><strong>0</strong><strong>0</strong><strong>0</strong>
-                  <span class="personalState warning">Aday bulunamadı</span>
-                </article>
-                <article @click="page='jobs'" style="cursor:pointer">
-                  <div><b>Resepsiyonist</b><small>Ön Büro</small></div>
-                  <strong>14</strong><strong>5</strong><strong>2</strong><strong>1</strong>
-                  <span class="personalState success">Pipeline sağlıklı</span>
-                </article>
-                <article @click="page='jobs'" style="cursor:pointer">
-                  <div><b>Aşçı</b><small>Mutfak</small></div>
-                  <strong>7</strong><strong>3</strong><strong>1</strong><strong>0</strong>
-                  <span class="personalState purple">Teklif onayda</span>
-                </article>
+                <p class="personalEmpty">Sorumluluğunuzda aktif pozisyon bulunmuyor.</p>
               </template>
             </section>
 
@@ -579,24 +546,7 @@ input:checked + .slider:before {
                 </article>
               </template>
               <template v-else>
-                <article>
-                  <div class="avatar" style="background:#E3F1EB; color:#34785F">AY</div>
-                  <div><b>Ahmet Yılmaz</b><span>Garson · Rixos Sungate</span></div>
-                  <em style="background:#E3F1EB; color:#34785F; border:1px solid #C3E7D9">%91 eşleşme</em>
-                  <button @click="page='talent'">İncele →</button>
-                </article>
-                <article>
-                  <div class="avatar" style="background:#F9EDCF; color:#996818">ED</div>
-                  <div><b>Elif Demir</b><span>Resepsiyonist · Rixos Premium Belek</span></div>
-                  <em style="background:#F9EDCF; color:#996818; border:1px solid #F1DEB4">%87 eşleşme</em>
-                  <button @click="page='talent'">İncele →</button>
-                </article>
-                <article>
-                  <div class="avatar" style="background:#ECE7F3; color:#6C5990">MK</div>
-                  <div><b>Mehmet Kaya</b><span>Lifeguard · Rixos Sungate</span></div>
-                  <em style="background:#ECE7F3; color:#6C5990; border:1px solid #DCD3EA">%83 eşleşme</em>
-                  <button @click="page='talent'">İncele →</button>
-                </article>
+                <p class="personalEmpty">Son 24 saatte size atanmış yeni aday yok.</p>
               </template>
             </section>
           </div>
@@ -629,51 +579,7 @@ input:checked + .slider:before {
                 </article>
               </template>
               <template v-else>
-                <article class="urgent">
-                  <i>◷</i>
-                  <div>
-                    <b>3 adayın sahiplik süresi doluyor</b>
-                    <p>Ortak havuza aktarılmalarına 1 gün kaldı</p>
-                    <small>Bugün</small>
-                    <button @click="page='talent'">Adayları incele →</button>
-                  </div>
-                </article>
-                <article class="warning">
-                  <i>▤</i>
-                  <div>
-                    <b>2 mülakat raporu eksik</b>
-                    <p>Dün tamamlanan görüşmelerin sonuçları girilmedi</p>
-                    <small>4 saat önce</small>
-                    <button @click="page='interviews'">Raporları tamamla →</button>
-                  </div>
-                </article>
-                <article class="purple">
-                  <i>₺</i>
-                  <div>
-                    <b>1 teklif merkez onayı bekliyor</b>
-                    <p>Aşçı pozisyonu · Üst bandın %6 üzerinde</p>
-                    <small>2 saat önce</small>
-                    <button @click="page='talent'; talentSubTab='approvals'; loadPendingApprovals()">Teklifi görüntüle →</button>
-                  </div>
-                </article>
-                <article class="info">
-                  <i>◎</i>
-                  <div>
-                    <b>Lifeguard pozisyonunda aday yok</b>
-                    <p>1 açık kadro var ancak ilan ve uygun aday bulunmuyor</p>
-                    <small>Dün</small>
-                    <button @click="page='jobs'">İlan oluştur →</button>
-                  </div>
-                </article>
-                <article class="success">
-                  <i>⌁</i>
-                  <div>
-                    <b>9 yeni kapı başvurusu geldi</b>
-                    <p>Garson ve Kat Hizmetleri pozisyonları</p>
-                    <small>35 dk önce</small>
-                    <button @click="page='talent'">Başvuruları aç →</button>
-                  </div>
-                </article>
+                <p class="personalEmpty">Şu an bekleyen bir işiniz yok.</p>
               </template>
             </section>
 
@@ -694,10 +600,7 @@ input:checked + .slider:before {
                 </div>
               </template>
               <template v-else>
-                <div><i></i><span>Ahmet Yılmaz mülakatı kabul etti<small>12 dk önce</small></span></div>
-                <div><i></i><span>Seda Akın 3 aday yönlendirdi<small>28 dk önce</small></span></div>
-                <div><i></i><span>Garson ilanına 4 yeni başvuru<small>45 dk önce</small></span></div>
-                <div><i></i><span>Teklif revizyonu onaylandı<small>1 sa önce</small></span></div>
+                <p class="personalEmpty">Henüz kayıtlı hareket yok.</p>
               </template>
             </section>
           </div>
