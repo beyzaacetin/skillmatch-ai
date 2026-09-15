@@ -1,9 +1,19 @@
+import os
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from config import settings
 
 SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+
+# A relative sqlite path resolves against the CWD, so starting from the repo root
+# ("uvicorn backend.main:app", as KULLANIM_KILAVUZU.md documents) and from backend/
+# ("uvicorn main:app", as CLAUDE.md documents) opened two different database files.
+# Anchor the default file to backend/ so both entry points share one database.
+if SQLALCHEMY_DATABASE_URL.startswith("sqlite:///./"):
+    _db_file = SQLALCHEMY_DATABASE_URL[len("sqlite:///./"):]
+    SQLALCHEMY_DATABASE_URL = "sqlite:///" + os.path.join(os.path.dirname(os.path.abspath(__file__)), _db_file)
 
 if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
