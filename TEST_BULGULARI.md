@@ -4,7 +4,7 @@ Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıl
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
 **Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 26/26 pytest geçiyor
-(16 mevcut + 10 yeni regresyon testi)
+(16 mevcut + 10 yeni regresyon testi) · **10 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -166,6 +166,42 @@ yani **bekleyen teklif** sayısını kampanya sayısı gibi gösteriyordu.
 `reversePathMap` adrese `/headcount`, `/staffing` vb. yazıyordu ama `pathMap`'te
 karşılıkları yoktu; F5'e basınca dashboard'a düşüyordun.
 
+### ✅ D-19 — Walk-in QR başvuru akışının tamamı kırıktı
+`/portal/walk-in/1` mevcut bir otel için **404** veriyordu. `app.js`
+`/api/portal/walk-in/{id}` çağırıyor, rotalar ise
+`/api/portal/public/walk-in/hotel/{id}` altında. Gönderim adresinde de aynı
+uyumsuzluk vardı, üstelik branding yanıtı `hotel_id` döndürmediği için URL'de
+`undefined` oluşuyordu.
+
+Yani **kampanya QR kodlarının işaret ettiği başvuru yolu hiç çalışmıyordu.**
+Uçtan uca doğrulandı: form otelin gerçek pozisyon listesini yüklüyor, gönderim
+adayı ve `QR Walk-In` kaynaklı başvuruyu oluşturuyor.
+
+Bu ikisi ilk API taramasında kaçmıştı çünkü `api()` yardımcısı yerine ham
+`fetch()` kullanıyorlar. Artık 6 ham `fetch` yolunun tamamı da rota tablosuyla
+karşılaştırıldı ve eşleşiyor.
+
+### ✅ D-20 — Modallar Escape ile kapanmıyordu
+Yaklaşık 20 modal var; hepsi backdrop tıklamasıyla kapanıyor (`@click.self`),
+ama Escape'i dinleyen hiçbir şey yoktu. Backdrop'u bulamayan kullanıcı modalda
+sıkışıyordu — otomatik test de tam bu yüzden aday modalında takıldı.
+
+### ✅ D-21 — Kadro İhtiyacı sayfasında mobil menü butonu yoktu
+Telefonda o sayfaya girince sidebar'a dönüş yolu kalmıyordu. Artık 14 sayfa
+şablonunun tamamında hamburger butonu var.
+
+### ✅ D-22 — Mobilde sayfa viewport'a sığmıyordu
+Mobil responsive geçişi breakpoint'leri eklemiş, ama içerik hâlâ viewport'tan
+geniş kaldığı için **tarayıcı sayfayı küçültüyordu**: 390px telefonda layout
+viewport Genel Bakış'ta 562px, Kadro İhtiyaçları'nda 718px çıkıyordu. Sonuç:
+480px ve 360px kuralları hiç devreye girmiyor, 12px taban font ~6,5px'e iniyordu.
+
+Üç ayrı sebep vardı: (1) grid track'leri min-content'in altına inemiyordu,
+(2) geniş tabloların yatay kaydırma kutusu yoktu, (3) satır içi `style`
+(`repeat(5, 1fr)`, `min-width:260px`) media query ile ezilemiyordu.
+
+Ölçüm sonucu: beş sayfanın hepsinde 390px ve 360px'te `scrollWidth == viewport`.
+
 ---
 
 ## 3. 📋 Senin sorduğun 3 madde
@@ -247,10 +283,37 @@ gösteriyordu. Bir İK sisteminde bu, yanlış karara sebep olabilecek en tehlik
 Yani **boş bir veritabanı, eksiksiz ve tamamen kurgusal bir iş gücü tablosu**
 gösteriyordu. Hepsi 0'a (selamlama giriş yapan kullanıcıya) çevrildi.
 
-⚠️ **Hâlâ duran bir tane var, bilerek dokunmadım:** `routers/headcount.py` içinde
-veritabanı tamamen boşsa 5 satırlık sahte tablo döndüren bir blok var
-(Garson/Lifeguard/Resepsiyonist… "matching Screenshot 4" yorumuyla). Demo amaçlı
-konmuş olabilir. **Kaldırmamı ister misin?**
+### ✅ Ve asıl büyük olan: backend de uyduruyordu
+
+Arayüzdeki sahte varsayılanları temizledikten sonra rakamlar hâlâ tutmuyordu.
+Sebep: `routers/analytics.py` gerçek sorgu boş dönünce **gerçek kayıt gibi
+okunan örnek satırlar** koyuyordu:
+
+- Aday isimleri: *Ahmet Yılmaz*, *Elif Demir*, eşleşme yüzdeleriyle
+- Mülakat saatleri: *10:30 İK Mülakatı*, *14:00 Teknik Mülakat*
+- Denetim günlüğü kayıtları, **gerçek bir çalışanın adına** atfedilmiş (*Şule Sıray*)
+- Maaş bandı referansları, departman bazlı işe alım maliyetleri
+- `open_headcount = 127`, `active_candidates = 1248`, `today_interviews = 18`, `pending_offers = 7`
+
+"İlgilenmeniz gerekenler" paneli daha da kötüydü: **beş sabit metin**, üçünün
+arkasında hiçbir sorgu yok; sorgusu olan ikisi de `max(3, ...)` / `max(1, ...)`
+ile taban uyguladığı için gerçek 0 veya 1 yine 3 ve 1 olarak görünüyordu.
+
+Ayrıca `index.html`'deki **beş widget'ın her birinde** aynı örnek satırların bir
+kopyası `v-else` dalında duruyordu — yani backend'i düzeltmek tek başına yetmedi.
+
+**Ne yaptım:** Silmek yerine `DEMO_DATA` özellik bayrağının arkasına aldım,
+varsayılan **kapalı**. Gerçek kurulum gerçek rakamları gösterir; demo isteyen
+`DEMO_DATA=true` yapar. Aksiyon paneli artık veriden türetiliyor: sahiplik
+süresi dolanlar ve bekleyen onaylar **gerçek sayılarını** gösteriyor, sıfırda
+kayboluyor; aday bulunmayan pozisyonlar gerçek pozisyon listesinden adlandırılıyor.
+Widget'ların `v-else` dalları dürüst boş durumlara çevrildi
+("Bugün planlanmış görüşme yok.", "Şu an bekleyen bir işiniz yok." …).
+
+⚠️ **Dikkat:** `tests/test_hotfixes.py::test_dashboard_stats` bu sahte veriye
+karşı assert ediyormuş — bütçe satırı oluşturup hiç `Position` oluşturmuyordu,
+yani `active_positions` sadece uydurma yüzünden doluydu. Testi gerçek pozisyon
+oluşturacak şekilde düzelttim ki assert bir anlam ifade etsin.
 
 ---
 
@@ -278,6 +341,12 @@ ediyorum ama CLAUDE.md'deki "bozuk olmayanı düzeltme" kuralı gereği dokunmad
 döndüren bir "Fallback Diagnostic Server" açıyor. CLAUDE.md'de zaten not düşülmüş;
 Railway dışına çıkmadan önce gözden geçir.
 
+### Olmayan bir pozisyon için başvuru formu yine de açılıyor
+`/portal/job/9999` "Pozisyon bulunamadı" uyarısı veriyor ama form kabuğunu yine
+de çiziyor ("Genel Başvuru"). Aday formu doldurabilir, gönderim sırasında hata
+alır. Formu hiç göstermemek mi, yoksa "Genel Başvuru" olarak kabul etmek mi
+istersin?
+
 ### `backend/.env.example` içindeki Gemini API anahtarı hâlâ commit'li
 **İptal ettirmeni öneririm.**
 
@@ -291,6 +360,12 @@ Railway dışına çıkmadan önce gözden geçir.
 - `app.js` içindeki **133 API çağrısının tamamı** canlı rota tablosuyla karşılaştırıldı;
   uyuşmayan 3'ü (D-10, D-11 ve deep-analyze) yukarıda
 - **1428 şablon ifadesi** `setup()` export'larıyla karşılaştırıldı; D-01 dışında temiz
+- **Ayarlar'ın 11 alt sekmesi** tek tek açıldı — hata yok
+- **Aday modalının 5 sekmesi** (Genel Bakış, CV, Değerlendirme, Başvurular,
+  Zaman Çizelgesi) — hata yok
+- **Public portal**: ilan sayfası ve walk-in formu (D-19'dan sonra) çalışıyor
+- **Mobil**: 390px / 768px / 360px'te beş sayfa ölçüldü, yatay taşma yok
+- **14 sayfa şablonunun tamamında** mobil hamburger butonu var
 
 ---
 
