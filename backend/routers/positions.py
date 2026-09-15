@@ -45,7 +45,9 @@ def generate_qr_code_helper(data: str, filename: str) -> str:
     try:
         encoded_data = urllib.parse.quote(data)
         url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_data}"
-        upload_dir = "backend/static/qrcodes"
+        # Relative to the CWD this landed in backend/backend/static/qrcodes when the
+        # app is started from backend/, i.e. outside the directory mounted at /static.
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "qrcodes")
         os.makedirs(upload_dir, exist_ok=True)
         dest_path = os.path.join(upload_dir, filename)
         
@@ -54,7 +56,7 @@ def generate_qr_code_helper(data: str, filename: str) -> str:
         return f"/static/qrcodes/{filename}"
     except Exception as e:
         print(f"QR Generation helper error: {e}")
-        return "/static/qrcodes/placeholder.png"
+        return ""
 
 
 @router.post("/", response_model=schemas.Position)

@@ -653,7 +653,7 @@ input:checked + .slider:before {
                     <b>1 teklif merkez onayı bekliyor</b>
                     <p>Aşçı pozisyonu · Üst bandın %6 üzerinde</p>
                     <small>2 saat önce</small>
-                    <button @click="page='offers'">Teklifi görüntüle →</button>
+                    <button @click="page='talent'; talentSubTab='approvals'; loadPendingApprovals()">Teklifi görüntüle →</button>
                   </div>
                 </article>
                 <article class="info">
@@ -1953,7 +1953,7 @@ input:checked + .slider:before {
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:16px">
             <input type="text" class="input" placeholder="Pozisyon ara..." v-model="posSearchQuery" style="width: 260px">
             <div class="pills-container" style="margin-bottom:0">
-              <span v-for="pill in ['Tümü', 'Teknoloji', 'Ürün', 'Analitik', 'Finans', 'Pazarlama', 'İnsan Kaynakları', 'Satış']" :key="pill" 
+              <span v-for="pill in departmentPills" :key="pill" 
                     class="category-pill" :class="{active: selectedDepPill === pill}" @click="selectedDepPill = pill">
                 {{ pill }}
               </span>
@@ -2971,6 +2971,231 @@ input:checked + .slider:before {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </template>
+
+
+    <!-- KAMPANYALAR & QR -->
+    <template v-if="page==='campaigns'">
+      <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;background:#fff;border-bottom:1px solid var(--g200);padding:20px 24px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu" style="order:-1">☰</button>
+        <div>
+          <div class="page-hdr-title" style="font-family:'Georgia', 'Times New Roman', serif;font-size:24px;font-weight:700;color:var(--primary)">Kampanyalar &amp; QR</div>
+          <div class="page-hdr-sub" style="font-size:13px;color:var(--g500)">Pozisyon başına başvuru linki ve QR kodu üretin, kaynak performansını UTM ile izleyin.</div>
+        </div>
+        <button class="btn btn-primary" @click="showNewCampaignModal = true">+ Yeni Kampanya</button>
+      </div>
+
+      <div class="page-body" style="padding:24px; background:#F6F8F7; min-height:calc(100vh - 92px)">
+        <div class="enterprise-table-wrapper">
+          <table class="enterprise-table">
+            <thead>
+              <tr>
+                <th>Kampanya</th>
+                <th>Otel</th>
+                <th>Pozisyon</th>
+                <th>Kaynak</th>
+                <th>UTM</th>
+                <th>QR</th>
+                <th>Oluşturulma</th>
+                <th style="text-align:right">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="c in campaigns" :key="c.id">
+                <td style="font-weight:600">{{ c.name }}</td>
+                <td>{{ getHotelName(c.hotel_id) }}</td>
+                <td>{{ (positions.find(p => p.id === c.position_id) || {}).title || ('#' + c.position_id) }}</td>
+                <td><span class="badge b-applied">{{ c.source }}</span></td>
+                <td style="font-size:11px; color:var(--g500)">
+                  {{ [c.utm_source, c.utm_medium, c.utm_campaign].filter(Boolean).join(' / ') || '—' }}
+                </td>
+                <td>
+                  <img v-if="c.qr_code_path" :src="c.qr_code_path" alt="QR" style="width:40px;height:40px;border-radius:4px;border:1px solid var(--g200)">
+                  <span v-else style="color:var(--g500)">—</span>
+                </td>
+                <td>{{ c.created_at ? new Date(c.created_at).toLocaleDateString('tr-TR') : '—' }}</td>
+                <td style="text-align:right; white-space:nowrap">
+                  <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px;margin-right:8px" @click="copyCampaignLink(c)">Linki kopyala</button>
+                  <button class="btn" style="padding:4px 12px;font-size:12px;color:var(--color-danger-text);border:1px solid var(--color-danger-text);border-radius:4px;background:none" @click="deleteCampaign(c)">Sil</button>
+                </td>
+              </tr>
+              <tr v-if="!campaigns.length">
+                <td colspan="8" style="padding:32px; text-align:center; color:var(--g500)">
+                  Henüz kampanya oluşturulmadı. Bir pozisyon için başvuru linki ve QR kodu üretmek üzere “Yeni Kampanya”ya tıklayın.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div v-if="showNewCampaignModal" class="modal-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; display:flex; align-items:center; justify-content:center">
+        <div class="modal" style="background:#fff; width:520px; border-radius:8px; display:flex; flex-direction:column">
+          <div class="modal-header" style="padding:16px 24px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center">
+            <h3 style="margin:0">Yeni Kampanya</h3>
+            <button class="iconButton" @click="showNewCampaignModal = false" style="background:none;border:none;font-size:24px;cursor:pointer">&times;</button>
+          </div>
+          <div class="modal-body" style="padding:24px; display:flex; flex-direction:column; gap:12px">
+            <div>
+              <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">Kampanya adı</label>
+              <input v-model="newCampaign.name" class="form-input" placeholder="Örn: Eylül Garson Alımı" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">Otel</label>
+              <select v-model="newCampaign.hotel_id" class="form-input" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+                <option value="">Otel seçin…</option>
+                <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">Pozisyon</label>
+              <select v-model="newCampaign.position_id" class="form-input" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+                <option value="">Pozisyon seçin…</option>
+                <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.title }}</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">Kaynak</label>
+              <select v-model="newCampaign.source" class="form-input" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+                <option value="QR Code">QR Kod</option>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="Kariyer.net">Kariyer.net</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Afiş">Afiş</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:12px">
+              <div style="flex:1">
+                <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">utm_source</label>
+                <input v-model="newCampaign.utm_source" class="form-input" placeholder="instagram" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+              </div>
+              <div style="flex:1">
+                <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">utm_medium</label>
+                <input v-model="newCampaign.utm_medium" class="form-input" placeholder="qr" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+              </div>
+              <div style="flex:1">
+                <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">utm_campaign</label>
+                <input v-model="newCampaign.utm_campaign" class="form-input" placeholder="eylul-garson" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer" style="padding:16px 24px; border-top:1px solid var(--g200); display:flex; justify-content:flex-end; gap:12px">
+            <button class="btn btn-secondary" @click="showNewCampaignModal = false">İptal</button>
+            <button class="btn btn-primary" @click="createCampaign()">Oluştur</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- İŞE GİRİŞ (ONBOARDING) -->
+    <template v-if="page==='onboarding'">
+      <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;background:#fff;border-bottom:1px solid var(--g200);padding:20px 24px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu" style="order:-1">☰</button>
+        <div>
+          <div class="page-hdr-title" style="font-family:'Georgia', 'Times New Roman', serif;font-size:24px;font-weight:700;color:var(--primary)">İşe Giriş</div>
+          <div class="page-hdr-sub" style="font-size:13px;color:var(--g500)">İşe alınan adayların evrak, IT ve oryantasyon kontrol listesini takip edin.</div>
+        </div>
+      </div>
+
+      <div class="page-body" style="padding:24px; background:#F6F8F7; min-height:calc(100vh - 92px); display:flex; gap:20px; align-items:flex-start">
+        <div style="width:280px; flex-shrink:0; background:#fff; border:1px solid var(--g200); border-radius:8px; overflow:hidden">
+          <div style="padding:12px 16px; border-bottom:1px solid var(--g200); font-weight:700; font-size:13px">
+            İşe alınanlar <span style="color:var(--g500); font-weight:400">({{ onboardingApps.length }})</span>
+          </div>
+          <div v-for="app in onboardingApps" :key="app.id"
+               @click="selectOnboardingApp(app)"
+               :style="{cursor:'pointer', padding:'12px 16px', borderBottom:'1px solid var(--g200)', background: onboardingSelectedApp && onboardingSelectedApp.id === app.id ? 'var(--color-mint)' : '#fff'}">
+            <div style="font-weight:600; font-size:13px">{{ (app.candidate || {}).name || 'İsimsiz aday' }}</div>
+            <div style="font-size:11px; color:var(--g500)">{{ (app.position || {}).title || '—' }}</div>
+          </div>
+          <div v-if="!onboardingApps.length" style="padding:24px 16px; text-align:center; color:var(--g500); font-size:12px">
+            Henüz “işe alındı” durumuna gelmiş aday yok.
+          </div>
+        </div>
+
+        <div style="flex:1; background:#fff; border:1px solid var(--g200); border-radius:8px; overflow:hidden">
+          <template v-if="onboardingSelectedApp">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--g200); display:flex; justify-content:space-between; align-items:center; gap:16px">
+              <div>
+                <div style="font-weight:700; font-size:15px">{{ (onboardingSelectedApp.candidate || {}).name }}</div>
+                <div style="font-size:12px; color:var(--g500)">{{ (onboardingSelectedApp.position || {}).title || '—' }}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px">
+                <div style="font-size:12px; color:var(--g500)">{{ onboardingProgress }}% tamamlandı</div>
+                <button class="btn btn-secondary" @click="generateOnboardingFor(onboardingSelectedApp)">
+                  {{ onboardingBoardTasks.length ? 'Listeyi yenile' : 'Kontrol listesi oluştur' }}
+                </button>
+              </div>
+            </div>
+
+            <div style="height:6px; background:var(--g200)">
+              <div :style="{width: onboardingProgress + '%', height:'100%', background:'var(--color-accent)', transition:'width .3s'}"></div>
+            </div>
+
+            <div style="padding:8px 0">
+              <label v-for="t in onboardingBoardTasks" :key="t.id"
+                     style="display:flex; align-items:flex-start; gap:12px; padding:12px 20px; border-bottom:1px solid var(--g200); cursor:pointer">
+                <input type="checkbox" :checked="t.status === 'completed'" @change="toggleOnboardingTask(t, $event.target.checked)" style="margin-top:2px">
+                <div style="flex:1">
+                  <div :style="{fontWeight:600, fontSize:'13px', textDecoration: t.status === 'completed' ? 'line-through' : 'none', color: t.status === 'completed' ? 'var(--g500)' : 'inherit'}">{{ t.title }}</div>
+                  <div v-if="t.description" style="font-size:11px; color:var(--g500); margin-top:2px">{{ t.description }}</div>
+                </div>
+                <span v-if="t.category" class="badge b-applied">{{ t.category }}</span>
+                <span v-if="t.responsible" style="font-size:11px; color:var(--g500); min-width:56px; text-align:right">{{ t.responsible }}</span>
+              </label>
+              <div v-if="!onboardingBoardTasks.length" style="padding:32px; text-align:center; color:var(--g500); font-size:12px">
+                Bu aday için henüz kontrol listesi oluşturulmadı.
+              </div>
+            </div>
+          </template>
+          <div v-else style="padding:48px; text-align:center; color:var(--g500); font-size:13px">
+            Soldaki listeden bir aday seçin.
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- BLACKLIST -->
+    <template v-if="page==='blacklist'">
+      <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;background:#fff;border-bottom:1px solid var(--g200);padding:20px 24px">
+        <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open')" title="Menu" style="order:-1">☰</button>
+        <div>
+          <div class="page-hdr-title" style="font-family:'Georgia', 'Times New Roman', serif;font-size:24px;font-weight:700;color:var(--primary)">Blacklist</div>
+          <div class="page-hdr-sub" style="font-size:13px;color:var(--g500)">Kara listedeki adaylar yeni başvurularda otomatik olarak engellenir.</div>
+        </div>
+      </div>
+
+      <div class="page-body" style="padding:24px; background:#F6F8F7; min-height:calc(100vh - 92px)">
+        <div class="enterprise-table-wrapper">
+          <table class="enterprise-table">
+            <thead>
+              <tr>
+                <th>Aday</th>
+                <th>E-posta</th>
+                <th>Telefon</th>
+                <th>Sebep</th>
+                <th style="text-align:right">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="c in blacklistedCandidates" :key="c.id">
+                <td style="font-weight:600">{{ c.name }}</td>
+                <td>{{ c.email || '—' }}</td>
+                <td>{{ c.phone || '—' }}</td>
+                <td style="max-width:360px">{{ c.blacklist_reason || 'Sebep belirtilmemiş' }}</td>
+                <td style="text-align:right">
+                  <button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" @click="toggleBlacklist(c)">Kara listeden çıkar</button>
+                </td>
+              </tr>
+              <tr v-if="!blacklistedCandidates.length">
+                <td colspan="5" style="padding:32px; text-align:center; color:var(--g500)">
+                  Kara listede aday yok.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </template>

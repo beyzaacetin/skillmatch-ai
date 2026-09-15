@@ -324,6 +324,14 @@ createApp({
     const importConfirming = ref(false);
 
     // Staffing Needs Refs
+    // ─── KAMPANYALAR / İŞE GİRİŞ / BLACKLIST ──────────────────────────
+    const campaigns = ref([]);
+    const showNewCampaignModal = ref(false);
+    const newCampaign = ref({ name: '', hotel_id: '', position_id: '', source: 'QR Code', utm_source: '', utm_medium: '', utm_campaign: '' });
+    const onboardingApps = ref([]);
+    const onboardingSelectedApp = ref(null);
+    const onboardingBoardTasks = ref([]);
+
     const staffingNeeds = ref([]);
     const staffingNeedsFilter = ref({ hotel_id: '', department_id: '', status: '', priority: '' });
     const staffingNeedsSummary = ref({ pending_count: 0, approved_count: 0, rejected_count: 0, total_gap_fte: 0 });
@@ -1941,6 +1949,9 @@ createApp({
       if (p === 'interviews') loadAllInterviews();
       if (p === 'headcount') loadHeadcount();
       if (p === 'staffing') loadStaffingNeeds();
+      if (p === 'campaigns') loadCampaigns();
+      if (p === 'onboarding') loadOnboardingBoard();
+      if (p === 'blacklist') loadCandidates();
 
       // Synchronize browser URL history with current page state
       const reversePathMap = {
@@ -1954,7 +1965,10 @@ createApp({
         ai_search: '/ai_search',
         users: '/users',
         headcount: '/headcount',
-        staffing: '/staffing'
+        staffing: '/staffing',
+        campaigns: '/campaigns',
+        onboarding: '/onboarding',
+        blacklist: '/blacklist'
       };
       const targetPath = reversePathMap[p] || '/';
       if (window.location.pathname !== targetPath) {
@@ -2269,6 +2283,17 @@ createApp({
 
     const posSearchQuery = ref('');
     const selectedDepPill = ref('Tümü');
+
+    // The pills used to be a hard-coded tech-company list (Teknoloji, Ürün, ...),
+    // which never matches a hotel department, so every pill filtered to nothing.
+    const departmentPills = computed(() => {
+      const names = new Set();
+      positions.value.forEach(p => {
+        const n = (p.department || '').trim();
+        if (n) names.add(n);
+      });
+      return ['Tümü', ...[...names].sort((a, b) => a.localeCompare(b, 'tr'))];
+    });
 
     const filteredPositions = computed(() => {
       let list = positions.value;
@@ -2797,10 +2822,12 @@ createApp({
       return c ? c.name : 'Bilinmeyen Şehir';
     }
     function getHotelName(id) {
+      if (!id) return '—';
       const h = settingsData.value.hotels.find(x => x.id === id);
       return h ? h.name : 'Bilinmeyen Otel';
     }
     function getDeptName(id) {
+      if (!id) return '—';
       const d = settingsData.value.departments.find(x => x.id === id);
       return d ? d.name : 'Bilinmeyen Departman';
     }
@@ -3254,6 +3281,87 @@ createApp({
     }
 
     // ─── STAFFING NEEDS METHODS ───────────────────────────────────────
+    // ─── KAMPANYALAR ──────────────────────────────────────────────────
+    async function loadCampaigns() {
+      try {
+        campaigns.value = await api('GET', '/api/campaigns/');
+      } catch (e) { showToast('Kampanyalar yüklenemedi: ' + e.message, 'error'); }
+    }
+
+    async function createCampaign() {
+      if (!newCampaign.value.name || !newCampaign.value.hotel_id || !newCampaign.value.position_id) {
+        showToast('Kampanya adı, otel ve pozisyon zorunludur.', 'error');
+        return;
+      }
+      try {
+        await api('POST', '/api/campaigns/', newCampaign.value);
+        showToast('Kampanya oluşturuldu.', 'success');
+        showNewCampaignModal.value = false;
+        newCampaign.value = { name: '', hotel_id: '', position_id: '', source: 'QR Code', utm_source: '', utm_medium: '', utm_campaign: '' };
+        await loadCampaigns();
+      } catch (e) { showToast('Kampanya oluşturulamadı: ' + e.message, 'error'); }
+    }
+
+    async function deleteCampaign(c) {
+      if (!confirm(`"${c.name}" kampanyası silinsin mi?`)) return;
+      try {
+        await api('DELETE', `/api/campaigns/${c.id}`);
+        showToast('Kampanya silindi.', 'success');
+        await loadCampaigns();
+      } catch (e) { showToast('Kampanya silinemedi: ' + e.message, 'error'); }
+    }
+
+    function copyCampaignLink(c) {
+      navigator.clipboard.writeText(c.utm_url || '')
+        .then(() => showToast('Başvuru linki kopyalandı.', 'success'))
+        .catch(() => showToast('Link kopyalanamadı.', 'error'));
+    }
+
+    // ─── İŞE GİRİŞ (ONBOARDING) ───────────────────────────────────────
+    async function loadOnboardingBoard() {
+      try {
+        onboardingApps.value = await api('GET', '/api/applications/?status=hired');
+        if (onboardingApps.value.length && !onboardingSelectedApp.value) {
+          await selectOnboardingApp(onboardingApps.value[0]);
+        } else if (!onboardingApps.value.length) {
+          onboardingSelectedApp.value = null;
+          onboardingBoardTasks.value = [];
+        }
+      } catch (e) { showToast('İşe giriş listesi yüklenemedi: ' + e.message, 'error'); }
+    }
+
+    async function selectOnboardingApp(app) {
+      onboardingSelectedApp.value = app;
+      try {
+        onboardingBoardTasks.value = await api('GET', `/api/onboarding/${app.id}`);
+      } catch (e) { onboardingBoardTasks.value = []; }
+    }
+
+    async function generateOnboardingFor(app) {
+      try {
+        const res = await api('POST', `/api/onboarding/${app.id}/generate`);
+        onboardingBoardTasks.value = res.tasks || [];
+        showToast('İşe giriş kontrol listesi oluşturuldu.', 'success');
+      } catch (e) { showToast('Kontrol listesi oluşturulamadı: ' + e.message, 'error'); }
+    }
+
+    async function toggleOnboardingTask(task, checked) {
+      const status = checked ? 'completed' : 'pending';
+      try {
+        await api('PATCH', `/api/onboarding/task/${task.id}?status=${status}`);
+        task.status = status;
+      } catch (e) { showToast('Görev güncellenemedi: ' + e.message, 'error'); }
+    }
+
+    const onboardingProgress = computed(() => {
+      const tasks = onboardingBoardTasks.value;
+      if (!tasks.length) return 0;
+      return Math.round(tasks.filter(t => t.status === 'completed').length / tasks.length * 100);
+    });
+
+    // ─── BLACKLIST ────────────────────────────────────────────────────
+    const blacklistedCandidates = computed(() => candidates.value.filter(c => c.is_blacklisted));
+
     async function loadStaffingNeeds() {
       try {
         const params = new URLSearchParams();
@@ -3374,7 +3482,7 @@ createApp({
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis,
       workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
-      posSearchQuery, selectedDepPill, filteredPositions,
+      posSearchQuery, selectedDepPill, departmentPills, filteredPositions,
 
       // Headcount state and methods
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,
@@ -3502,6 +3610,13 @@ createApp({
       staffingNeeds, staffingNeedsFilter, staffingNeedsSummary, showNewStaffingNeedModal, newStaffingNeed,
       loadStaffingNeeds, autoDetectStaffingNeeds, createStaffingNeed, approveStaffingNeed, rejectStaffingNeed,
       staffingStatusLabel, staffingPriorityLabel, staffingStatusClass,
+
+      // Kampanyalar / İşe Giriş / Blacklist
+      campaigns, showNewCampaignModal, newCampaign,
+      loadCampaigns, createCampaign, deleteCampaign, copyCampaignLink,
+      onboardingApps, onboardingSelectedApp, onboardingBoardTasks, onboardingProgress,
+      loadOnboardingBoard, selectOnboardingApp, generateOnboardingFor, toggleOnboardingTask,
+      blacklistedCandidates,
 
       // auth
       currentUser, loginData, authMode, registerData, register, login, logout,

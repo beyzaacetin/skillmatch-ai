@@ -5,6 +5,7 @@ import database
 import models
 import schemas
 import auth
+from config import settings
 import os
 import urllib.request
 import urllib.parse
@@ -15,7 +16,9 @@ def generate_qr_code_helper(data: str, filename: str) -> str:
     try:
         encoded_data = urllib.parse.quote(data)
         url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_data}"
-        upload_dir = "backend/static/qrcodes"
+        # Relative to the CWD this landed in backend/backend/static/qrcodes when the
+        # app is started from backend/, i.e. outside the directory mounted at /static.
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "qrcodes")
         os.makedirs(upload_dir, exist_ok=True)
         dest_path = os.path.join(upload_dir, filename)
         
@@ -23,9 +26,10 @@ def generate_qr_code_helper(data: str, filename: str) -> str:
         urllib.request.urlretrieve(url, dest_path)
         return f"/static/qrcodes/{filename}"
     except Exception as e:
+        # No placeholder.png ships with the repo, so returning one renders a broken
+        # image; an empty path lets the UI show that there is no QR yet.
         print(f"QR Generation helper error: {e}")
-        # Fallback placeholder
-        return "/static/qrcodes/placeholder.png"
+        return ""
 
 @router.post("/", response_model=schemas.RecruitmentCampaignOut, status_code=status.HTTP_201_CREATED)
 def create_campaign(
@@ -48,8 +52,7 @@ def create_campaign(
         utm_params.append(f"utm_campaign={urllib.parse.quote(campaign_in.utm_campaign)}")
         
     query_str = f"?{'&'.join(utm_params)}" if utm_params else ""
-    # In production, we'd point to the deployed portal domain
-    utm_url = f"https://skillmatch-os-prototype.susry.chatgpt.site/portal/apply/{campaign_in.position_id}{query_str}"
+    utm_url = f"{settings.FRONTEND_URL.rstrip('/')}/portal/apply/{campaign_in.position_id}{query_str}"
     
     # Save campaign db record
     db_campaign = models.RecruitmentCampaign(
@@ -95,7 +98,7 @@ def list_campaigns(
         if c.utm_campaign:
             utm_params.append(f"utm_campaign={urllib.parse.quote(c.utm_campaign)}")
         query_str = f"?{'&'.join(utm_params)}" if utm_params else ""
-        utm_url = f"https://skillmatch-os-prototype.susry.chatgpt.site/portal/apply/{c.position_id}{query_str}"
+        utm_url = f"{settings.FRONTEND_URL.rstrip('/')}/portal/apply/{c.position_id}{query_str}"
         
         out = schemas.RecruitmentCampaignOut.model_validate(c)
         out.utm_url = utm_url
