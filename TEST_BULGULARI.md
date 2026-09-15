@@ -3,8 +3,8 @@
 Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıldı.
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
-**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 26/26 pytest geçiyor
-(16 mevcut + 10 yeni regresyon testi) · **10 commit**
+**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 27/27 pytest geçiyor
+(16 mevcut + 11 yeni regresyon testi) · **12 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -202,6 +202,21 @@ viewport Genel Bakış'ta 562px, Kadro İhtiyaçları'nda 718px çıkıyordu. So
 
 Ölçüm sonucu: beş sayfanın hepsinde 390px ve 360px'te `scrollWidth == viewport`.
 
+### ✅ D-23 — CV yüklemesi, yüklenen dosyayı okumak yerine aday uyduruyordu
+`GEMINI_API_KEY` yokken `analyze_cv()` kendisine verilen CV metnini **tamamen yok
+sayıp** sabit bir kişi döndürüyordu: *"Mock Candidate"*, `mock@example.com`,
+AWS sertifikalı kıdemli Python geliştiricisi, *"Experienced developer with a
+passion for AI."* özetiyle. Bu doğrudan `candidates` tablosuna yazılıyordu —
+yani kat hizmetleri adayının CV'sini yükleyince sisteme bir yazılım mühendisi
+giriyordu. Aynı sabit özet, başka yollardan oluşturulan kayıtlara da yazılmıştı.
+
+Daha kötüsü: aynı fallback **Gemini çağrısı hata verdiğinde de** çalışıyordu,
+yani geçici bir API hatası gerçek başvuranı sessizce örnek kişiyle değiştiriyordu.
+
+Artık dosyada gerçekten yazan şeyi çıkarıyor (ad, e-posta, telefon) ve yalnızca
+AI'ın doldurabileceği alanları boş bırakıyor; özet de CV'nin neden AI ile analiz
+edilmediğini söylüyor. Gerçek PDF ile doğrulandı.
+
 ---
 
 ## 3. 📋 Senin sorduğun 3 madde
@@ -366,6 +381,11 @@ istersin?
 - **Public portal**: ilan sayfası ve walk-in formu (D-19'dan sonra) çalışıyor
 - **Mobil**: 390px / 768px / 360px'te beş sayfa ölçüldü, yatay taşma yok
 - **14 sayfa şablonunun tamamında** mobil hamburger butonu var
+- **6 adımlı pozisyon sihirbazı**: boş gönderimde net Türkçe uyarı veriyor
+  ("Otel ve Pozisyon Başlığı alanları zorunludur…"), gerçek veriyle tam tur
+  atıldı ve pozisyon oluştu
+- **CV yükleme**: gerçek PDF ile denendi, adayın kendi bilgileri kaydediliyor
+- **Pipeline / mülakat listesi**: dürüst boş durum ("Henüz mülakat planlanmamış")
 
 ---
 
