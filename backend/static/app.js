@@ -3464,7 +3464,7 @@ createApp({
       filteredMappingTitles, matchedSalaryPolicy,
       budgetPositions, loadBudgetPositions,
       filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
-      salary_stats: salaryStats,
+      salaryStats,
       showHeadcountLayoutModal,
       headcountLayout,
       saveHeadcountLayout,
