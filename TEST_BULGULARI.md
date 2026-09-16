@@ -4,7 +4,7 @@ Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıl
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
 **Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 31/31 pytest geçiyor
-(16 mevcut + 15 yeni regresyon testi) · **19 commit**
+(16 mevcut + 15 yeni regresyon testi) · **23 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -288,6 +288,40 @@ PRM/Resepsiyonist/8,25 · bilinmeyen `XXX` otel kodu da doğru şekilde
 
 Ayrıca boş hücreler artık `"nan"` / `"None"` stringi olarak değil, boş olarak
 okunuyor.
+
+### ✅ D-28 — Kanban sürükle-bırak ✓, mülakat planlama ✓ (doğrulandı)
+Kartı "İK Mülakatı"ndan "Teknik Mülakat"a sürükledim, durum `tech_interview`
+oldu. Mülakat planlama modalı başvuru detayından çalışıyor; planlanan mülakat
+Pipeline listesinde ve dashboard'da doğru göründü.
+
+⚠️ Not: **"+ Mülakat Planla" butonu Pipeline sayfasında yok**, sadece aday
+başvurusunun içinde. Pipeline sayfası boş listeyle açılıyor ve oradan mülakat
+eklemenin yolu yok. Ayrı bir buton ister misin?
+
+### ✅ D-29 — "Özel Rapor Oluşturucu" tamamen maketti
+Raporlar sayfasındaki rapor oluşturucu, **çalışan bir backend'in üstüne konmuş
+bir maketti**:
+
+- Hiçbir açılır menü veya onay kutusu `v-model` taşımıyordu
+- Her iki buton da `onclick="alert('Rapor oluşturuluyor...')"` — sadece uyarı gösteriyordu
+- Altındaki sonuç tablosu **iki sabit satırdı**: *Rixos Premium Tekirova 145/98/32/12*,
+  *Rixos Downtown Antalya 88/65/24/8* — çıktı gibi sunuluyordu
+
+Oysa `routers/custom_reports.py` Faz 6'dan beri `/custom` ve `/custom/export`
+uçlarını sunuyor. Artık filtreler bağlı, "Rapor Oluştur" gerçek metrikleri
+getiriyor, "Dışa Aktar" gerçek CSV indiriyor.
+
+### ✅ D-30 — Şablona gömülü, hiçbir veriye bağlı olmayan istatistikler
+`index.html` içinde veriye bağlı olmayan ama gerçek gibi duran rakamlar:
+
+| Yer | Gömülü değer | Şimdi |
+|---|---|---|
+| Raporlar · Ortalama İşe Alım Süresi | `18.5 Gün` | Gerçek endpoint'ten; veri yoksa `—` |
+| Raporlar · "Mevcut verilere göre… 18.5 gündür" + "sektör ortalaması 24 güne kıyasla %23 daha hızlı" | tamamen uydurma performans iddiası | Veri yoksa açıkça "hesaplanamıyor" diyor |
+| Raporlar · Teklif Kabul / Red | `%84.2` / `%15.8` | `/api/analytics/offer-acceptance`'tan |
+| Pozisyonlar · her satırdaki ilerleme çubuğu | her satırda `65%` | İşe alınan / onaylı kadro |
+| Pozisyon çalışma alanı · Gün Açık | `18 Gün` | `created_at`'ten hesaplanıyor |
+| Pozisyonlar · Ortalama İlerleme, Pipeline Uyum Ort. | `82%` | 📋 `—` — **tanımını söyle, bağlayayım** |
 
 ---
 
