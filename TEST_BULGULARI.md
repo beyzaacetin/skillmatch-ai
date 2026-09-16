@@ -758,6 +758,44 @@ alabilmeli mi, silebilmeli mi? Karar senin.
 
 ---
 
+## 2g. Rol/izin matrisi ve kalan kapsam (D-57 … D-59)
+
+### 🔴 D-57 — İzin matrisi hiç kimseye uygulanmıyordu
+`roles` tablosunda gerçek ve ayrıntılı bir izin matrisi var:
+
+| | settings | approve | blacklist | salaries | reports |
+|---|---|---|---|---|---|
+| CENTRAL_HR | ✔ | ✔ | ✔ | ✔ | ✔ |
+| HOTEL_HR | ✘ | ✘ | ✔ | ✔ | ✔ |
+| DEPARTMENT_MANAGER | ✘ | ✘ | ✘ | ✘ | ✘ |
+
+`check_permission` bunu `user.role_id` üzerinden okuyor. Ama **`role_id`
+yalnızca seed'deki demo adminde doluydu** — başka hiçbir yerde
+atanmıyordu. `role_id` yoksa `check_permission` doğrudan 403'e düşüyor.
+
+Sonuç: matris **kimseye uygulanmıyordu**. Merkez İK kullanıcısı, kendi rolü
+"ayarlara erişebilir" dediği hâlde Ayarlar'ın tamamından 403 alıyordu. Yani
+yetki sistemi var gibi görünüyor, gerçekte herkes aynı muameleyi görüyordu.
+
+Düzeltme: kullanıcı oluşturulurken ve rolü değiştirilirken koda göre `Role`
+satırına bağlanıyor; mevcut kullanıcılar startup'ta taşıdıkları rol metninden
+bağlanıyor. Çalışan sunucuda doğrulandı — daha önce 403 alan CENTRAL_HR artık
+**200**, HOTEL_HR hâlâ 403 (matrisi öyle diyor), karşılığı olmayan rol
+(RECRUITER) yanlış bir role bağlanmak yerine bağsız kalıyor.
+
+### ✅ D-58 — Mülakat uçlarının kalanı
+`feedback`, `generate-questions`, `ai-summary`, `analyze-notes`, `answers`,
+`generate-report` — altısı da mülakat kimliğini alıp başka hiçbir şeye
+bakmıyordu. Hepsi kapsamdan geçiyor.
+
+### ✅ D-59 — Özel rapor, istenen oteli sorgusuz kabul ediyordu
+`custom_reports.py` `current_user`'ı alıyor ama kullanmıyordu; `hotel_ids`
+doğrudan istek gövdesinden okunuyordu, yani herkes her otelin raporunu
+isteyebiliyordu. Artık önce kullanıcının kendi kapsamı uygulanıyor, gövdedeki
+filtre yalnızca daha da daraltabiliyor.
+
+---
+
 ## 3. 📋 Senin sorduğun 3 madde
 
 ### 1. GM ekranlarını tek tek gezmek
