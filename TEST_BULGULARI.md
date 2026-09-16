@@ -4,7 +4,7 @@ Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıl
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
 **Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 35/35 pytest geçiyor
-(16 mevcut + 19 yeni regresyon testi) · **29 commit**
+(16 mevcut + 19 yeni regresyon testi) · **30 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -547,6 +547,21 @@ hem arayüzden çalıştırdım:
 
 ℹ️ Bir SYSTEM_ADMIN'in bekleyen onaylar listesinin boş görünmesi **hata değil** —
 sıralı akış önce otel İK'sını bekliyor, merkez adımı henüz `WAITING`.
+
+### Son turda ayrıca doğrulananlar (sorun çıkmadı)
+
+- **Maaş politikası Excel import**: 2 satırlık dosya doğru okundu, otel eşleşti,
+  lojman/servis/yemek boolean'ları ayrıştırıldı. ⚠️ Not: import **mevcut tüm
+  politikaları siliyor** (`delete()` sonra ekliyor) — "değiştir" semantiği
+  kasıtlıysa sorun yok, değilse söyle.
+- **Pipeline şablonu düzenleme**: aşama adı değiştirildi, kaydedildi, sayfa
+  yenilendikten sonra da kalıcıydı.
+- **Teklif Onayları sekmesi (arayüz)**: HOTEL_HR rolüyle bekleyen onay listelendi,
+  "Onayla" butonu çalıştı, ikinci adım aktifleşti.
+
+ℹ️ Buton taramasında görünen `404 /api/positions/applications/1/decision`
+**hata değil** — "bu başvuru için henüz karar girilmemiş" demek ve arayüz bunu
+doğru şekilde sessizce ele alıyor.
 - **6 adımlı pozisyon sihirbazı**: boş gönderimde net Türkçe uyarı veriyor
   ("Otel ve Pozisyon Başlığı alanları zorunludur…"), gerçek veriyle tam tur
   atıldı ve pozisyon oluştu
