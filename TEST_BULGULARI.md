@@ -4,7 +4,7 @@ Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıl
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
 **Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 27/27 pytest geçiyor
-(16 mevcut + 11 yeni regresyon testi) · **12 commit**
+(16 mevcut + 11 yeni regresyon testi) · **14 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -217,6 +217,24 @@ Artık dosyada gerçekten yazan şeyi çıkarıyor (ad, e-posta, telefon) ve yal
 AI'ın doldurabileceği alanları boş bırakıyor; özet de CV'nin neden AI ile analiz
 edilmediğini söylüyor. Gerçek PDF ile doğrulandı.
 
+### ✅ D-24 — Gereksinimi tanımlanmamış pozisyonda herkes "%100 eşleşme" alıyordu
+Kanban'da, becerisi hiç çıkarılmamış bir aday **%100 eşleşme** rozetiyle
+görünüyordu. Sebep: `get_skill_overlap_ratio`, pozisyonda hiç "aranan beceri"
+yazmıyorsa **1.0 (mükemmel örtüşme)** dönüyordu — yani *hiçbir şeyle* karşılaştırıp
+tam puan veriyordu. Gemini anahtarı yokken kural tabanlı fallback bunu %30
+ağırlıkla alıyor, sonra semantik bileşeni de aynı değerle tabanlıyordu
+(`max(50, keyword_score)`), böylece skor iki kez 100'e çıkıyordu.
+
+Gereksinimleri henüz doldurulmamış her pozisyonda (ki başlangıçta çoğu öyle)
+tüm adaylar mükemmel uyumlu görünüyordu.
+
+**Bilinmeyen, mükemmel demek değildir:** artık beceri bileşeni nötr (0,5) ve
+semantik fallback anahtar kelime skorunu taban almıyor. %100 alan walk-in aday
+şimdi **62** alıyor, beceri alt skoru 50 olarak raporlanıyor.
+
+📋 **Bu bir puanlama politikası kararı** (çökme değil) — `net_open` yuvarlama
+kararı gibi senin onayını bekliyor.
+
 ---
 
 ## 3. 📋 Senin sorduğun 3 madde
@@ -386,6 +404,8 @@ istersin?
   atıldı ve pozisyon oluştu
 - **CV yükleme**: gerçek PDF ile denendi, adayın kendi bilgileri kaydediliyor
 - **Pipeline / mülakat listesi**: dürüst boş durum ("Henüz mülakat planlanmamış")
+- **Aday Kanban**: kartlar, kolonlar ve kaynak etiketi ("QR Walk-In") doğru
+- **Ayarlar → Organizasyon Yapısı**: gerçek organizasyon kaydını gösteriyor
 
 ---
 
