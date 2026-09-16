@@ -355,34 +355,46 @@ try:
 
     # Routers
     from routers import candidates, positions, analytics, applications, interviews, offers, onboarding, auth, users, ai_recruitment, tasks, calendar, reports, custom_reports, settings, ownership, portal, campaigns, headcount, pipelines, organization_imports, staffing_needs
+
+    # Most endpoints declared their own auth dependency, but ~90 of them never did:
+    # offers, applications, interviews, onboarding, most of positions and analytics
+    # answered anyone who could reach the port. Requiring login for a whole router
+    # is the version that cannot be forgotten on the next endpoint added to it.
+    # auth (login) and portal (public job ads + candidates authenticated by their
+    # own link token) keep their own rules.
+    from auth import get_current_user as _login_required
+    staff_only = [Depends(_login_required)]
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-    app.include_router(users.router, prefix="/api/users", tags=["users"])
-    app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
-    app.include_router(ownership.router, prefix="/api/ownership", tags=["ownership"])
+    app.include_router(users.router, prefix="/api/users", tags=["users"], dependencies=staff_only)
+    app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=staff_only)
+    app.include_router(ownership.router, prefix="/api/ownership", tags=["ownership"], dependencies=staff_only)
     app.include_router(portal.router, prefix="/api/portal", tags=["portal"])
-    app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"])
-    app.include_router(positions.router, prefix="/api/positions", tags=["positions"])
-    app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
-    app.include_router(custom_reports.router, prefix="/api/reports", tags=["custom_reports"])
-    app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
-    app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
-    app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
-    app.include_router(interviews.answers_router, prefix="/api/interview-answers", tags=["interview-answers"])
-    app.include_router(offers.router, prefix="/api/offers", tags=["offers"])
-    app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"])
-    app.include_router(ai_recruitment.router, prefix="/api/ai", tags=["ai"])
-    app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
-    app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
-    app.include_router(campaigns.router)
-    app.include_router(headcount.router, prefix="/api/headcount", tags=["headcount"])
-    app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"])
-    app.include_router(organization_imports.router)
-    app.include_router(staffing_needs.router, prefix="/api/staffing-needs", tags=["staffing-needs"])
+    app.include_router(candidates.router, prefix="/api/candidates", tags=["candidates"], dependencies=staff_only)
+    app.include_router(positions.router, prefix="/api/positions", tags=["positions"], dependencies=staff_only)
+    app.include_router(reports.router, prefix="/api/reports", tags=["reports"], dependencies=staff_only)
+    app.include_router(custom_reports.router, prefix="/api/reports", tags=["custom_reports"], dependencies=staff_only)
+    app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"], dependencies=staff_only)
+    app.include_router(applications.router, prefix="/api/applications", tags=["applications"], dependencies=staff_only)
+    app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"], dependencies=staff_only)
+    app.include_router(interviews.answers_router, prefix="/api/interview-answers", tags=["interview-answers"], dependencies=staff_only)
+    app.include_router(offers.router, prefix="/api/offers", tags=["offers"], dependencies=staff_only)
+    app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"], dependencies=staff_only)
+    app.include_router(ai_recruitment.router, prefix="/api/ai", tags=["ai"], dependencies=staff_only)
+    app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"], dependencies=staff_only)
+    app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"], dependencies=staff_only)
+    app.include_router(campaigns.router, dependencies=staff_only)
+    app.include_router(headcount.router, prefix="/api/headcount", tags=["headcount"], dependencies=staff_only)
+    app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"], dependencies=staff_only)
+    app.include_router(organization_imports.router, dependencies=staff_only)
+    app.include_router(staffing_needs.router, prefix="/api/staffing-needs", tags=["staffing-needs"], dependencies=staff_only)
 
     from services.chatbot import chatbot_service
-    from auth import get_current_user_optional
     @app.post("/api/chat")
-    def chat_endpoint(message: str = Body(..., embed=True), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user_optional)):
+    def chat_endpoint(message: str = Body(..., embed=True), db: Session = Depends(get_db), current_user: models.User = Depends(_login_required)):
+        # The chatbot feeds every candidate's name, skills and summary to the model
+        # as context, and an anonymous caller used to get the widest scope of all -
+        # get_current_user_optional returned None, which skipped the hotel and
+        # department filters entirely.
         return {"response": chatbot_service.chat(message, db, current_user)}
 
     @app.get("/health")

@@ -919,3 +919,39 @@ def test_the_candidate_s_answer_to_an_offer_can_be_recorded(as_admin):
     assert "respondToOffer('accepted')" in html and "respondToOffer('rejected')" in html
     app_js = open(APP_JS, encoding="utf-8").read()
     assert "async function respondToOffer(" in app_js
+
+
+def test_internal_endpoints_refuse_anonymous_callers():
+    """Around ninety endpoints declared no auth dependency at all: POST /api/offers/
+    created a job offer, DELETE /api/candidates/{id}/hard-delete erased a
+    candidate and GET /api/analytics/salary-report returned the salary report,
+    all without a token. POST /api/chat was worse than unauthenticated — it fed
+    every candidate's name, skills and summary to the model as context, and a
+    caller with no user skipped the hotel/department scoping entirely."""
+    from fastapi.testclient import TestClient
+    from auth import get_current_user
+
+    saved = {k: v for k, v in app.dependency_overrides.items()}
+    app.dependency_overrides.pop(get_current_user, None)
+    anon = TestClient(app)
+    try:
+        for method, path in [
+            ("post", "/api/offers/"),
+            ("get", "/api/applications/"),
+            ("get", "/api/candidates/with-best-position"),
+            ("delete", "/api/candidates/1/hard-delete"),
+            ("get", "/api/analytics/salary-report"),
+            ("get", "/api/interviews/application/1"),
+            ("get", "/api/onboarding/1"),
+            ("post", "/api/chat"),
+            ("get", "/api/positions/1"),
+        ]:
+            call = getattr(anon, method)
+            res = call(path, json={}) if method in ("post", "put", "patch") else call(path)
+            assert res.status_code == 401, f"{method.upper()} {path} kimliksiz erişime {res.status_code} döndü"
+
+        # Aday tarafı ve sağlık ucu açık kalmalı
+        assert anon.get("/health").status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(saved)

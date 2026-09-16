@@ -56,6 +56,25 @@ def clean_db():
     db.commit()
     db.close()
 
+    # The internal routers now require a logged-in user. These tests exercise the
+    # endpoints themselves, not the login, so they run as an admin; a test that
+    # needs a particular user still overrides get_current_user itself.
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    user = models.User(email="hotfix-suite@example.com", full_name="Hotfix Admin",
+                       hashed_password="x", role="ADMIN", is_active=True)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    db.close()
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: user
+    yield
+    if previous is None:
+        app.dependency_overrides.pop(get_current_user, None)
+    else:
+        app.dependency_overrides[get_current_user] = previous
+
 def test_delete_candidate_with_match_scores():
     from auth import get_current_user
     db = TestingSessionLocal()
