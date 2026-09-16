@@ -889,3 +889,33 @@ def test_an_offer_awaiting_approval_does_not_offer_a_send_button():
     guard = block[:send]
     assert "approval_status!=='REJECTED'" in guard and "approval_status==='PENDING_APPROVAL'" in guard, \
         "Gönder butonu onay durumuna bakmıyor"
+
+
+def test_the_candidate_s_answer_to_an_offer_can_be_recorded(as_admin):
+    """Nothing in the UI could move an offer past "Gönderildi": the accepted and
+    rejected states existed in the badge and in the acceptance report, but no
+    screen ever called the endpoint that sets them."""
+    db = TestingSessionLocal()
+    hotel_id = make_hotel()
+    pos = models.Position(title="Bar Şefi", hotel_id=hotel_id)
+    cand = models.Candidate(name="Teklif Adayı", email="teklif-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(candidate_id=cand.id, position_id=pos.id, status="offer")
+    db.add(app_row); db.commit()
+    offer = models.Offer(application_id=app_row.id, proposed_salary=40000,
+                         status="sent", approval_status="APPROVED")
+    db.add(offer); db.commit()
+    offer_id, app_id = offer.id, app_row.id
+    db.close()
+
+    assert client.patch(f"/api/offers/{offer_id}/status?status=accepted").status_code == 200
+
+    db = TestingSessionLocal()
+    assert db.query(models.Offer).get(offer_id).status == "accepted"
+    assert db.query(models.Application).get(app_id).status == "hired"
+    db.close()
+
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    assert "respondToOffer('accepted')" in html and "respondToOffer('rejected')" in html
+    app_js = open(APP_JS, encoding="utf-8").read()
+    assert "async function respondToOffer(" in app_js

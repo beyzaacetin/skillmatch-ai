@@ -5223,6 +5223,10 @@ input:checked + .slider:before {
                   Onay tamamlanınca gönderilebilir
                 </span>
                 <button v-else-if="currentOffer.status==='draft' && currentOffer.approval_status!=='REJECTED'" class="btn btn-primary btn-sm" @click="sendOffer()">Teklifi Gönder</button>
+                <template v-if="currentOffer.status==='sent'">
+                  <button class="btn btn-primary btn-sm" @click="respondToOffer('accepted')">Aday Kabul Etti</button>
+                  <button class="btn btn-secondary btn-sm" @click="respondToOffer('rejected')">Aday Reddetti</button>
+                </template>
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">

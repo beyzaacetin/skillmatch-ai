@@ -1883,6 +1883,21 @@ createApp({
       } catch (e) { alert('Teklif gönderilemedi'); }
     }
 
+    // Adayın cevabını kaydeder. Uç nokta hep vardı ama hiçbir ekran çağırmıyordu:
+    // teklif "Gönderildi"de kalıyor, kabul/red raporu da hep boş çıkıyordu.
+    async function respondToOffer(status) {
+      if (!currentOffer.value) return;
+      const label = status === 'accepted' ? 'kabul' : 'red';
+      if (!confirm(`Adayın teklifi ${label} ettiği kaydedilsin mi?`)) return;
+      try {
+        await api('PATCH', `/api/offers/${currentOffer.value.id}/status?status=${status}`);
+        currentOffer.value.status = status;
+        if (status === 'accepted' && selectedApp.value) selectedApp.value.status = 'hired';
+        showToast(status === 'accepted' ? 'Teklif kabul edildi, aday işe alındı.' : 'Teklif reddedildi.', 'success');
+        loadPipeline();
+      } catch (e) { showToast('Teklif durumu güncellenemedi: ' + e.message, 'error'); }
+    }
+
     // ─── ONBOARDING ───────────────────────────────────────────────────
     async function loadOnboarding() {
       if (!selectedApp.value) return;
@@ -3656,7 +3671,7 @@ createApp({
       currentWizardStep, isWizardPrefilled, openNewPositionWizard,
       pipelineTemplates, createNewPipelineTemplate, savePipelineTemplate, deletePipelineTemplate, activePipelineStages,
       showAddSkillInput, newSkillText, addRequiredSkill, removeRequiredSkill, generatingJobAd,
-      openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes,
+      openAppDetail, openNewAppForStage, saveNewApp, updateAppStatus, saveAppNotes, respondToOffer,
       dragApp, dropOnCol, createApplicationFromCandidate,
       runDeepAIAnalysis, getCandidateForDeepAI, handlePositionCvDrop, handlePositionCvSelect, startPositionUploads,
       loadAppInterviews, saveInterview, generateQuestions,
