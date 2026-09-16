@@ -196,6 +196,21 @@ def upload_headcount_excel(
         raise HTTPException(status_code=500, detail=f"Veritabanına kaydetme sırasında hata: {str(e)}")
 
 
+def _fold(name: str) -> str:
+    """Case-insensitive key for a department name. Done in python because
+    SQLite's lower() only folds ASCII, which leaves Ö, İ and ç untouched.
+    The dotted and dotless I are mapped the Turkish way first, so "İçecek" and
+    "içecek" land on the same key - python's own casefold turns "İ" into an "i"
+    with a combining dot, which does not."""
+    return (name or "").replace("İ", "i").replace("I", "ı").strip().casefold()
+
+
+def _match_department_names(present, wanted):
+    """The names in `present` whose folded form matches one of `wanted`."""
+    keys = {_fold(w) for w in wanted}
+    return [n for n in present if _fold(n) in keys]
+
+
 @router.get("/summary")
 def get_headcount_summary(
     hotel_id: Optional[int] = Query(None),
@@ -222,7 +237,7 @@ def get_headcount_summary(
         if not allowed:
             raise HTTPException(status_code=403, detail="Departman yetkiniz bulunmamaktadır.")
         names = [d.name for d in db.query(models.Department).filter(models.Department.id.in_(allowed)).all()]
-        if department and department not in names:
+        if department and not _match_department_names([department], names):
             raise HTTPException(status_code=403, detail="Bu departman için yetkiniz bulunmamaktadır.")
         allowed_department_names = names
     else:
@@ -239,6 +254,14 @@ def get_headcount_summary(
             if hotel:
                 selected_hotel_code = hotel.code
 
+    # Department names exactly as the data holds them, for this month and hotel.
+    present_query = db.query(models.WorkforceBudgetRecord.department).filter(
+        models.WorkforceBudgetRecord.month_of_year == month
+    )
+    if selected_hotel_code:
+        present_query = present_query.filter(models.WorkforceBudgetRecord.hotel_code == selected_hotel_code)
+    present_departments = [n for (n,) in present_query.distinct().all() if n and n.strip()]
+
     # 1. Fetch budget records for the chosen month and hotel
     budget_query = db.query(models.WorkforceBudgetRecord).filter(
         models.WorkforceBudgetRecord.month_of_year == month
@@ -246,10 +269,19 @@ def get_headcount_summary(
     
     if selected_hotel_code:
         budget_query = budget_query.filter(models.WorkforceBudgetRecord.hotel_code == selected_hotel_code)
+    # The dropdown is filled from the Department table while these rows keep the
+    # spelling the spreadsheet used, and the importer matches departments
+    # case-insensitively - so a table holding "Mutfak" and a sheet saying "MUTFAK"
+    # never met, the selection returned nothing and people went back to typing in
+    # the search box. Resolve the requested name to the spellings the data really
+    # uses, and keep the SQL comparison exact: SQLite's lower() only folds ASCII,
+    # so "Ön Büro" and "Yiyecek ve İçecek" would not survive a SQL-side fold.
     if department:
-        budget_query = budget_query.filter(models.WorkforceBudgetRecord.department == department)
+        wanted = _match_department_names(present_departments, [department])
+        budget_query = budget_query.filter(models.WorkforceBudgetRecord.department.in_(wanted or [department]))
     elif allowed_department_names is not None:
-        budget_query = budget_query.filter(models.WorkforceBudgetRecord.department.in_(allowed_department_names))
+        wanted = _match_department_names(present_departments, allowed_department_names)
+        budget_query = budget_query.filter(models.WorkforceBudgetRecord.department.in_(wanted or [""]))
     if search:
         budget_query = budget_query.filter(or_(
             models.WorkforceBudgetRecord.position_title.like(f"%{search}%"),
@@ -414,6 +446,20 @@ def get_headcount_summary(
     # occupancy rate
     occupancy_rate = (total_active_fte / total_budget_fte * 100) if total_budget_fte > 0 else 95.5
 
+    # What the filter may offer: the departments this hotel/month really has rows
+    # for, so no option can come back empty, and a department that exists only in
+    # the imported sheet is still selectable.
+    offerable = present_departments
+    if allowed_department_names is not None:
+        offerable = _match_department_names(present_departments, allowed_department_names)
+    seen, available_departments = set(), []
+    for name in offerable:
+        key = _fold(name)
+        if key not in seen:
+            seen.add(key)
+            available_departments.append(name.strip())
+    available_departments.sort(key=_fold)
+
     return {
         "kpis": {
             "approved_budget": round(total_budget_fte, 2),
@@ -423,7 +469,8 @@ def get_headcount_summary(
             "no_job_ad": int(total_no_job),
             "confirmed_starters": int(total_confirmed_starters)
         },
-        "rows": rows
+        "rows": rows,
+        "available_departments": available_departments
     }
 
 

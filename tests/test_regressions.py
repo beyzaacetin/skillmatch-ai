@@ -1247,3 +1247,37 @@ def test_a_department_manager_cannot_ask_for_another_departments_headcount():
             app.dependency_overrides.pop(get_current_user, None)
         else:
             app.dependency_overrides[get_current_user] = previous
+
+
+def test_picking_a_department_from_the_headcount_filter_actually_filters(as_admin):
+    """The dropdown was filled from the Department table while the rows keep the
+    spelling the imported sheet used, and the importer matches departments
+    case-insensitively — so a table holding "Mutfak" next to a sheet saying
+    "MUTFAK" produced an option that returned nothing, and people filtered by
+    typing into the search box instead."""
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Filtre Otel", code="FLT")
+    code = db.query(models.Hotel).get(hotel_id).code
+    db.add(models.Department(name="Mutfak", code="KITCHEN-F"))
+    db.add(models.Department(name="Ön Büro", code="FRONT-F"))
+    # Sheet spelling deliberately differs from the table's.
+    for dept, title in (("MUTFAK", "Aşçı"), ("Ön Büro", "Resepsiyonist")):
+        db.add(models.WorkforceBudgetRecord(hotel_code=code, department=dept,
+                                            position_title=title, month_of_year=8,
+                                            total_fte=2))
+    db.commit(); db.close()
+
+    body = client.get(f"/api/headcount/summary?month=8&hotel_id={hotel_id}").json()
+    offered = body["available_departments"]
+    assert offered, "filtreye gelecek departman listesi boş"
+
+    for name in offered:
+        rows = client.get(f"/api/headcount/summary?month=8&hotel_id={hotel_id}",
+                          params={"department": name}).json()["rows"]
+        assert rows, f"listedeki '{name}' seçeneği hiç satır döndürmüyor"
+
+    # Turkish names must survive the fold: SQLite's lower() leaves Ö and İ alone.
+    for spelling in ("Mutfak", "mutfak", "MUTFAK", "ön büro", "ÖN BÜRO"):
+        rows = client.get(f"/api/headcount/summary?month=8&hotel_id={hotel_id}",
+                          params={"department": spelling}).json()["rows"]
+        assert rows, f"'{spelling}' yazımı eşleşmiyor"

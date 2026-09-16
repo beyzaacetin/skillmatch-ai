@@ -2447,6 +2447,14 @@ createApp({
       return ['Tümü', ...[...names].sort((a, b) => a.localeCompare(b, 'tr'))];
     });
 
+    // Kadro ekranının departman filtresi: önce gerçekten kadro verisi olan
+    // departmanlar (uç noktadan geliyor), yoksa tanımlı departman listesi.
+    const headcountDepartments = computed(() => {
+      const fromData = headcountData.value?.available_departments;
+      if (fromData && fromData.length) return fromData;
+      return (settingsData.value.departments || []).map(d => d.name).filter(Boolean);
+    });
+
     const filteredPositions = computed(() => {
       let list = positions.value;
       const q = posSearchQuery.value.toLowerCase().trim();
@@ -3649,7 +3657,7 @@ createApp({
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis,
       workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
-      posSearchQuery, selectedDepPill, departmentPills, filteredPositions,
+      posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments,
 
       // Headcount state and methods
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,

@@ -869,7 +869,8 @@ input:checked + .slider:before {
           <!-- Department selector -->
           <select v-model="headcountFilter.department" @change="loadHeadcount" class="fs" style="width:180px; padding:8px 12px">
             <option value="">Tüm departmanlar</option>
-            <option v-for="d in settingsData.departments" :key="d.id" :value="d.name">{{ d.name }}</option>
+            <!-- Kadro verisindeki departmanlar; tanımlı liste yalnızca yedek. -->
+            <option v-for="d in headcountDepartments" :key="d" :value="d">{{ d }}</option>
           </select>
 
           <!-- Month selector -->
