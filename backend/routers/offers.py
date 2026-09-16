@@ -72,7 +72,13 @@ def create_offer(data: schemas.OfferCreate, db: Session = Depends(database.get_d
     return offer
 
 @router.get("/application/{app_id}", response_model=schemas.OfferOut)
-def get_offer(app_id: int, db: Session = Depends(database.get_db)):
+def get_offer(app_id: int, db: Session = Depends(database.get_db),
+              current_user: models.User = Depends(auth.get_current_user)):
+    # The salary on this record belongs to whichever hotel the application does;
+    # an id alone used to be enough to read another hotel's offer.
+    from services.scope_policy_service import scope_policy_service
+    if not scope_policy_service.application_in_scope(db, current_user, app_id):
+        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
     offer = db.query(models.Offer).filter(models.Offer.application_id == app_id).first()
     if not offer: raise HTTPException(status_code=404, detail="Teklif bulunamadı")
     return offer

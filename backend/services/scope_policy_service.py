@@ -64,4 +64,32 @@ class ScopePolicyService:
             
         return query
 
+    # ── Tekil kayıt erişimi ────────────────────────────────────────────────
+    # The list endpoints filter by scope, but reading one record by id did not,
+    # so an id in the URL walked straight past the hotel wall. These reuse the
+    # same filters as the lists rather than restating the policy.
+
+    @staticmethod
+    def candidate_in_scope(db: Session, user: models.User, candidate_id: int):
+        q = db.query(models.Candidate).filter(models.Candidate.id == candidate_id)
+        return ScopePolicyService.apply_candidate_scope(q, db, user).first()
+
+    @staticmethod
+    def position_in_scope(db: Session, user: models.User, position_id: int):
+        q = db.query(models.Position).filter(models.Position.id == position_id)
+        return ScopePolicyService.apply_position_scope(q, db, user).first()
+
+    @staticmethod
+    def application_in_scope(db: Session, user: models.User, application_id: int):
+        app = db.query(models.Application).filter(models.Application.id == application_id).first()
+        if not app:
+            return None
+        if user.role in ("SYSTEM_ADMIN", "ADMIN") or user.data_visibility_scope == "GLOBAL":
+            return app
+        # An application belongs to whichever hotel its position belongs to.
+        if app.position_id and ScopePolicyService.position_in_scope(db, user, app.position_id):
+            return app
+        return None
+
+
 scope_policy_service = ScopePolicyService()

@@ -110,12 +110,20 @@ def read_positions(
     return positions
 
 
-@router.get("/{position_id}", response_model=schemas.Position)
-def read_position(position_id: int, db: Session = Depends(database.get_db)):
-    position = db.query(models.Position).filter(models.Position.id == position_id).first()
+def _scoped_position(position_id: int, db: Session, current_user: models.User):
+    """Same gap as on candidates: the list filters by hotel, reading one by id
+    did not. 404 rather than 403 so an out-of-scope id says nothing."""
+    from services.scope_policy_service import scope_policy_service
+    position = scope_policy_service.position_in_scope(db, current_user, position_id)
     if position is None:
         raise HTTPException(status_code=404, detail="Position not found")
     return position
+
+
+@router.get("/{position_id}", response_model=schemas.Position)
+def read_position(position_id: int, db: Session = Depends(database.get_db),
+                  current_user: models.User = Depends(auth.get_current_user)):
+    return _scoped_position(position_id, db, current_user)
 
 
 @router.put("/{position_id}", response_model=schemas.Position)
@@ -123,11 +131,9 @@ def update_position(
     position_id: int, 
     position_data: schemas.PositionCreate, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    position = db.query(models.Position).filter(models.Position.id == position_id).first()
-    if position is None:
-        raise HTTPException(status_code=404, detail="Position not found")
+    position = _scoped_position(position_id, db, current_user)
     
     for key, value in position_data.dict().items():
         setattr(position, key, value)
@@ -143,11 +149,9 @@ def update_position(
 def delete_position(
     position_id: int, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    position = db.query(models.Position).filter(models.Position.id == position_id).first()
-    if position is None:
-        raise HTTPException(status_code=404, detail="Position not found")
+    position = _scoped_position(position_id, db, current_user)
     pos_id = position.id
     pos_title = position.title
     db.delete(position)

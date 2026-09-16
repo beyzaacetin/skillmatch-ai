@@ -77,16 +77,21 @@ def clean_db():
 def make_hotel(name="Test Otel", code="TST"):
     """hotels.organization_id / city_id / region_id are all NOT NULL."""
     db = TestingSessionLocal()
-    org = models.Organization(name="Test Org", code="TORG")
-    country = models.Country(name="Türkiye")
-    db.add_all([org, country])
-    db.commit()
-    city = models.City(name="Antalya", country_id=country.id)
-    db.add(city)
-    db.commit()
-    region = models.Region(name="Akdeniz", city_id=city.id)
-    db.add(region)
-    db.commit()
+
+    def get_or_create(model, **kw):
+        """Several tests now build more than one hotel, and country/organization
+        names are unique."""
+        row = db.query(model).filter_by(**kw).first()
+        if row is None:
+            row = model(**kw)
+            db.add(row)
+            db.commit()
+        return row
+
+    org = get_or_create(models.Organization, name="Test Org", code="TORG")
+    country = get_or_create(models.Country, name="Türkiye")
+    city = get_or_create(models.City, name="Antalya", country_id=country.id)
+    region = get_or_create(models.Region, name="Akdeniz", city_id=city.id)
     hotel = models.Hotel(name=name, code=code, organization_id=org.id,
                          city_id=city.id, region_id=region.id)
     db.add(hotel)
@@ -955,3 +960,40 @@ def test_internal_endpoints_refuse_anonymous_callers():
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(saved)
+
+
+def test_a_position_and_its_offer_stay_inside_the_hotel_that_owns_them():
+    """The position list filters by hotel_access_ids, but reading one by id did
+    not, so a hotel's HR could open another hotel's posting — and with it the
+    offer on that posting, salary included — just by changing the id."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    mine = make_hotel(name="Benim Otel", code="MINE")
+    theirs = make_hotel(name="Komşu Otel", code="THRS")
+    pos = models.Position(title="GİZLİ Müdür", hotel_id=theirs)
+    cand = models.Candidate(name="Komşu Aday", email="komsu-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(candidate_id=cand.id, position_id=pos.id,
+                                 hotel_id=theirs, status="offer")
+    db.add(app_row); db.commit()
+    db.add(models.Offer(application_id=app_row.id, position_id=pos.id, candidate_id=cand.id,
+                        proposed_salary=175000, status="draft", approval_status="APPROVED"))
+    hotel_hr = models.User(email="baska-otel-rg@ornek.com", full_name="Başka Otel İK",
+                           hashed_password="x", role="HOTEL_HR", is_active=True,
+                           data_visibility_scope="HOTEL", hotel_access_ids=[mine])
+    db.add(hotel_hr); db.commit(); db.refresh(hotel_hr)
+    pos_id, app_id = pos.id, app_row.id
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: hotel_hr
+    try:
+        assert client.get(f"/api/positions/{pos_id}").status_code == 404
+        assert client.get(f"/api/offers/application/{app_id}").status_code == 404
+        titles = [p["title"] for p in client.get("/api/positions/").json()]
+        assert "GİZLİ Müdür" not in titles, "liste zaten sızdırıyor"
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
