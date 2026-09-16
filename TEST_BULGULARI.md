@@ -4,7 +4,7 @@ Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıl
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
 **Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 38/38 pytest geçiyor
-(16 mevcut + 22 yeni regresyon testi) · **32 commit**
+(16 mevcut + 22 yeni regresyon testi) · **33 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -523,6 +523,25 @@ programına devrediyor. Yani bu bozuk bir söz değil, **yapılmamış bir iş**
 `fastapi_mail`'i requirements'a eklemem ve SMTP/SendGrid bilgilerini `.env`'e
 girmen gerekiyor.
 
+### 📋 "10 günlük değerlendirme sayacı" yapılmamış ama tamamlandı işaretli
+`IMPLEMENTATION_STATUS.md` → Faz 4 → **`- [x] 10-day evaluation counter logic
+(evaluation_deadline on Application)`** diyor. Gerçekte:
+
+- `Application.evaluation_deadline` kolonu modelde var ve migrasyonla ekleniyor
+- Ama **hiçbir yerde yazılmıyor, okunmuyor, gösterilmiyor** (tüm depoda tek
+  atama yok, arayüzde de geçmiyor)
+
+Yani sayaç yok, sadece boş bir kolon var. Nasıl çalışması gerektiğini (10 gün
+neyden itibaren? süre dolunca ne olmalı?) bilmediğim için **uydurmadım**.
+
+ℹ️ Aynı listede işaretli olan **sahiplik süresi mekanizması gerçekten çalışıyor** —
+test ettim: süresi geçmiş kilitli bir başvuru, aday listesi çağrıldığında
+otomatik olarak serbest bırakılıyor (`UNLOCKED`).
+
+📋 Ancak serbest bırakırken başvurunun durumunu **`rejected`** yapıyor — yani
+İK zamanında ilgilenmediği için aday otomatik elenmiş oluyor. Durum geçmişine
+sebebi yazılıyor. "Havuza geri dön" mü olmalı, "elendi" mi? İş kuralı senin.
+
 ### `POST /api/positions/{id}/deep-analyze` diye bir rota yok
 Pozisyon ekranındaki **"Derin AI Analizi"** butonu bu adrese istek atıyor; backend'de
 böyle bir endpoint hiçbir yerde tanımlı değil, yani buton her zaman 404 alıyor.
@@ -610,6 +629,9 @@ sıralı akış önce otel İK'sını bekliyor, merkez adımı henüz `WAITING`.
 
 - **"Eşleştir" akışı**: aday modalından pozisyon seçilince uyum skorları anında
   hesaplanıp listeleniyor, hata yok.
+- **KVKK onayı**: onay kutusu işaretlenmeden başvuru gönderilemiyor
+  (400 — *"KVKK rıza onay metnini kabul etmeniz zorunludur."*)
+- **Sahiplik süresi dolması**: süresi geçmiş kilit otomatik serbest bırakılıyor
 
 ℹ️ Buton taramasında görünen `404 /api/positions/applications/1/decision`
 **hata değil** — "bu başvuru için henüz karar girilmemiş" demek ve arayüz bunu
