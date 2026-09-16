@@ -4,7 +4,7 @@ Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıl
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
 **Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 35/35 pytest geçiyor
-(16 mevcut + 19 yeni regresyon testi) · **30 commit**
+(16 mevcut + 19 yeni regresyon testi) · **31 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -474,6 +474,29 @@ oluşturacak şekilde düzelttim ki assert bir anlam ifade etsin.
 
 ## 5. 📋 Düzeltmediklerim — kararını bekliyor
 
+### 📋 Uygulama hiç e-posta göndermiyor — e-posta servisi tamamen bağlanmamış
+`backend/services/email_service.py` beş hazır işlemsel e-posta şablonu içeriyor:
+mülakat daveti, teklif bildirimi, başvuru durum güncellemesi, aday portal erişim
+linki, onboarding karşılama. Ama:
+
+- Modül **hiçbir router veya servisten çağrılmıyor** (tüm depoda tek referans yok)
+- Bağımlılığı `fastapi_mail` **kurulu değil ve `requirements.txt`'te de yok** —
+  yani import edilmeye çalışılsa modül zaten yüklenemez
+- `EmailLog` ve `EmailTemplate` modelleri ile `email_logs` / `email_templates`
+  tabloları da kullanılmıyor
+
+Pratikte: **aday hiçbir bildirim almıyor.** Mülakata çağrıldığında, teklif
+aldığında, durumu değiştiğinde ya da işe girişi başladığında sistem ona hiçbir
+şey yazmıyor.
+
+ℹ️ Arayüz bu konuda dürüst: "Mail At" butonu sunucudan gönderdiğini iddia etmiyor,
+*"Varsayılan e-posta istemciniz üzerinden…"* diyerek kullanıcının kendi mail
+programına devrediyor. Yani bu bozuk bir söz değil, **yapılmamış bir iş**.
+
+**Karar senin:** hangi olaylarda otomatik e-posta gitsin? Bağlamamı istersen
+`fastapi_mail`'i requirements'a eklemem ve SMTP/SendGrid bilgilerini `.env`'e
+girmen gerekiyor.
+
 ### `POST /api/positions/{id}/deep-analyze` diye bir rota yok
 Pozisyon ekranındaki **"Derin AI Analizi"** butonu bu adrese istek atıyor; backend'de
 böyle bir endpoint hiçbir yerde tanımlı değil, yani buton her zaman 404 alıyor.
@@ -558,6 +581,9 @@ sıralı akış önce otel İK'sını bekliyor, merkez adımı henüz `WAITING`.
   yenilendikten sonra da kalıcıydı.
 - **Teklif Onayları sekmesi (arayüz)**: HOTEL_HR rolüyle bekleyen onay listelendi,
   "Onayla" butonu çalıştı, ikinci adım aktifleşti.
+
+- **"Eşleştir" akışı**: aday modalından pozisyon seçilince uyum skorları anında
+  hesaplanıp listeleniyor, hata yok.
 
 ℹ️ Buton taramasında görünen `404 /api/positions/applications/1/decision`
 **hata değil** — "bu başvuru için henüz karar girilmemiş" demek ve arayüz bunu
