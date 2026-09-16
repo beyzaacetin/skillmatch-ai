@@ -875,3 +875,17 @@ def test_a_candidate_named_ahmet_is_not_handed_a_91_percent_match(as_admin):
     stored = db.query(models.MatchScore).filter(models.MatchScore.candidate_id == cand_id).all()
     assert not [m for m in stored if m.overall_score == 91.0]
     db.close()
+
+
+def test_an_offer_awaiting_approval_does_not_offer_a_send_button():
+    """/api/offers/{id}/status refuses to send an offer whose approval is still
+    pending, but the offer tab showed "Taslak" and a Teklifi Gönder button that
+    could only ever produce an error."""
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    start = html.index("currentOffer.status==='draft'?'Taslak'")
+    block = html[start:start + 1600]
+    assert "PENDING_APPROVAL" in block, "onay bekleyen teklif için rozet yok"
+    send = block.index("sendOffer()")
+    guard = block[:send]
+    assert "approval_status!=='REJECTED'" in guard and "approval_status==='PENDING_APPROVAL'" in guard, \
+        "Gönder butonu onay durumuna bakmıyor"

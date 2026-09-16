@@ -5208,14 +5208,21 @@ input:checked + .slider:before {
           </div>
           <div v-else>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-              <div>
+              <div style="display:flex;align-items:center;gap:8px">
                 <span class="badge" :class="currentOffer.status==='accepted'?'b-hired':currentOffer.status==='rejected'?'b-rejected':'b-offer'">
                   {{ currentOffer.status==='draft'?'Taslak':currentOffer.status==='sent'?'Gönderildi':currentOffer.status==='accepted'?'Kabul Edildi':currentOffer.status==='rejected'?'Reddedildi':'Müzakerede' }}
                 </span>
+                <!-- Bant dışı teklif onaydan geçmeden gönderilemez; rozet olmayınca
+                     ekran "Taslak" deyip mutlaka hata verecek bir buton gösteriyordu. -->
+                <span v-if="currentOffer.approval_status==='PENDING_APPROVAL'" class="badge b-screening">Onay Bekliyor</span>
+                <span v-else-if="currentOffer.approval_status==='REJECTED'" class="badge b-rejected">Onay Reddedildi</span>
               </div>
-              <div style="display:flex;gap:8px">
+              <div style="display:flex;gap:8px;align-items:center">
                 <button class="btn btn-secondary btn-sm" @click="generateLetter()">AI Mektup Üret</button>
-                <button v-if="currentOffer.status==='draft'" class="btn btn-primary btn-sm" @click="sendOffer()">Teklifi Gönder</button>
+                <span v-if="currentOffer.status==='draft' && currentOffer.approval_status==='PENDING_APPROVAL'" style="font-size:11px;color:var(--g500)">
+                  Onay tamamlanınca gönderilebilir
+                </span>
+                <button v-else-if="currentOffer.status==='draft' && currentOffer.approval_status!=='REJECTED'" class="btn btn-primary btn-sm" @click="sendOffer()">Teklifi Gönder</button>
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
