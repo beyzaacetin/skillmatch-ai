@@ -3,8 +3,8 @@
 Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıldı.
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
-**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 31/31 pytest geçiyor
-(16 mevcut + 15 yeni regresyon testi) · **23 commit**
+**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 32/32 pytest geçiyor
+(16 mevcut + 16 yeni regresyon testi) · **26 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -323,6 +323,29 @@ getiriyor, "Dışa Aktar" gerçek CSV indiriyor.
 | Pozisyon çalışma alanı · Gün Açık | `18 Gün` | `created_at`'ten hesaplanıyor |
 | Pozisyonlar · Ortalama İlerleme, Pipeline Uyum Ort. | `82%` | 📋 `—` — **tanımını söyle, bağlayayım** |
 
+### ✅ D-31 — Admin olmayan kullanıcılar için uygulama büyük ölçüde kullanılamazdı
+Bu turun en etkili bulgusu. `loadSettings()` on bir ucu `Promise.all` ile
+çekiyordu. Admin olmayan bir kullanıcı `/api/settings/audit-logs` için **403**
+alıyor — `Promise.all` tek bir reddedişte **tüm partiyi** düşürdüğü için
+`catch` bloğu her şeyi yutuyor ve `settingsData` **boş kalıyordu**.
+
+Sonuç: admin olmayan her kullanıcı için
+- Otel ve departman açılır menüleri **her yerde boştu**
+- `getHotelName()` "Bilinmeyen Otel" diyordu
+- Kadro ihtiyacı, kampanya oluşturmak veya otele göre filtrelemek mümkün değildi
+
+Bir İK sisteminde kullanıcıların çoğu admin değildir.
+
+**Doğrulama:** RECRUITER rolüyle giriş yapıldı. Otel filtresinde önce yalnızca
+1 seçenek ("Tüm Oteller") vardı; düzeltmeden sonra 16 otelin tamamı +
+departmanlar (33 seçenek) geliyor.
+
+`Promise.allSettled`'a çevrildi; okunamayan uçlar boş dönüyor.
+
+ℹ️ **RBAC'in kendisi doğru çalışıyor:** recruiter'ın menüsünde *Ayarlar* gizli,
+erişebildiği tüm sayfalar hatasız açılıyor. (Konsolda hâlâ zararsız bir 403
+görünüyor — sunucu doğru davranıyor, sadece gereksiz bir istek.)
+
 ---
 
 ## 3. 📋 Senin sorduğun 3 madde
@@ -487,6 +510,15 @@ istersin?
 - **Public portal**: ilan sayfası ve walk-in formu (D-19'dan sonra) çalışıyor
 - **Mobil**: 390px / 768px / 360px'te beş sayfa ölçüldü, yatay taşma yok
 - **14 sayfa şablonunun tamamında** mobil hamburger butonu var
+- **Chatbot ve AI sekmeleri** (Soru Üretimi, Mülakat Notu Analizi): anahtar
+  yokken dürüstçe "Demo Modu: API Anahtarı bulunamadı" diyor, çökmüyor
+- **Ayarlar'ın kalan 6 sekmesi** (Denetim Günlüğü, Uzatma Talepleri, Maaş
+  Politikaları, Pipeline Şablonları, Sistem Parametreleri, İş Gücü Bütçesi):
+  hepsi temiz, denetim günlüğü gerçek kayıt gösteriyor
+- **Blacklist tam turu**: aday modalından kara listeye al (sebep sorularak) →
+  Blacklist sayfasında göründü → listeden çıkar → temizlendi
+- **Kanban sürükle-bırak**: kart taşındı, durum veritabanında değişti
+- **RECRUITER rolüyle** tüm sayfalar gezildi
 - **6 adımlı pozisyon sihirbazı**: boş gönderimde net Türkçe uyarı veriyor
   ("Otel ve Pozisyon Başlığı alanları zorunludur…"), gerçek veriyle tam tur
   atıldı ve pozisyon oluştu
