@@ -264,6 +264,51 @@ def test_creating_an_offer_does_not_blow_up_on_approval_status(as_admin):
     assert fetched.json()["position_title"] == "Gece Resepsiyonisti"
 
 
+# ── dashboard vs. real interviews ────────────────────────────────────────────
+
+def test_dashboard_survives_a_scheduled_interview(as_admin):
+    """dashboard-stats read iv.candidate_id / iv.position_id, which models.Interview
+    does not have (only application_id), so the dashboard 500'd as soon as a single
+    interview existed. It also listed every scheduled interview under "Bugünkü
+    programım" regardless of date."""
+    from datetime import datetime, timedelta
+
+    hotel_id = make_hotel()
+    db = TestingSessionLocal()
+    candidate = models.Candidate(name="Mehmet Kaya", email="mk2@example.com", skills=[], experience=[])
+    position = models.Position(title="Gece Resepsiyonisti", hotel_id=hotel_id, is_active=True, headcount=1)
+    db.add_all([candidate, position])
+    db.commit()
+    application = models.Application(candidate_id=candidate.id, position_id=position.id, status="hr_interview")
+    db.add(application)
+    db.commit()
+    now = datetime.now()
+    db.add(models.Interview(application_id=application.id, interview_type="technical",
+                            status="scheduled",
+                            scheduled_at=now.replace(hour=10, minute=30, second=0, microsecond=0),
+                            interviewer_name="Şule Sıray"))
+    db.add(models.Interview(application_id=application.id, interview_type="hr",
+                            status="scheduled", scheduled_at=now + timedelta(days=15),
+                            interviewer_name="Şule Sıray"))
+    db.commit()
+    db.close()
+
+    r = client.get("/api/analytics/dashboard-stats")
+    assert r.status_code == 200, r.text
+    data = r.json()
+
+    # building the row needs the candidate and position, which hang off the
+    # application rather than the interview
+    assert len(data["schedule"]) == 1, data["schedule"]
+    assert data["schedule"][0]["candidate_name"] == "Mehmet Kaya"
+    assert data["schedule"][0]["position_title"] == "Gece Resepsiyonisti"
+    # and the one two weeks out stays off today's list
+    assert data["today_interviews"] == 1
+
+    # and the hotel-scoped variant must not fall over either
+    assert client.get(f"/api/analytics/dashboard-stats?hotel_id={hotel_id}").status_code == 200
+
+
 # ── matching ─────────────────────────────────────────────────────────────────
 
 def test_no_required_skills_is_not_a_perfect_match():

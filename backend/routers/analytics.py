@@ -423,8 +423,10 @@ def get_dashboard_stats(
         models.Interview.status == "scheduled"
     )
     if active_hotel_id:
-        interviews_query = interviews_query.filter(models.Interview.position_id.in_(
-            db.query(models.Position.id).filter(models.Position.hotel_id == active_hotel_id)
+        interviews_query = interviews_query.filter(models.Interview.application_id.in_(
+            db.query(models.Application.id)
+              .join(models.Position, models.Application.position_id == models.Position.id)
+              .filter(models.Position.hotel_id == active_hotel_id)
         ))
     today_interviews_count = interviews_query.count()
     if today_interviews_count == 0 and settings.DEMO_DATA:
@@ -589,14 +591,23 @@ def get_dashboard_stats(
         ]
 
     # --- 3. Today's Program Schedule ---
+    # The widget is titled "Bugünkü programım" and sits next to the
+    # today_interviews counter, but this query had no date filter at all, so an
+    # interview three weeks out was listed as today's while the counter beside it
+    # read 0. Use the same range the counter uses.
     today_interviews = db.query(models.Interview).filter(
-        models.Interview.status == "scheduled"
-    ).all()
+        models.Interview.status == "scheduled",
+        models.Interview.scheduled_at >= today_start,
+        models.Interview.scheduled_at <= today_end
+    ).order_by(models.Interview.scheduled_at).all()
     
     schedule_list = []
     for iv in today_interviews:
-        cand = db.query(models.Candidate).filter_by(id=iv.candidate_id).first()
-        pos = db.query(models.Position).filter_by(id=iv.position_id).first()
+        app = db.query(models.Application).filter_by(id=iv.application_id).first()
+        if not app:
+            continue
+        cand = db.query(models.Candidate).filter_by(id=app.candidate_id).first()
+        pos = db.query(models.Position).filter_by(id=app.position_id).first()
         if not cand or not pos:
             continue
         if active_hotel_id and pos.hotel_id != active_hotel_id:
