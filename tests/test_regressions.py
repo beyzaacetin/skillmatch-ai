@@ -681,3 +681,33 @@ def test_setup_exposes_every_name_the_template_binds():
                  "onboardingApps", "departmentPills", "downloadBudgetTemplate"):
         assert name in exposed, f"index.html {name} kullanıyor ama setup() döndürmüyor"
         assert name in html, f"{name} export ediliyor ama şablonda kullanılmıyor"
+
+
+def test_onboarding_checklist_survives_a_page_reload(as_admin):
+    """GET /api/onboarding/{id} returns {completion_percentage, tasks} but both
+    front-end callers assigned the whole envelope to the task array, so a
+    generated checklist turned into junk rows as soon as the page was reloaded
+    (and the application modal threw `onboardingTasks.filter is not a function`)."""
+    hotel_id = make_hotel()
+    db = TestingSessionLocal()
+    pos = models.Position(title="Bar Şefi", hotel_id=hotel_id)
+    cand = models.Candidate(name="Sinem Kaplan", email="sinem@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(candidate_id=cand.id, position_id=pos.id, status="offer")
+    db.add(app_row); db.commit()
+    app_id = app_row.id
+    db.close()
+
+    assert client.post(f"/api/onboarding/{app_id}/generate").status_code == 200
+    body = client.get(f"/api/onboarding/{app_id}").json()
+    assert isinstance(body, dict) and isinstance(body["tasks"], list) and body["tasks"]
+
+    app_js = open(APP_JS, encoding="utf-8").read()
+    for fn in ("async function loadOnboarding()", "async function selectOnboardingApp("):
+        start = app_js.index(fn)
+        block = app_js[start:start + 500]
+        get_call = re.search(r"api\('GET', `/api/onboarding/\$\{[^`]+`\);", block)
+        assert get_call, f"{fn} artık onboarding GET çağırmıyor"
+        assigned = block[:get_call.start()].rstrip().endswith("=")
+        assert not assigned, f"{fn} yanıtın tamamını diziye atıyor, .tasks okumalı"
+        assert ".tasks || []" in block[get_call.end():get_call.end() + 120]

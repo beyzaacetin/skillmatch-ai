@@ -1886,7 +1886,8 @@ createApp({
     async function loadOnboarding() {
       if (!selectedApp.value) return;
       try {
-        onboardingTasks.value = await api('GET', `/api/onboarding/${selectedApp.value.id}`);
+        const res = await api('GET', `/api/onboarding/${selectedApp.value.id}`);
+        onboardingTasks.value = res.tasks || [];
       } catch (e) { onboardingTasks.value = []; }
     }
 
@@ -3479,7 +3480,8 @@ createApp({
     async function selectOnboardingApp(app) {
       onboardingSelectedApp.value = app;
       try {
-        onboardingBoardTasks.value = await api('GET', `/api/onboarding/${app.id}`);
+        const res = await api('GET', `/api/onboarding/${app.id}`);
+        onboardingBoardTasks.value = res.tasks || [];
       } catch (e) { onboardingBoardTasks.value = []; }
     }
 
