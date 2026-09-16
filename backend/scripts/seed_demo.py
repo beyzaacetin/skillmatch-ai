@@ -112,18 +112,25 @@ def main(do_reset: bool):
         # ── maaş politikaları ──────────────────────────────────────────
         bands = {"Garson": (32000, 36000, 41000), "Komi": (28000, 31000, 35000),
                  "Resepsiyonist": (34000, 39000, 45000), "Kat Görevlisi": (30000, 33000, 37000),
-                 "Aşçı": (42000, 48000, 56000), "Cankurtaran": (33000, 37000, 42000)}
-        for pos in created_positions:
-            if db.query(models.SalaryPolicy).filter_by(position_title=pos.title, hotel_id=sungate.id).first():
+                 "Aşçı": (42000, 48000, 56000), "Cankurtaran": (33000, 37000, 42000),
+                 # Sunumda canlı açılacak pozisyonun bandı önceden tanımlı olmalı:
+                 # merkez İK ücret bantlarını pozisyon açılmadan belirler, ve
+                 # demo bu bandın aşılmasıyla devreye giren onay akışını gösterir.
+                 "Bar Şefi": (38000, 43000, 48000)}
+        for title in list(bands):
+            if db.query(models.SalaryPolicy).filter_by(position_title=title, hotel_id=sungate.id).first():
                 continue
-            lo, mid, hi = bands[pos.title]
+            pos = next((p for p in created_positions if p.title == title), None)
+            lo, mid, hi = bands[title]
             db.add(models.SalaryPolicy(
-                hotel_id=sungate.id, department_id=pos.department_id, position_title=pos.title,
+                hotel_id=sungate.id,
+                department_id=pos.department_id if pos else None,
+                position_title=title,
                 min_salary=lo, target_salary=mid, max_salary=hi, currency="TRY",
                 is_active=True, version=1, status="active",
                 accommodation=True, meal=True, transportation=True))
         db.commit()
-        print(f"  {len(created_positions)} maaş politikası hazır")
+        print(f"  {len(bands)} maaş politikası hazır (Bar Şefi dahil)")
 
         # ── adaylar ve başvurular ──────────────────────────────────────
         now = datetime.utcnow()
