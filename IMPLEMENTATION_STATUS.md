@@ -39,7 +39,7 @@ This document tracks the end-to-end implementation of the SkillMatch AI ATS, Wor
 
 ### Faz 4: Pipeline Stages, Evaluation & Meaningful Locks
 - [x] Pipeline templates settings page (RecruitmentPipeline CRUD)
-- [x] 10-day evaluation counter logic (`evaluation_deadline` on Application)
+- [x] 10-day evaluation counter logic (`evaluation_deadline` on Application) — başvurudan itibaren 10 gün; süre dolan ve hâlâ açık olan başvuru Kanban kartında uyarı rozetiyle işaretlenir
 - [x] 7-day meaningful locks mechanism (`ownership_expires_at` enforcement)
 - [x] Regional candidate routing hierarchy (Same Hotel → Region → City → Pool via `routing_service.py`)
 

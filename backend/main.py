@@ -281,6 +281,21 @@ try:
                             fixed += 1
                     db_session.commit()
                     print(f"[Startup] {fixed} application(s) given the hotel of their position.")
+
+                # 10 günlük değerlendirme süresi: kolon vardı ama hiç yazılmıyordu.
+                import datetime as _dt
+                undated = db_session.query(models.Application).filter(
+                    models.Application.evaluation_deadline.is_(None)
+                ).all()
+                if undated:
+                    for a in undated:
+                        start = a.applied_at or _dt.datetime.utcnow()
+                        if getattr(start, "tzinfo", None) is not None:
+                            start = start.replace(tzinfo=None)
+                        a.evaluation_deadline = start + _dt.timedelta(days=10)
+                        db_session.add(a)
+                    db_session.commit()
+                    print(f"[Startup] {len(undated)} application(s) given an evaluation deadline.")
             except Exception as norm_err:
                 db_session.rollback()
                 print(f"[Startup] Candidate normalization failed: {norm_err}")

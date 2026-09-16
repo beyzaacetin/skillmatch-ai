@@ -595,10 +595,13 @@ def import_salary_policy(
                 detail=f"Excel dosyası gerekli sütunları içermelidir: Pozisyon, Min Maaş, Hedef Maaş, Max Maaş. Mevcut: {list(df.columns)}"
             )
 
-        db.query(models.SalaryPolicy).delete()
-        db.commit()
-
+        # Wiping every policy before the import meant one wrong or partial file
+        # erased all the salary bands - and the bands are what trips the offer
+        # approval chain, so the loss is silent until someone makes an offer.
+        # Same hotel + position + seniority is updated, everything else is left
+        # where it is.
         imported_count = 0
+        updated_count = 0
         skipped_rows = []
 
         for idx, row in df.iterrows():
@@ -636,11 +639,8 @@ def import_salary_policy(
                     if dept:
                         dept_id = dept.id
 
-                policy = models.SalaryPolicy(
-                    hotel_id=hotel_id,
+                fields = dict(
                     department_id=dept_id,
-                    position_title=pos_val,
-                    seniority_level=seniority_val,
                     min_salary=int(min_val),
                     target_salary=int(target_val),
                     max_salary=int(max_val),
@@ -648,10 +648,25 @@ def import_salary_policy(
                     transportation=trans_val,
                     meal=meal_val,
                     bonus=bonus_val,
-                    currency=curr
+                    currency=curr,
                 )
-                db.add(policy)
-                imported_count += 1
+                existing = db.query(models.SalaryPolicy).filter(
+                    models.SalaryPolicy.hotel_id == hotel_id,
+                    func.lower(models.SalaryPolicy.position_title) == pos_val.lower(),
+                    models.SalaryPolicy.seniority_level == seniority_val,
+                ).first()
+                if existing:
+                    for field, value in fields.items():
+                        setattr(existing, field, value)
+                    updated_count += 1
+                else:
+                    db.add(models.SalaryPolicy(
+                        hotel_id=hotel_id,
+                        position_title=pos_val,
+                        seniority_level=seniority_val,
+                        **fields
+                    ))
+                    imported_count += 1
             except Exception as row_err:
                 skipped_rows.append(f"Satır {idx+2}: Hata - {str(row_err)}")
 
@@ -663,11 +678,13 @@ def import_salary_policy(
             action="import_salary_policy",
             target_type="salary_policy",
             target_id=None,
-            details={"imported_rows": imported_count, "errors": skipped_rows}
+            details={"imported_rows": imported_count, "updated_rows": updated_count, "errors": skipped_rows}
         )
 
         return {
-            "message": f"Maaş politikası tablosu başarıyla içe aktarıldı. Toplam {imported_count} kayıt eklendi.",
+            "message": f"Maaş politikası içe aktarıldı: {imported_count} yeni kayıt, {updated_count} güncelleme. Dosyada yer almayan politikalar korundu.",
+            "imported": imported_count,
+            "updated": updated_count,
             "skipped": skipped_rows
         }
     except Exception as e:

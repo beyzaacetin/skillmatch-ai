@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Date, Float, Boolean, ForeignKey
 from sqlalchemy.sql import func
+import datetime
 from sqlalchemy.orm import relationship
 from database import Base
 from config import settings
@@ -160,7 +161,12 @@ class Application(Base):
     utm_campaign = Column(String, nullable=True)
     utm_content = Column(String, nullable=True)
     
-    evaluation_deadline = Column(DateTime(timezone=True), nullable=True)
+    # 10 gün: başvurunun alındığı andan itibaren. Süre dolduğunda başvuru
+    # kendiliğinden bir şey olmuyor - ekranda "değerlendirme süresi doldu"
+    # rozeti çıkıyor ki kimse unutulmasın.
+    evaluation_deadline = Column(
+        DateTime(timezone=True), nullable=True,
+        default=lambda: datetime.datetime.utcnow() + datetime.timedelta(days=10))
     routing_level = Column(String, nullable=True)
     routed_from_hotel_id = Column(Integer, nullable=True)
 

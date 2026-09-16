@@ -1663,6 +1663,11 @@ input:checked + .slider:before {
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
                   <span v-for="s in (app.matching_skills||[]).slice(0,3)" :key="s" class="skill-tag" style="font-size:10px">{{ s }}</span>
                 </div>
+                <!-- 10 günlük değerlendirme süresi doldu: kimse unutulmasın. -->
+                <div v-if="evaluationOverdue(app)" class="badge b-rejected" style="font-size:9px;padding:1px 5px;margin-bottom:6px"
+                     :title="'Değerlendirme süresi ' + evaluationOverdue(app) + ' gün önce doldu'">
+                  ⚠ Değerlendirme süresi doldu
+                </div>
                 <div style="display:flex;align-items:center;justify-content:space-between">
                   <div class="stars">
                     <svg v-for="i in 5" :key="i" class="star" :class="{on:i<=(app.candidate?.rating||0)}" viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>

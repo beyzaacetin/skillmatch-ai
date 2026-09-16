@@ -236,6 +236,7 @@ def _app_dict(a):
         "semantic_score": a.semantic_score, "keyword_score": a.keyword_score,
         "matching_skills": a.matching_skills or [], "hr_notes": a.hr_notes,
         "applied_at": a.applied_at.isoformat() if a.applied_at else None,
+        "evaluation_deadline": a.evaluation_deadline.isoformat() if a.evaluation_deadline else None,
         "source": a.source,
         "candidate": {"id": c.id, "name": c.name, "email": c.email, "seniority_level": c.seniority_level,
                       "skills": c.skills or [], "rating": c.rating, "is_favorite": c.is_favorite,

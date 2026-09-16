@@ -965,6 +965,17 @@ createApp({
     }
 
     // Her satırda sabit %65 gösteriliyordu. Gerçek doluluk: işe alınan / onaylı kadro.
+    // Başvuru alındıktan 10 gün sonra hâlâ açık aşamadaysa uyar. Otomatik
+    // hiçbir şey olmuyor - sadece görünür oluyor.
+    const CLOSED_STAGES = ['hired', 'rejected', 'withdrawn'];
+    function evaluationOverdue(app) {
+      if (!app || !app.evaluation_deadline || CLOSED_STAGES.includes(app.status)) return 0;
+      const due = new Date(app.evaluation_deadline);
+      if (isNaN(due)) return 0;
+      const days = Math.floor((Date.now() - due.getTime()) / 86400000);
+      return days > 0 ? days : 0;
+    }
+
     function positionProgress(position) {
       const target = position?.headcount || 0;
       if (!target) return 0;
@@ -3723,7 +3734,7 @@ createApp({
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis, plannerApplicationId, schedulableApplications, openInterviewPlanner,
       workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
-      posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments, fte,
+      posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments, fte, evaluationOverdue,
 
       // Headcount state and methods
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,

@@ -1555,3 +1555,70 @@ def test_approving_two_and_a_half_fte_does_not_lose_the_half():
     html = open(INDEX_HTML, encoding="utf-8").read()
     assert "function fte(" in app_js, "ondalık FTE için biçimlendirici yok"
     assert "{{ p.headcount }}" not in html, "FTE ham basılıyor, 2.5 olarak görünür"
+
+
+def test_importing_salary_policies_updates_instead_of_wiping(as_admin):
+    """The import deleted every policy before reading the file, so one wrong or
+    partial spreadsheet erased all the salary bands — and the bands are what
+    trips the offer approval chain, so the loss stayed silent until someone
+    made an offer."""
+    import io as _io
+    from openpyxl import Workbook
+
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Bant Otel", code="BNT")
+    hotel_name = db.query(models.Hotel).get(hotel_id).name
+    db.add(models.SalaryPolicy(hotel_id=hotel_id, position_title="Garson",
+                               min_salary=30000, target_salary=33000, max_salary=36000,
+                               currency="TRY", is_active=True))
+    db.add(models.SalaryPolicy(hotel_id=hotel_id, position_title="Dokunulmayan",
+                               min_salary=1, target_salary=2, max_salary=3,
+                               currency="TRY", is_active=True))
+    db.commit(); db.close()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Otel", "Pozisyon", "Min Maaş", "Hedef Maaş", "Max Maaş"])
+    ws.append([hotel_name, "Garson", 32000, 35000, 38000])
+    ws.append([hotel_name, "Komi", 28000, 30000, 33000])
+    buf = _io.BytesIO(); wb.save(buf); buf.seek(0)
+
+    res = client.post("/api/settings/salary-policy/import",
+                      files={"file": ("bant.xlsx", buf.read(),
+                                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+    assert res.status_code == 200, res.text
+
+    db = TestingSessionLocal()
+    titles = {p.position_title: p for p in db.query(models.SalaryPolicy).all()}
+    assert "Dokunulmayan" in titles, "dosyada olmayan politika silinmiş"
+    assert titles["Garson"].max_salary == 38000, "mevcut politika güncellenmemiş"
+    assert "Komi" in titles, "yeni politika eklenmemiş"
+    assert len([p for p in db.query(models.SalaryPolicy).all() if p.position_title == "Garson"]) == 1, \
+        "aynı politika iki kez yazılmış"
+    db.close()
+def test_every_application_gets_a_ten_day_evaluation_deadline(as_admin):
+    """IMPLEMENTATION_STATUS.md ticked the 10-day evaluation counter as done, but
+    evaluation_deadline was never written or read anywhere — an empty column."""
+    import datetime
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Sayaç Otel", code="SYC")
+    pos = models.Position(title="Garson", hotel_id=hotel_id)
+    cand = models.Candidate(name="Sayaç Adayı", email="sayac-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    fresh = models.Application(candidate_id=cand.id, position_id=pos.id,
+                               hotel_id=hotel_id, status="applied")
+    db.add(fresh); db.commit()
+    app_id = fresh.id
+    assert fresh.evaluation_deadline is not None, "sayaç hiç kurulmuyor"
+    days = (fresh.evaluation_deadline.replace(tzinfo=None) - datetime.datetime.utcnow()).days
+    assert 9 <= days <= 10, days
+    db.close()
+
+    board = client.get("/api/applications/pipeline").json()
+    row = next(a for col in board["columns"] for a in col["applications"] if a["id"] == app_id)
+    assert row["evaluation_deadline"], "pano sayacı taşımıyor, rozet çizilemez"
+
+    app_js = open(APP_JS, encoding="utf-8").read()
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    assert "function evaluationOverdue(" in app_js
+    assert "evaluationOverdue(app)" in html
