@@ -313,6 +313,40 @@ def test_org_import_reads_the_sheet_it_documents(as_admin):
     assert preview["Resepsiyonist"]["main_category"] == "Ön Büro"
 
 
+# ── interview scheduling vs. the kanban board ────────────────────────────────
+
+def test_scheduling_an_interview_keeps_the_candidate_on_the_board(as_admin):
+    """Both scheduling paths set app.status = "interview", which is not one of the
+    pipeline columns, so the candidate vanished from the Kanban board the moment
+    an interview was booked. main.py still ships a migration rewriting that
+    legacy value, which is the giveaway."""
+    from routers.interviews import interview_stage
+
+    stages = ["applied", "screening", "hr_interview", "tech_interview",
+              "manager_interview", "reference_check", "offer", "hired", "rejected", "hold"]
+    assert interview_stage("hr") == "hr_interview"
+    assert interview_stage("technical") == "tech_interview"
+    assert interview_stage("manager") == "manager_interview"
+    # an unknown type still has to land on a real column
+    assert interview_stage("video") in stages
+    assert interview_stage(None) in stages
+
+    hotel_id = make_hotel()
+    app_id = _make_application(hotel_id, title="Bar Şefi", email="kanban@example.com")
+    r = client.post("/api/interviews/", json={
+        "application_id": app_id, "round_number": 1, "interview_type": "technical",
+        "scheduled_at": "2026-10-01T10:30:00", "duration_minutes": 60,
+        "interviewer_name": "Şule Sıray",
+    })
+    assert r.status_code in (200, 201), r.text
+
+    db = TestingSessionLocal()
+    status = db.get(models.Application, app_id).status
+    db.close()
+    assert status == "tech_interview", status
+    assert status in stages
+
+
 # ── dashboard vs. real interviews ────────────────────────────────────────────
 
 def test_dashboard_survives_a_scheduled_interview(as_admin):

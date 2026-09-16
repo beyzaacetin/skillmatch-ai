@@ -7,6 +7,23 @@ from config import settings
 
 router = APIRouter()
 
+# Pipeline kolonları "hr_interview" / "tech_interview" / "manager_interview"
+# kullanıyor. Bu iki uç eskiden "interview" yazıyordu; böyle bir kolon olmadığı
+# için mülakat planlanan aday Kanban panosundan kayboluyordu. (main.py hâlâ
+# eski kayıtları düzelten bir migrasyon taşıyor.)
+INTERVIEW_STAGE_BY_TYPE = {
+    "hr": "hr_interview",
+    "technical": "tech_interview",
+    "tech": "tech_interview",
+    "manager": "manager_interview",
+}
+
+
+def interview_stage(interview_type: str) -> str:
+    return INTERVIEW_STAGE_BY_TYPE.get((interview_type or "").lower(), "hr_interview")
+
+
+
 def _get_gemini():
     try:
         import google.generativeai as genai
@@ -28,9 +45,10 @@ def create_interview(data: schemas.InterviewCreate, db: Session = Depends(databa
     )
     db.add(iv)
     # Update application status
-    app.status = "interview"
+    stage = interview_stage(data.interview_type)
+    app.status = stage
     h = app.status_history or []
-    h.append({"status": "interview", "date": __import__("datetime").datetime.utcnow().isoformat(), "note": f"{data.round_number}. mülakat planlandı"})
+    h.append({"status": stage, "date": __import__("datetime").datetime.utcnow().isoformat(), "note": f"{data.round_number}. mülakat planlandı"})
     app.status_history = h
     db.commit()
     db.refresh(iv)

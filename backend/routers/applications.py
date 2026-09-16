@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import models, schemas, database
+from routers.interviews import interview_stage
 import auth
 from services.matcher import matcher_service
 
@@ -629,8 +630,9 @@ def schedule_or_init_interview(app_id: int, payload: dict = Body(...), db: Sessi
     )
     db.add(iv)
     
-    # Update application stage to match
-    app.status = "interview"
+    # Update application stage to match the interview type; "interview" is not a
+    # pipeline column, so writing it hid the candidate from the Kanban board.
+    app.status = interview_stage(payload.get("interview_type"))
     
     db.commit()
     db.refresh(iv)
