@@ -12,6 +12,7 @@ import os
 import re
 import pytest
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -1697,3 +1698,41 @@ def test_reports_are_scoped_the_same_way_the_screens_are():
             app.dependency_overrides.pop(get_current_user, None)
         else:
             app.dependency_overrides[get_current_user] = previous
+
+
+def test_a_user_is_linked_to_the_permissions_their_role_defines(as_admin):
+    """The roles table carries a real permission matrix — CENTRAL_HR may open
+    settings, HOTEL_HR may blacklist but not, DEPARTMENT_MANAGER neither — and
+    check_permission reads it through user.role_id. Only the seeded demo admin
+    ever had role_id set, so every other user fell through to 403 no matter
+    what their own role said. The matrix applied to nobody."""
+    from auth import get_current_user, check_permission
+    db = TestingSessionLocal()
+    db.add(models.Role(code="CENTRAL_HR", name="Merkez İK",
+                       permissions={"can_access_settings": True, "can_approve_offers": True}))
+    db.add(models.Role(code="HOTEL_HR", name="Otel İK",
+                       permissions={"can_access_settings": False, "can_blacklist": True}))
+    db.commit(); db.close()
+
+    central = client.post("/api/users/", json={
+        "email": "merkez-izin@ornek.com", "full_name": "Merkez İK",
+        "password": "x", "role": "CENTRAL_HR",
+    })
+    hotel = client.post("/api/users/", json={
+        "email": "otel-izin@ornek.com", "full_name": "Otel İK",
+        "password": "x", "role": "HOTEL_HR",
+    })
+    assert central.status_code == 201 and hotel.status_code == 201
+
+    db = TestingSessionLocal()
+    central_user = db.query(models.User).get(central.json()["id"])
+    hotel_user = db.query(models.User).get(hotel.json()["id"])
+    assert central_user.role_id is not None, "kullanıcı izin matrisine bağlanmıyor"
+    assert hotel_user.role_id is not None
+
+    checker = check_permission("can_access_settings")
+    assert checker(current_user=central_user, db=db) is central_user
+    with pytest.raises(HTTPException) as denied:
+        checker(current_user=hotel_user, db=db)
+    assert denied.value.status_code == 403
+    db.close()

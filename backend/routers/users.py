@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 import models, schemas, database, auth
 from auth import get_password_hash, require_roles
@@ -31,6 +32,21 @@ def list_users(
 ):
     """Admin lists all users."""
     return db.query(models.User).all()
+
+def _role_id_for(db: Session, role_code: Optional[str]):
+    """Link the user to the Role row carrying their permission matrix.
+
+    Only the seeded demo admin ever had role_id set, and check_permission falls
+    through to 403 without it — so the matrix in the roles table (CENTRAL_HR may
+    open settings, HOTEL_HR may blacklist, and so on) applied to nobody. Every
+    non-admin was refused regardless of what their own role said."""
+    if not role_code:
+        return None
+    role = db.query(models.Role).filter(
+        func.lower(models.Role.code) == role_code.strip().lower()
+    ).first()
+    return role.id if role else None
+
 
 SCOPES = ("GLOBAL", "HOTEL", "DEPARTMENT")
 
@@ -82,6 +98,7 @@ def create_user(
         phone=user_in.phone,
         is_active=True,
         is_verified=True,
+        role_id=_role_id_for(db, user_in.role),
         **_scope_fields(user_in)
     )
     db.add(new_user)
@@ -117,7 +134,9 @@ def update_user(
     if user_in.full_name is not None: user.full_name = user_in.full_name
     if user_in.email is not None: user.email = user_in.email
     if user_in.department is not None: user.department = user_in.department
-    if user_in.role is not None: user.role = user_in.role
+    if user_in.role is not None:
+        user.role = user_in.role
+        user.role_id = _role_id_for(db, user_in.role)
     if user_in.is_active is not None: user.is_active = user_in.is_active
     for field, value in _scope_fields(user_in).items():
         setattr(user, field, value)

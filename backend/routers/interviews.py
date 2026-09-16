@@ -69,9 +69,9 @@ def get_interviews(app_id: int, db: Session = Depends(database.get_db),
     return db.query(models.Interview).filter(models.Interview.application_id == app_id).order_by(models.Interview.round_number).all()
 
 @router.post("/{iv_id}/feedback", response_model=schemas.InterviewOut)
-def save_feedback(iv_id: int, data: schemas.InterviewFeedback, db: Session = Depends(database.get_db)):
-    iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
-    if not iv: raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+def save_feedback(iv_id: int, data: schemas.InterviewFeedback, db: Session = Depends(database.get_db),
+                  current_user: models.User = Depends(auth.get_current_user)):
+    iv = _scoped_interview(iv_id, db, current_user)
     iv.overall_score = data.overall_score
     iv.technical_score = data.technical_score
     iv.cultural_score = data.cultural_score
@@ -94,7 +94,9 @@ def save_feedback(iv_id: int, data: schemas.InterviewFeedback, db: Session = Dep
     return iv
 
 @router.post("/{iv_id}/generate-questions")
-def generate_questions(iv_id: int, db: Session = Depends(database.get_db)):
+def generate_questions(iv_id: int, db: Session = Depends(database.get_db),
+                       current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_interview(iv_id, db, current_user)
     """AI ile pozisyon + CV bilgisine göre mülakat soruları üret."""
     iv = db.query(models.Interview).options(
         joinedload(models.Interview.application).joinedload(models.Application.candidate),
@@ -148,7 +150,9 @@ JSON formatında döndür:
     return {"questions": questions}
 
 @router.post("/{iv_id}/ai-summary")
-def generate_ai_summary(iv_id: int, db: Session = Depends(database.get_db)):
+def generate_ai_summary(iv_id: int, db: Session = Depends(database.get_db),
+                        current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_interview(iv_id, db, current_user)
     """Mülakat notlarından AI özeti üret."""
     iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
     if not iv: raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
@@ -195,7 +199,9 @@ def delete_interview(iv_id: int, db: Session = Depends(database.get_db),
     db.commit()
 
 @router.post("/{iv_id}/analyze-notes", response_model=schemas.InterviewOut)
-def analyze_notes_endpoint(iv_id: int, data: schemas.InterviewNotesAnalysisRequest, db: Session = Depends(database.get_db)):
+def analyze_notes_endpoint(iv_id: int, data: schemas.InterviewNotesAnalysisRequest, db: Session = Depends(database.get_db),
+                           current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_interview(iv_id, db, current_user)
     iv = db.query(models.Interview).options(
         joinedload(models.Interview.application).joinedload(models.Application.candidate)
     ).filter(models.Interview.id == iv_id).first()
@@ -273,7 +279,9 @@ def patch_interview(iv_id: int, payload: dict = Body(...), db: Session = Depends
 
 
 @router.post("/{iv_id}/answers")
-def save_multiple_answers(iv_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+def save_multiple_answers(iv_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db),
+                          current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_interview(iv_id, db, current_user)
     iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
     if not iv:
         raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
@@ -334,7 +342,9 @@ def save_multiple_answers(iv_id: int, payload: dict = Body(...), db: Session = D
 
 
 @router.post("/{iv_id}/generate-report")
-def generate_interview_report(iv_id: int, db: Session = Depends(database.get_db)):
+def generate_interview_report(iv_id: int, db: Session = Depends(database.get_db),
+                              current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_interview(iv_id, db, current_user)
     iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
     if not iv:
         raise HTTPException(status_code=404, detail="Mülakat bulunamadı")

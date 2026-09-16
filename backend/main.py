@@ -296,6 +296,25 @@ try:
                         db_session.add(a)
                     db_session.commit()
                     print(f"[Startup] {len(undated)} application(s) given an evaluation deadline.")
+
+                # Kullanıcıları izin matrisini taşıyan Role satırına bağla. role_id
+                # yalnızca seed'deki demo adminde doluydu; check_permission onsuz
+                # 403'e düştüğü için roles tablosundaki matris kimseye uygulanmıyordu.
+                roles_by_code = {
+                    (r.code or "").strip().lower(): r.id
+                    for r in db_session.query(models.Role).all()
+                }
+                if roles_by_code:
+                    linked = 0
+                    for u in db_session.query(models.User).filter(models.User.role_id.is_(None)).all():
+                        role_id = roles_by_code.get((u.role or "").strip().lower())
+                        if role_id:
+                            u.role_id = role_id
+                            db_session.add(u)
+                            linked += 1
+                    if linked:
+                        db_session.commit()
+                        print(f"[Startup] {linked} user(s) linked to their role's permissions.")
             except Exception as norm_err:
                 db_session.rollback()
                 print(f"[Startup] Candidate normalization failed: {norm_err}")

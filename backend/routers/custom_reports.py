@@ -10,6 +10,22 @@ import csv
 
 router = APIRouter()
 
+def _scope(app_query, db, current_user):
+    """The report took hotel_ids straight off the payload, so anyone could ask
+    for any hotel's numbers. Narrow to what this user may see first; the
+    payload filter then only narrows further."""
+    if current_user.role in ("SYSTEM_ADMIN", "ADMIN") or current_user.data_visibility_scope == "GLOBAL":
+        return app_query
+    scope = (current_user.data_visibility_scope or "HOTEL").upper()
+    if scope == "DEPARTMENT":
+        return app_query.filter(models.Position.department_id.in_(current_user.department_access_ids or []))
+    if scope == "REGIONAL":
+        hotel_ids = [h.id for h in db.query(models.Hotel).filter(
+            models.Hotel.region_id.in_(current_user.region_access_ids or [])).all()]
+        return app_query.filter(models.Position.hotel_id.in_(hotel_ids))
+    return app_query.filter(models.Position.hotel_id.in_(current_user.hotel_access_ids or []))
+
+
 @router.post("/custom")
 def generate_custom_report(
     payload: dict = Body(...),
@@ -21,8 +37,8 @@ def generate_custom_report(
     departments = payload.get("departments", [])
     metrics = payload.get("metrics", [])
     
-    app_query = db.query(models.Application).join(models.Position)
-    
+    app_query = _scope(db.query(models.Application).join(models.Position), db, current_user)
+
     if hotel_ids:
         app_query = app_query.filter(models.Position.hotel_id.in_(hotel_ids))
         
@@ -75,8 +91,8 @@ def export_custom_report(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    app_query = db.query(models.Application).join(models.Position)
-    
+    app_query = _scope(db.query(models.Application).join(models.Position), db, current_user)
+
     if hotel_ids:
         ids = [int(x) for x in hotel_ids.split(",")]
         app_query = app_query.filter(models.Position.hotel_id.in_(ids))
