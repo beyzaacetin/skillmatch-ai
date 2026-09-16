@@ -1771,8 +1771,10 @@ input:checked + .slider:before {
                   <span class="badge" :class="staffingStatusClass(need.status)">{{ staffingStatusLabel(need.status) }}</span>
                 </td>
                 <td style="padding:12px 16px; text-align:right;">
-                  <button v-if="need.status === 'pending'" class="btn btn-secondary" style="margin-right:8px; padding:4px 12px; font-size:12px;" @click="approveStaffingNeed(need.id)">Onayla</button>
-                  <button v-if="need.status === 'pending'" class="btn" style="padding:4px 12px; font-size:12px; color:var(--color-danger-text); border:1px solid var(--color-danger-text); border-radius:4px; background:none;" @click="rejectStaffingNeed(need.id)">Reddet</button>
+                  <!-- Onay merkezin: talebi açan otel kendi talebini onaylayamaz. -->
+                  <button v-if="need.status === 'pending' && currentUser && currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')" class="btn btn-secondary" style="margin-right:8px; padding:4px 12px; font-size:12px;" @click="approveStaffingNeed(need.id)">Onayla</button>
+                  <button v-if="need.status === 'pending' && currentUser && currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR')" class="btn" style="padding:4px 12px; font-size:12px; color:var(--color-danger-text); border:1px solid var(--color-danger-text); border-radius:4px; background:none;" @click="rejectStaffingNeed(need.id)">Reddet</button>
+                  <span v-if="need.status === 'pending' && !(currentUser && currentUser.role && (currentUser.role.toUpperCase()==='ADMIN'||currentUser.role.toUpperCase()==='SYSTEM_ADMIN'||currentUser.role.toUpperCase()==='CENTRAL_HR'))" style="font-size:11px; color:var(--g500)">Merkez onayı bekleniyor</span>
                 </td>
               </tr>
               <tr v-if="staffingNeeds.length === 0">

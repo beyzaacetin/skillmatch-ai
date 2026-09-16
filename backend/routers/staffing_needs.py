@@ -96,12 +96,23 @@ def auto_detect_staffing_needs(
     db.commit()
     return {"created_count": created_count}
 
+CENTRAL_APPROVER_ROLES = ["ADMIN", "SYSTEM_ADMIN", "CENTRAL_HR"]
+
+
+def require_central_approver(current_user: models.User):
+    """A hotel raises the request; approving it opens a position and spends
+    budget, so the decision belongs to merkez."""
+    if current_user.role not in CENTRAL_APPROVER_ROLES:
+        raise HTTPException(status_code=403, detail="Kadro talebini yalnızca merkez onaylayabilir")
+
+
 @router.put("/{id}/approve", response_model=dict)
 def approve_staffing_need(
     id: int,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
+    require_central_approver(current_user)
     need = db.query(models.StaffingNeed).filter(models.StaffingNeed.id == id).first()
     if not need: raise HTTPException(status_code=404, detail="Need not found")
     
@@ -135,6 +146,7 @@ def reject_staffing_need(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
+    require_central_approver(current_user)
     need = db.query(models.StaffingNeed).filter(models.StaffingNeed.id == id).first()
     if not need: raise HTTPException(status_code=404, detail="Need not found")
     

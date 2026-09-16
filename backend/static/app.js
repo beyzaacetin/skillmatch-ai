@@ -2063,6 +2063,9 @@ createApp({
     });
 
     watch(page, async (p) => {
+      if (p === 'dashboard') loadDashboardStats();
+      if (p === 'jobs') loadPositions();
+      if (p === 'talent') loadCandidates();
       if (p === 'pipeline') loadPipeline();
       if (p === 'analytics' || p === 'tracking') loadAnalytics();
       if (p === 'interviews') loadAllInterviews();

@@ -773,3 +773,59 @@ def test_sidebar_items_are_all_built_the_same_way():
     assert "<a " not in nav, "sb-nav içindeki bağlantı .nav-item düğmeleriyle hizalanmıyor"
     stray = re.findall(r'(?<!<span class="nav-icon">)<svg', nav)
     assert not stray, "nav ikonları .nav-icon içinde olmalı"
+
+
+def test_a_hotel_cannot_approve_its_own_staffing_request():
+    """Approving a staffing need opens a position, so it is a central decision.
+    Neither the endpoint nor the table checked the role, so the hotel HR who
+    filed the request could approve it themselves."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    hotel_id = make_hotel()
+    hotel_hr = models.User(email="otelik-rg@example.com", full_name="Otel İK", hashed_password="x",
+                           role="HOTEL_HR", is_active=True, hotel_access_ids=[hotel_id])
+    db.add(hotel_hr); db.commit(); db.refresh(hotel_hr)
+    db.close()
+
+    app.dependency_overrides[get_current_user] = lambda: hotel_hr
+    try:
+        created = client.post("/api/staffing-needs/", json={
+            "hotel_id": hotel_id, "position_title": "Bar Şefi", "needed_fte": 1,
+            "needed_by": "2026-11-15", "priority": "normal",
+        })
+        assert created.status_code == 200, created.text
+        need_id = created.json()["id"]
+
+        blocked = client.put(f"/api/staffing-needs/{need_id}/approve")
+        assert blocked.status_code == 403, blocked.text
+        assert client.put(f"/api/staffing-needs/{need_id}/reject", json={"reason": "x"}).status_code == 403
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    db = TestingSessionLocal()
+    central = models.User(email="merkez-rg@example.com", full_name="Merkez", hashed_password="x",
+                          role="CENTRAL_HR", is_active=True)
+    db.add(central); db.commit(); db.refresh(central)
+    db.close()
+    app.dependency_overrides[get_current_user] = lambda: central
+    try:
+        ok = client.put(f"/api/staffing-needs/{need_id}/approve")
+        assert ok.status_code == 200, ok.text
+        assert ok.json()["created_position_id"]
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_every_page_with_its_own_data_reloads_when_you_navigate_to_it():
+    """Positions, candidates and the dashboard were only fetched at startup, so
+    a position opened by approving a staffing need mid-session did not appear
+    on Pozisyonlar until the browser was reloaded."""
+    app_js = open(APP_JS, encoding="utf-8").read()
+    start = app_js.index("watch(page, async (p) => {")
+    body = app_js[start:start + 1200]
+    for page_name, loader in (("dashboard", "loadDashboardStats"), ("jobs", "loadPositions"),
+                              ("talent", "loadCandidates"), ("headcount", "loadHeadcount"),
+                              ("staffing", "loadStaffingNeeds"), ("campaigns", "loadCampaigns"),
+                              ("onboarding", "loadOnboardingBoard")):
+        assert f"p === '{page_name}'" in body and loader in body, \
+            f"{page_name} sayfasına geçişte {loader} çağrılmıyor"
