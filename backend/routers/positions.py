@@ -37,22 +37,21 @@ def get_pdf_font():
     return "Helvetica", "Helvetica-Bold"
 
 
-import urllib.request
-import urllib.parse
 import os
 
 def generate_qr_code_helper(data: str, filename: str) -> str:
     try:
-        encoded_data = urllib.parse.quote(data)
-        url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_data}"
+        import qrcode
         # Relative to the CWD this landed in backend/backend/static/qrcodes when the
         # app is started from backend/, i.e. outside the directory mounted at /static.
         upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "qrcodes")
         os.makedirs(upload_dir, exist_ok=True)
         dest_path = os.path.join(upload_dir, filename)
-        
-        # Download and save the image
-        urllib.request.urlretrieve(url, dest_path)
+
+        # Drawn locally rather than fetched from api.qrserver.com, so the QR does
+        # not depend on a third-party service being reachable.
+        img = qrcode.make(data, box_size=10, border=2)
+        img.save(dest_path)
         return f"/static/qrcodes/{filename}"
     except Exception as e:
         print(f"QR Generation helper error: {e}")

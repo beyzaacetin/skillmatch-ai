@@ -711,3 +711,31 @@ def test_onboarding_checklist_survives_a_page_reload(as_admin):
         assigned = block[:get_call.start()].rstrip().endswith("=")
         assert not assigned, f"{fn} yanıtın tamamını diziye atıyor, .tasks okumalı"
         assert ".tasks || []" in block[get_call.end():get_call.end() + 120]
+
+
+def test_qr_code_is_drawn_locally_not_fetched_from_a_web_service(tmp_path, as_admin):
+    """The QR was downloaded from api.qrserver.com while the recruiter stood in
+    front of the candidate; any network hiccup left qr_code_path empty and the
+    campaign row showed a dash where the QR belongs."""
+    import socket
+    from routers.campaigns import generate_qr_code_helper
+
+    real_socket = socket.socket
+
+    def no_network(*a, **k):
+        raise AssertionError("QR üretimi dış servise çıkmamalı")
+
+    socket.socket = no_network
+    try:
+        path = generate_qr_code_helper("http://ornek/portal/job/9?utm_source=instagram", "test_qr.png")
+    finally:
+        socket.socket = real_socket
+
+    assert path == "/static/qrcodes/test_qr.png"
+    on_disk = os.path.join(REPO, "backend", "static", "qrcodes", "test_qr.png")
+    try:
+        assert os.path.getsize(on_disk) > 0
+        from PIL import Image
+        assert Image.open(on_disk).size[0] >= 100, "QR okunamayacak kadar küçük"
+    finally:
+        os.remove(on_disk)

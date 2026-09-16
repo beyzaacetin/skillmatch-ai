@@ -2939,7 +2939,9 @@ input:checked + .slider:before {
                   {{ [c.utm_source, c.utm_medium, c.utm_campaign].filter(Boolean).join(' / ') || '—' }}
                 </td>
                 <td>
-                  <img v-if="c.qr_code_path" :src="c.qr_code_path" alt="QR" style="width:40px;height:40px;border-radius:4px;border:1px solid var(--g200)">
+                  <a v-if="c.qr_code_path" :href="c.qr_code_path" target="_blank" title="Büyütmek için tıklayın">
+                    <img :src="c.qr_code_path" alt="QR" style="width:40px;height:40px;border-radius:4px;border:1px solid var(--g200)">
+                  </a>
                   <span v-else style="color:var(--g500)">—</span>
                 </td>
                 <td>{{ c.created_at ? new Date(c.created_at).toLocaleDateString('tr-TR') : '—' }}</td>
@@ -5914,9 +5916,12 @@ input:checked + .slider:before {
             <div style="background:#f8fafc; border:1px solid var(--g200); border-radius:12px; padding:24px; display:flex; flex-direction:column; align-items:center; gap:16px; margin-top:8px">
               <div style="font-size:11px; font-weight:700; color:var(--g500)">İLANA ÖZEL QR KOD</div>
               
-              <img :src="newPos.qr_code_path || '/static/qrcodes/placeholder.png'" 
-                   alt="İlan QR Kodu" 
+              <img v-if="newPos.qr_code_path" :src="newPos.qr_code_path"
+                   alt="İlan QR Kodu"
                    style="width:160px; height:160px; border-radius:8px; border:4px solid #fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)">
+              <div v-else style="width:160px; height:160px; border-radius:8px; border:1px dashed var(--g300); display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; color:var(--g500); padding:12px">
+                QR kod ilan kaydedildikten sonra oluşur.
+              </div>
               
               <div style="width:100%">
                 <div style="font-size:11px; color:var(--g400); margin-bottom:4px">İlan Başvuru Linki</div>

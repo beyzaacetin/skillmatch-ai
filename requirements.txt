@@ -19,3 +19,4 @@ alembic
 reportlab
 pandas
 openpyxl
+qrcode[pil]
