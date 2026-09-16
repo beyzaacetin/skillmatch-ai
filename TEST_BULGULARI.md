@@ -558,6 +558,71 @@ QR'dan gelen aday başvurusu token'sız hâlâ çalışıyor, giriş yapmış ku
 
 ---
 
+## 2d. Yetki/kapsam turu (D-47, D-48) + temiz çıkanlar
+
+Kimlik doğrulaması (D-46) kapandıktan sonra bir sonraki katmana baktım:
+*giriş yapmış* ama başka otele yetkili olmayan biri ne görebiliyor?
+
+### ✅ D-47 — Başka otelin ilanı ve teklifi kimlikle okunabiliyordu (IDOR)
+Pozisyon **listesi** `hotel_access_ids`'e göre süzülüyor, ama **kimlikle tek
+kayıt okuma** hiç süzülmüyordu. Sadece otel 1'e yetkili İK kullanıcısıyla
+denedim — Rixos Almaty'ye ait bir ilan ve o ilana yapılmış **175.000 TRY'lik
+teklif** açıldı. Kimlikler sıralı tamsayı, yani tahmin bile gerekmiyor.
+
+```
+GET /api/positions/9            → "GIZLI Almaty Müdürü" (başka otel)
+GET /api/offers/application/66  → 175.000 TRY teklif
+```
+
+Düzeltme, kuralı yeniden yazmak yerine **listenin kullandığı filtrenin aynısını**
+tekil okumaya uyguluyor (`position_in_scope`, `application_in_scope`). Yanıt
+**404** — 403 deseydi kaydın var olduğunu doğrulamış olurduk. Kapsam kararı
+veren iki uç `get_current_user_optional` okuyordu; `None` olabilen kullanıcıyla
+yetki kontrolü yapılamayacağı için `get_current_user`'a çevrildi.
+
+**Bilerek DEĞİŞTİRMEDİĞİM yer — adaylar.** Aday detay ucu oteller arası
+okunabilir olacak şekilde *tasarlanmış*: `test_candidate_duplicate_detection_and_locking`
+testi, başka otel adayı aktif kilitliyken komşu otelin kaydı **maskeli**
+(`***@***`) aldığını, reddedilmediğini sabitliyor. Yani model "ortak aday
+havuzu + sahiplik kilidi". Buraya kapsam koysaydım o tasarımı bozacaktım.
+
+> **Senin kararını bekleyen çelişki:** aday **listesi** kapsamla süzülüyor
+> (`apply_candidate_scope`), aday **detayı** ise oteller arası açık ve yalnızca
+> kilitliyse maskeleniyor. İkisi aynı şeyi söylemiyor. Hangisi doğru — liste de
+> mi açılmalı, detay da mı kapanmalı? Ana geliştiricinin tasarımı olduğu için
+> dokunmadım.
+
+### ✅ D-48 — Pozisyon ekranından eklenen aday "otelsiz" kaydediliyordu
+Başvuru oluşturan **her** yol pozisyonun `hotel_id`'sini kopyalıyor
+(applications.py, portal.py ×2, settings.py yönlendirme kabulü, seed) —
+ama pozisyon çalışma alanındaki **"aday ekle"** butonunun çağırdığı
+`POST /api/positions/{id}/candidates` kopyalamıyordu, `hotel_id` NULL kalıyordu.
+
+`hotel_id` otel filtrelerinin eşleştiği kolon. Sonuç: bu başvurular
+**ilanın sahibi otele görünmez** oluyordu — ve asıl canı yakan yer,
+`/api/offers/approvals/pending` de aynı kolonla süzdüğü için **böyle bir adaya
+yapılan teklif onay kuyruğuna hiç düşmüyor**, sessizce öylece kalıyordu.
+
+Mevcut kayıtlar startup'ta pozisyonlarından onarılıyor (depodaki
+`phone_normalized` geri-doldurma desenine uygun; gerçek sunucu açılışında
+`[Startup] 1 application(s) given the hotel of their position.` ile doğrulandı).
+
+### Test edip sorun bulamadıklarım (bu turda)
+
+- **Audit log değişmezliği:** `ImmutableAuditLog` için depoda **hiç** güncelleme
+  veya silme yolu yok — sadece ekleme ve iki okuma sorgusu var, okuma ucu da
+  `can_access_settings` izniyle kapalı (otel İK'sı 403 alıyor). Uygulama
+  seviyesinde iddia tutuyor. *Not:* değişmezlik yalnızca kodun yokluğuyla
+  sağlanıyor; veritabanı tarafında tetikleyici/hash zinciri yok.
+- **Sahiplik (ownership) kilidi:** gerçekten bağlı ve çalışıyor — kilit başvuru
+  sırasında kuruluyor, mülakat planlama/tamamlama ve durum değişiminde sayaç
+  sıfırlanıyor, süre dolunca serbest bırakılıyor. (Süre dolunca `rejected`
+  yapılması konusu zaten kararını beklediğim maddelerde.)
+- **Aday yönlendirme hiyerarşisi:** gerçek olan `budget_service.trigger_scoped_routing`
+  düzgün: önce aynı bölge, sonra aynı şehir, sonra merkez İK; mükerrer kontrolü var.
+
+---
+
 ## 3. 📋 Senin sorduğun 3 madde
 
 ### 1. GM ekranlarını tek tek gezmek
