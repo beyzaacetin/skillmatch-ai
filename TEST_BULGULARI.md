@@ -670,6 +670,94 @@ aynısı).
 
 ---
 
+## 2f. Departman müdürü ve kadro filtresi (D-52 … D-56)
+
+### ✅ D-52 — Kadro filtresinde departman seçmek hiçbir şey döndürmüyordu
+Açılır listeden "Mutfak" seçince **0 satır**, arama kutusuna yazınca 1 satır
+geliyordu — filtre duruyordu ama hiç eşleşmiyordu, o yüzden elle yazmak
+gerekiyordu.
+
+Açılır liste **Departman tablosundan** doldurulurken kadro satırları
+**Excel'deki yazımı** saklıyor. İçe aktarma departmanları büyük/küçük harf
+duyarsız aradığı için, tabloda "Mutfak" varken "MUTFAK" yazan bir dosya yeni
+kayıt açmıyor ve ikisi kalıcı olarak birbirini tutmuyor. Filtre ise `=` ile
+karşılaştırıyordu.
+
+Düzeltme iki parçalı: (1) seçilen ad, verinin gerçekten kullandığı yazımlara
+çözülüyor; (2) uç nokta artık `available_departments` dönüyor ve açılır liste
+ondan besleniyor — yani boş dönecek bir seçenek sunulması mümkün değil.
+
+> **Dikkat — SQL tarafında katlama işe yaramıyor:** önce `func.lower()` ile
+> denedim, **"Ön Büro" ve "Yiyecek ve İçecek" boş dönmeye başladı**. SQLite'ın
+> `lower()`'ı yalnızca ASCII katlıyor. Karşılaştırma Python'a alındı, noktalı/
+> noktasız I de Türkçe kuralıyla eşleniyor (Python'un `casefold`'u "İ"yi
+> birleşik noktalı bir "i"ye çevirdiği için "İçecek" ile "içecek" buluşmuyordu).
+
+### 🔴 D-53 — Departman müdürü aday havuzunu HİÇ göremiyordu
+Kapsamı sıkı değil, **sorgusu bozuktu**: `apply_candidate_scope` Candidate'i
+doğrudan Position'a bağlamaya çalışıyordu, oysa iki tablo arasında yol yok —
+aday departmana tıpkı otele olduğu gibi **başvuru üzerinden** bağlanıyor. Filtre
+hiçbir şey eşleştirmediği için müdür kendi panosunda 9 kart görürken havuzu
+bomboştu.
+
+### 🔴 D-54 — Departman müdürü bütün departmanların kadrosunu görüyordu
+`/api/headcount/summary` HOTEL kapsamlı kullanıcıda oteli sabitliyor ama
+departman karşılığı yoktu: 6 departmanın hepsi dönüyordu ve sorguda başka bir
+departmanı adıyla istemek de çalışıyordu. `/api/staffing-needs/` ise
+`current_user`'ı alıp hiç kullanmıyordu.
+
+| | Önce | Sonra |
+|---|---|---|
+| Aday havuzu | **0** | 9 |
+| Kadro İhtiyaçları | **6 departman** | 1 (Mutfak) |
+| Kadro talepleri | süzülmüyor | kendi departmanı |
+| Pozisyonlar / Kanban | doğru | doğru |
+
+> Not: departmanlar **düz bir liste** — üst/alt departman ilişkisi veri
+> modelinde yok. Yani "bir üst departmanı görme" riski zaten yoktu.
+
+### ✅ D-55 — Departman müdürü arayüzden atanamıyordu
+`data_visibility_scope`, `hotel_access_ids` ve `department_access_ids`
+backend'de baştan beri kullanılıyordu ama **hiçbir ekran göndermiyordu** ve
+kullanıcı şemaları bu alanları düşürüyordu — departman müdürü ancak SQL ile
+tanımlanabiliyordu.
+
+Her iki kullanıcı formuna "Görünürlük Kapsamı" seçimi (tüm organizasyon /
+seçili oteller / seçili departmanlar) ve buna bağlı çoklu seçim eklendi. Rol
+listesine backend'in zaten tanıdığı CENTRAL_HR, HOTEL_HR ve
+DEPARTMENT_MANAGER geldi. Kapsam değişince eski seçim geride kalmıyor; kapsam
+seçilip hiçbir şey işaretlenmezse kaydetmiyor (o hesap hiçbir şey göremezdi,
+bu da kısıtlı değil **bozuk** görünürdü).
+
+### ✅ D-56 — Kalan kapsam sızıntıları (sistematik tarama)
+Otel 1 İK'sıyla, otel 2'nin kayıtları üzerinde tek tek denedim:
+
+```
+POST   /api/offers/                          başka otelin başvurusuna teklif açtı
+PATCH  /api/offers/{id}/status?status=accepted  kabul etti → adayı İŞE ALDI
+GET    /api/offers/{id}/salary-check         ücret bandını okudu
+POST   /api/offers/{id}/generate-letter      teklif mektubunu yazdı
+GET    /api/onboarding/{app_id}              işe giriş listesini okudu
+POST   /api/onboarding/{app_id}/generate     yeniden oluşturdu
+PATCH  /api/onboarding/task/{id}             görev işaretledi
+GET    /api/positions/{id}/workspace         pozisyon ekranının tamamı
+GET    /api/positions/{id}/candidates|matches
+GET    /api/applications/{id}/interviews     mülakat cevapları
+PATCH  /api/interviews/{id}                  mülakatı değiştirdi
+DELETE /api/interviews/{id}                  mülakatı SİLDİ
+```
+
+Hepsi kapatıldı; merkez aynı uçlarda 200 almaya devam ediyor, 11 sayfa temiz.
+
+**Bilerek açık bırakılanlar — senin kararını bekliyor (madde 14):** aday uçları
+(`GET /api/candidates/{id}`, `/profile`, `/applications`, `/activities` ve
+`blacklist` / `rating` / `DELETE`) hâlâ oteller arası cevap veriyor. Okuma,
+ortak havuz tasarımının kendisi (kilitliyken maskeleniyor). Ama **kara listeye
+alma ve silme** ayrı bir soru: ortak bir adayı tek bir otel kara listeye
+alabilmeli mi, silebilmeli mi? Karar senin.
+
+---
+
 ## 3. 📋 Senin sorduğun 3 madde
 
 ### 1. GM ekranlarını tek tek gezmek
