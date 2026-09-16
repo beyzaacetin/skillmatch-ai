@@ -1153,3 +1153,97 @@ def test_the_kanban_board_only_shows_the_hotels_own_candidates():
             app.dependency_overrides.pop(get_current_user, None)
         else:
             app.dependency_overrides[get_current_user] = previous
+
+
+def make_department_manager(db, department_id, hotel_id, email="mudur-rg@ornek.com"):
+    user = models.User(email=email, full_name="Departman Müdürü", hashed_password="x",
+                       role="DEPARTMENT_MANAGER", is_active=True,
+                       data_visibility_scope="DEPARTMENT",
+                       hotel_access_ids=[hotel_id], department_access_ids=[department_id])
+    db.add(user); db.commit(); db.refresh(user)
+    return user
+
+
+def test_a_department_manager_sees_their_own_department_and_only_that():
+    """Three separate problems met here. The candidate pool came back EMPTY for a
+    department manager — apply_candidate_scope joined Candidate straight to
+    Position, which has no path to follow, so the filter matched nothing while
+    their board showed cards. Headcount and the staffing-need list, meanwhile,
+    showed every department: the hotel restriction had no department counterpart."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Müdür Otel", code="MDR")
+    mine = models.Department(name="Mutfak", code="KITCHEN-RG")
+    theirs = models.Department(name="Ön Büro", code="FRONT-RG")
+    db.add_all([mine, theirs]); db.commit()
+
+    for dept, who in ((mine, "Aşçı"), (theirs, "Resepsiyonist")):
+        pos = models.Position(title=who, hotel_id=hotel_id, department_id=dept.id,
+                              department=dept.name)
+        cand = models.Candidate(name=f"{who} Adayı", email=f"{who}-rg@ornek.com")
+        db.add_all([pos, cand]); db.commit()
+        db.add(models.Application(candidate_id=cand.id, position_id=pos.id,
+                                  hotel_id=hotel_id, status="applied"))
+        db.add(models.StaffingNeed(hotel_id=hotel_id, department_id=dept.id,
+                                   position_title=who, needed_fte=1, status="pending"))
+    db.commit()
+    manager = make_department_manager(db, mine.id, hotel_id)
+    mine_name, theirs_name = mine.name, theirs.name
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: manager
+    try:
+        pool = client.get("/api/candidates/with-best-position").json()
+        names = [c["name"] for c in pool]
+        assert "Aşçı Adayı" in names, "kendi departmanının adayını göremiyor"
+        assert "Resepsiyonist Adayı" not in names
+
+        titles = [p["title"] for p in client.get("/api/positions/").json()]
+        assert titles == ["Aşçı"], titles
+
+        board = client.get("/api/applications/pipeline").json()
+        depts = {(a.get("position") or {}).get("department")
+                 for col in board["columns"] for a in col["applications"]}
+        assert depts <= {mine_name}, depts
+
+        needs = client.get("/api/staffing-needs/").json()
+        assert [n["position_title"] for n in needs] == ["Aşçı"], needs
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
+
+
+def test_a_department_manager_cannot_ask_for_another_departments_headcount():
+    """/api/headcount/summary pinned the hotel for a HOTEL-scoped user but had no
+    department counterpart, so a department manager read every department's
+    headcount — and could name someone else's department outright."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Kadro Otel", code="KDR")
+    hotel = db.query(models.Hotel).get(hotel_id)
+    mine = models.Department(name="Mutfak", code="KITCHEN-HC")
+    theirs = models.Department(name="Kat Hizmetleri", code="HK-HC")
+    db.add_all([mine, theirs]); db.commit()
+    for dept, title in ((mine, "Aşçı"), (theirs, "Kat Görevlisi")):
+        db.add(models.WorkforceBudgetRecord(hotel_code=hotel.code, department=dept.name,
+                                            position_title=title, month_of_year=8,
+                                            total_fte=3))
+    db.commit()
+    manager = make_department_manager(db, mine.id, hotel_id, email="kadro-mudur@ornek.com")
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: manager
+    try:
+        rows = client.get("/api/headcount/summary?month=8").json()["rows"]
+        assert {r["department"] for r in rows} == {"Mutfak"}, rows
+        denied = client.get("/api/headcount/summary?month=8&department=Kat Hizmetleri")
+        assert denied.status_code == 403, denied.text
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous

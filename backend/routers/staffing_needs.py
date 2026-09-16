@@ -17,6 +17,16 @@ def get_staffing_needs(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     q = db.query(models.StaffingNeed)
+
+    # The list took current_user but never used it: every hotel's and every
+    # department's requests were visible to everyone who could open the page.
+    scope = (current_user.data_visibility_scope or "").upper()
+    if current_user.role not in ("ADMIN", "SYSTEM_ADMIN") and scope != "GLOBAL":
+        if scope == "DEPARTMENT":
+            q = q.filter(models.StaffingNeed.department_id.in_(current_user.department_access_ids or []))
+        elif current_user.hotel_access_ids:
+            q = q.filter(models.StaffingNeed.hotel_id.in_(current_user.hotel_access_ids))
+
     if hotel_id:
         q = q.filter(models.StaffingNeed.hotel_id == hotel_id)
     if department_id:

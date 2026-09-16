@@ -32,10 +32,16 @@ class ScopePolicyService:
             )
             
         elif scope == "DEPARTMENT":
+            # A candidate reaches a department through an application, the same way
+            # it reaches a hotel. Joining Candidate straight to Position has no
+            # path to follow, so this used to return nothing at all: a department
+            # manager saw an empty talent pool while their board showed cards.
             allowed_depts = user.department_access_ids or []
-            return query.join(models.Position, isouter=True).filter(
-                models.Position.department_id.in_(allowed_depts)
-            )
+            return query.filter(models.Candidate.id.in_(
+                db.query(models.Application.candidate_id)
+                  .join(models.Position, models.Application.position_id == models.Position.id)
+                  .filter(models.Position.department_id.in_(allowed_depts))
+            ))
             
         elif scope == "OWN_RECORDS":
             return query.filter(models.Candidate.deleted_by == user.full_name)

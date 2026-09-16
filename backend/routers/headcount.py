@@ -215,6 +215,19 @@ def get_headcount_summary(
         else:
             raise HTTPException(status_code=403, detail="Otel yetkiniz bulunmamaktadır.")
 
+    # A department manager answers for one department: the hotel restriction above
+    # had no counterpart here, so they saw every department's headcount.
+    if current_user.data_visibility_scope == "DEPARTMENT":
+        allowed = current_user.department_access_ids or []
+        if not allowed:
+            raise HTTPException(status_code=403, detail="Departman yetkiniz bulunmamaktadır.")
+        names = [d.name for d in db.query(models.Department).filter(models.Department.id.in_(allowed)).all()]
+        if department and department not in names:
+            raise HTTPException(status_code=403, detail="Bu departman için yetkiniz bulunmamaktadır.")
+        allowed_department_names = names
+    else:
+        allowed_department_names = None
+
     # Resolve hotel code if hotel_id is specified
     selected_hotel_code = None
     if hotel_id:
@@ -235,6 +248,8 @@ def get_headcount_summary(
         budget_query = budget_query.filter(models.WorkforceBudgetRecord.hotel_code == selected_hotel_code)
     if department:
         budget_query = budget_query.filter(models.WorkforceBudgetRecord.department == department)
+    elif allowed_department_names is not None:
+        budget_query = budget_query.filter(models.WorkforceBudgetRecord.department.in_(allowed_department_names))
     if search:
         budget_query = budget_query.filter(or_(
             models.WorkforceBudgetRecord.position_title.like(f"%{search}%"),
