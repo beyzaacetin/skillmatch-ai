@@ -178,10 +178,19 @@ Notlar: {iv.notes}
     db.commit()
     return {"summary": iv.ai_summary}
 
-@router.delete("/{iv_id}", status_code=204)
-def delete_interview(iv_id: int, db: Session = Depends(database.get_db)):
+def _scoped_interview(iv_id: int, db: Session, current_user: models.User):
+    """An interview belongs to the hotel its application does."""
+    from services.scope_policy_service import scope_policy_service
     iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
-    if not iv: raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+    if not iv or not scope_policy_service.application_in_scope(db, current_user, iv.application_id):
+        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+    return iv
+
+
+@router.delete("/{iv_id}", status_code=204)
+def delete_interview(iv_id: int, db: Session = Depends(database.get_db),
+                     current_user: models.User = Depends(auth.get_current_user)):
+    iv = _scoped_interview(iv_id, db, current_user)
     db.delete(iv)
     db.commit()
 
@@ -245,11 +254,10 @@ def generate_questions_endpoint(data: schemas.InterviewQuestionsRequest, db: Ses
 
 
 @router.patch("/{iv_id}", response_model=schemas.InterviewOut)
-def patch_interview(iv_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
-    iv = db.query(models.Interview).filter(models.Interview.id == iv_id).first()
-    if not iv:
-        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
-        
+def patch_interview(iv_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db),
+                    current_user: models.User = Depends(auth.get_current_user)):
+    iv = _scoped_interview(iv_id, db, current_user)
+
     if "status" in payload: iv.status = payload["status"]
     if "overall_score" in payload: iv.overall_score = payload["overall_score"]
     if "technical_score" in payload: iv.technical_score = payload["technical_score"]

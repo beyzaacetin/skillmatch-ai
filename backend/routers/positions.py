@@ -163,8 +163,9 @@ def delete_position(
 
 # GET WORKSPACE STATE
 @router.get("/{position_id}/workspace")
-def get_position_workspace(position_id: int, db: Session = Depends(database.get_db)):
-    position = db.query(models.Position).filter(models.Position.id == position_id).first()
+def get_position_workspace(position_id: int, db: Session = Depends(database.get_db),
+                           current_user: models.User = Depends(auth.get_current_user)):
+    position = _scoped_position(position_id, db, current_user)
     if not position:
         raise HTTPException(status_code=404, detail="Position not found")
         
@@ -358,7 +359,9 @@ def toggle_position_active(
 
 # GET CANDIDATES
 @router.get("/{position_id}/candidates")
-def get_position_candidates(position_id: int, db: Session = Depends(database.get_db)):
+def get_position_candidates(position_id: int, db: Session = Depends(database.get_db),
+                            current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_position(position_id, db, current_user)
     # Get candidates not already applied
     applied_cand_ids = db.query(models.Application.candidate_id).filter(models.Application.position_id == position_id).all()
     applied_ids = [c[0] for c in applied_cand_ids]
@@ -548,7 +551,9 @@ def run_ai_matching(position_id: int, db: Session = Depends(database.get_db)):
 
 
 @router.get("/{position_id}/matches", response_model=List[schemas.CandidateMatch])
-def match_candidates(position_id: int, db: Session = Depends(database.get_db)):
+def match_candidates(position_id: int, db: Session = Depends(database.get_db),
+                     current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_position(position_id, db, current_user)
     from services.matcher import matcher_service
     matches = matcher_service.match_candidates(position_id, db)
     return matches

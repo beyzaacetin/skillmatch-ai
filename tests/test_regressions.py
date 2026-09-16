@@ -1380,3 +1380,49 @@ def test_an_offer_and_its_onboarding_stay_with_the_hotel_that_owns_the_applicati
     assert db.query(models.Application).get(app_id).status == "offer", "aday yine de işe alınmış"
     assert db.query(models.OnboardingTask).get(task_id).status == "pending"
     db.close()
+
+
+def test_the_position_workspace_and_interview_edits_stay_inside_the_hotel():
+    """What was left after the offer and onboarding round: the position
+    workspace, its candidate and match lists, the interview answers on an
+    application, and editing or deleting an interview outright."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    mine = make_hotel(name="Son Otel", code="SON")
+    theirs = make_hotel(name="Son Komşu", code="SNK")
+    pos = models.Position(title="Aşçı", hotel_id=theirs)
+    cand = models.Candidate(name="Son Aday", email="son-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(candidate_id=cand.id, position_id=pos.id,
+                                 hotel_id=theirs, status="applied")
+    db.add(app_row); db.commit()
+    iv = models.Interview(application_id=app_row.id, interview_type="technical",
+                          status="scheduled", round_number=1)
+    db.add(iv); db.commit()
+    intruder = models.User(email="son-hr@ornek.com", full_name="Son İK",
+                           hashed_password="x", role="HOTEL_HR", is_active=True,
+                           data_visibility_scope="HOTEL", hotel_access_ids=[mine])
+    db.add(intruder); db.commit(); db.refresh(intruder)
+    pos_id, app_id, iv_id = pos.id, app_row.id, iv.id
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: intruder
+    try:
+        for path in (f"/api/positions/{pos_id}/candidates",
+                     f"/api/positions/{pos_id}/matches",
+                     f"/api/positions/{pos_id}/workspace",
+                     f"/api/applications/{app_id}/interviews"):
+            assert client.get(path).status_code == 404, path
+        assert client.patch(f"/api/interviews/{iv_id}", json={"status": "completed"}).status_code == 404
+        assert client.delete(f"/api/interviews/{iv_id}").status_code == 404
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
+
+    db = TestingSessionLocal()
+    survivor = db.query(models.Interview).get(iv_id)
+    assert survivor is not None and survivor.status == "scheduled", "mülakat yine de değişmiş/silinmiş"
+    db.close()

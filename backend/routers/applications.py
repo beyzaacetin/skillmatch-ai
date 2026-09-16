@@ -385,7 +385,9 @@ def update_application_stage(
 
 
 @router.get("/{app_id}/interviews", response_model=List[schemas.InterviewAnswerOut])
-def get_interview_answers(app_id: int, type: Optional[str] = "HR", db: Session = Depends(database.get_db)):
+def get_interview_answers(app_id: int, type: Optional[str] = "HR", db: Session = Depends(database.get_db),
+                          current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_application(app_id, db, current_user)
     q = db.query(models.InterviewAnswer).filter(models.InterviewAnswer.application_id == app_id)
     if type:
         q = q.filter(models.InterviewAnswer.interview_type == type)
