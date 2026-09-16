@@ -496,6 +496,68 @@ duruyordu. Yanındaki "Aranan Yetenekler" bloğu gibi koşula bağlandı.
 
 ---
 
+## 2c. 🔴 En ciddi bulgu — API'nin büyük kısmı kimlik doğrulaması istemiyordu (D-46)
+
+Sunum provasından sonra kalan test edilmemiş alanlara bakarken çıktı ve
+şu ana kadarki en ciddi bulgu bu.
+
+**212 uçtan 94'ü hiçbir kimlik doğrulaması istemiyordu.** Bunlar "unutulmuş bir
+iki uç" değil; `offers`, `applications`, `interviews`, `onboarding` router'larının
+**tamamı**, `positions` ve `analytics`'in büyük bölümü hiç `Depends(auth...)`
+yazmamıştı. Çalışan sunucuya karşı, token'sız ve hesapsız denedim:
+
+```
+POST   /api/offers/                       → 999.000 TRY'lik teklif oluşturdu
+GET    /api/analytics/salary-report       → maaş raporunu döndü
+GET    /api/candidates/with-best-position → bütün adayları döndü
+DELETE /api/candidates/{id}/hard-delete   → adayı kalıcı sildi
+PATCH  /api/applications/{id}/status      → adayı istediği aşamaya taşıdı
+```
+
+**En kötüsü `POST /api/chat`.** Chatbot bağlamını *bütün adayların adı,
+seviyesi, yetenekleri ve özetiyle* kuruyor; otel/departman filtreleri
+`current_user`'a bağlı. Anonim çağıranın kullanıcısı olmadığı için filtreler
+hiç uygulanmıyordu — yani **kimliksiz biri "bütün adayları listele" diyebiliyordu.**
+Şu an sadece `GEMINI_API_KEY` boş olduğu için sessiz; **anahtar koyar koymaz
+açılacaktı.** (Sunum için anahtar koymayı düşünüyorsan bu düzeltme olmadan koyma.)
+
+**Düzeltme:** Giriş zorunluluğu tek tek uçlara değil **router seviyesine**
+konuldu (`include_router(..., dependencies=staff_only)`). Böylece o router'a
+yarın eklenecek uçta unutulması mümkün değil. Açık kalanlar bilerek açık:
+
+| Açık kalan | Neden |
+|---|---|
+| `/api/auth/login` | Giriş ucu |
+| `/api/portal/public/*`, `/api/portal/job/*` | Adayın gördüğü ilan ve başvuru formu |
+| `/api/portal/me`, `/applications`, `/notifications`, `/offer/*/accept\|reject` | Aday kendi linkindeki token ile doğrulanıyor (token'sız **422**, sahte token **401** — doğrulandı) |
+| `/`, `/health`, `/health/db`, `/{catchall}` | Uygulama kabuğu ve sağlık kontrolü |
+
+Korumasız uç sayısı **103 → 18**'e indi, kalan 18'in hepsi yukarıdaki listede.
+
+**Düzeltmeden sonra doğrulandı:** on bir sayfanın tamamı hatasız yükleniyor,
+QR'dan gelen aday başvurusu token'sız hâlâ çalışıyor, giriş yapmış kullanıcıyla
+17 ana uç 200 dönüyor, 51/51 test geçiyor.
+
+> Not: `test_hotfixes.py` bu uçları kimliksiz çağırdığı için **açık sayesinde**
+> geçiyordu; artık admin olarak çalışıyor.
+
+### Bununla birlikte çıkan, düzeltmediğim ölü kod (silmedim, haberin olsun)
+
+- **`routers/candidates_v3.py` ve `routers/positions_v3.py`** (222 satır)
+  `main.py`'de hiç import edilmiyor, hiç `include_router` edilmiyor. Tamamen ölü.
+- **`services/routing_service.py`** hiçbir yerden çağrılmıyor. İçindeki yorumlar
+  da zaten "Just a mock logic" / "dummy suggestions for demonstration" diyor:
+  yetenek bakmadan ilk 2 pozisyonu alıp `source_hotel_id=1` sabitiyle yönlendirme
+  önerisi yazıyor. Gerçek yönlendirme `services/budget_service.py` içinde
+  (`trigger_scoped_routing`) ve portal başvuru yollarına bağlı — o düzgün:
+  önce aynı bölge, sonra aynı şehir, sonra merkez İK, mükerrer kontrolüyle.
+- **`routers/auth.py` → `register()`** ilk satırda 403 fırlatıyor (kayıt kapalı),
+  ama `raise`'in **altındaki erişilemez kod** kullanıcıyı `role=ADMIN` ile
+  oluşturuyor. Bugün çalışmıyor; ama biri kaydı açmak için o `raise`'i silerse
+  **herkese açık admin kaydı** olur. Silmedim, dikkatini çekiyorum.
+
+---
+
 ## 3. 📋 Senin sorduğun 3 madde
 
 ### 1. GM ekranlarını tek tek gezmek
