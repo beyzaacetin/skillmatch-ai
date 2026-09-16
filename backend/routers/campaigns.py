@@ -52,7 +52,9 @@ def create_campaign(
         utm_params.append(f"utm_campaign={urllib.parse.quote(campaign_in.utm_campaign)}")
         
     query_str = f"?{'&'.join(utm_params)}" if utm_params else ""
-    utm_url = f"{settings.FRONTEND_URL.rstrip('/')}/portal/apply/{campaign_in.position_id}{query_str}"
+    # /portal/apply/... is not a route the SPA knows: it falls through to the
+    # staff login screen, so a candidate scanning the QR saw a login form.
+    utm_url = f"{settings.FRONTEND_URL.rstrip('/')}/portal/job/{campaign_in.position_id}{query_str}"
     
     # Save campaign db record
     db_campaign = models.RecruitmentCampaign(
@@ -98,7 +100,7 @@ def list_campaigns(
         if c.utm_campaign:
             utm_params.append(f"utm_campaign={urllib.parse.quote(c.utm_campaign)}")
         query_str = f"?{'&'.join(utm_params)}" if utm_params else ""
-        utm_url = f"{settings.FRONTEND_URL.rstrip('/')}/portal/apply/{c.position_id}{query_str}"
+        utm_url = f"{settings.FRONTEND_URL.rstrip('/')}/portal/job/{c.position_id}{query_str}"
         
         out = schemas.RecruitmentCampaignOut.model_validate(c)
         out.utm_url = utm_url
