@@ -1738,20 +1738,46 @@ createApp({
       } catch (e) { appInterviews.value = []; }
     }
 
+    // Mülakatlar sayfasından planlanınca elde açık bir aday kartı olmuyor,
+    // hangi başvuru olduğu modalda soruluyor.
+    const plannerApplicationId = ref(null);
+    const schedulableApplications = computed(() => {
+      const done = ['hired', 'rejected', 'withdrawn'];
+      return (pipeline.value || [])
+        .flatMap(col => col.applications || [])
+        .filter(a => !done.includes(a.status));
+    });
+
+    async function openInterviewPlanner() {
+      plannerApplicationId.value = null;
+      selectedApp.value = null;
+      if (!pipeline.value || !pipeline.value.length) await loadPipeline();
+      showNewInterviewModal.value = true;
+    }
+
     async function saveInterview() {
-      if (!selectedApp.value) return;
+      const applicationId = selectedApp.value ? selectedApp.value.id : plannerApplicationId.value;
+      if (!applicationId) { showToast('Lütfen mülakatı planlayacağınız adayı seçin.', 'error'); return; }
       try {
         const payload = {
           ...newIv.value,
-          application_id: selectedApp.value.id,
+          application_id: applicationId,
           scheduled_at: newIv.value.scheduled_at || null,
         };
         const iv = await api('POST', '/api/interviews/', payload);
-        appInterviews.value.push(iv);
         showNewInterviewModal.value = false;
         newIv.value = { round_number: 1, interview_type: 'hr', scheduled_at: '', duration_minutes: 60, interviewer_name: '', meeting_link: '' };
-        if (selectedApp.value) selectedApp.value.status = 'interview';
-        loadPipeline();
+        if (selectedApp.value) {
+          appInterviews.value.push(iv);
+          // Aşamayı uç nokta belirliyor (İK / Teknik / Yönetici); burada tahmin
+          // etmek yerine panoyu tazeleyip gerçek durumu okuyoruz.
+          loadPipeline();
+        } else {
+          plannerApplicationId.value = null;
+          loadAllInterviews();
+          loadPipeline();
+        }
+        showToast('Mülakat planlandı.', 'success');
       } catch (e) { alert('Mülakat kaydedilemedi: ' + e.message); }
     }
 
@@ -3509,6 +3535,22 @@ createApp({
       } catch (e) { showToast('Kampanya silinemedi: ' + e.message, 'error'); }
     }
 
+    // Kaynak seçilince utm_source'u doldur: boş bırakılan kampanya raporun
+    // kaynak kırılımına hiç düşmüyordu. Elle yazılmışsa üzerine yazma.
+    const SOURCE_UTM = {
+      'QR Code': 'qr', 'LinkedIn': 'linkedin', 'Kariyer.net': 'kariyernet',
+      'Instagram': 'instagram', 'Afiş': 'afis',
+    };
+    function fillUtmFromSource() {
+      const slug = SOURCE_UTM[newCampaign.value.source];
+      if (!slug) return;
+      const previous = Object.values(SOURCE_UTM);
+      if (!newCampaign.value.utm_source || previous.includes(newCampaign.value.utm_source)) {
+        newCampaign.value.utm_source = slug;
+      }
+      if (!newCampaign.value.utm_medium) newCampaign.value.utm_medium = 'qr';
+    }
+
     function copyCampaignLink(c) {
       navigator.clipboard.writeText(c.utm_url || '')
         .then(() => showToast('Başvuru linki kopyalandı.', 'success'))
@@ -3679,7 +3721,7 @@ createApp({
       chatOpen, chatInput, chatMessages, chatLoading, chatMsgs,
       analyticsStats, topSkills, stages, stageLabelMap, logs, recommendedPositions, trackingData,
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
-      interviewTab, ivAssistant, ivAnalysis,
+      interviewTab, ivAssistant, ivAnalysis, plannerApplicationId, schedulableApplications, openInterviewPlanner,
       workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
       posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments, fte,
 
@@ -3817,7 +3859,7 @@ createApp({
       staffingStatusLabel, staffingPriorityLabel, staffingStatusClass,
 
       // Kampanyalar / İşe Giriş / Blacklist
-      campaigns, showNewCampaignModal, newCampaign,
+      campaigns, showNewCampaignModal, newCampaign, fillUtmFromSource,
       loadCampaigns, createCampaign, deleteCampaign, copyCampaignLink,
       onboardingApps, onboardingSelectedApp, onboardingBoardTasks, onboardingProgress,
       loadOnboardingBoard, selectOnboardingApp, generateOnboardingFor, toggleOnboardingTask,

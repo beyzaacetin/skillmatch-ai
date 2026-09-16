@@ -153,7 +153,9 @@ input:checked + .slider:before {
       </div>
 
       <!-- Right Column: Application Form Container -->
-      <div style="background:#173D34; color:#FFFFFF; padding:7vh 6vw; display:flex; align-items:center; justify-content:center">
+      <!-- Pozisyon yoksa formu hiç gösterme: aday dolduruyor, göndermeye
+           çalışınca hata alıyordu. -->
+      <div v-if="publicJob && publicJob.id" style="background:#173D34; color:#FFFFFF; padding:7vh 6vw; display:flex; align-items:center; justify-content:center">
         <div class="card" style="background:#FFFFFF; border:1px solid #DFE7E3; border-radius:18px; padding:27px 31px; min-height:720px; width:100%; max-width:600px; color:#20342E; display:flex; flex-direction:column; justify-content:space-between">
           <div>
             <div style="margin-bottom:24px">
@@ -2641,6 +2643,8 @@ input:checked + .slider:before {
             <div class="page-hdr-title">Mülakatlar</div>
             <div class="page-hdr-sub">İşe alım mülakat süreci ve AI asistan araçları</div>
           </div>
+          <!-- Mülakat yalnızca aday kartı açılıp sekmeye girilerek planlanabiliyordu. -->
+          <button class="btn btn-primary" @click="openInterviewPlanner()">+ Mülakat Planla</button>
         </div>
         <!-- Sub Tabs -->
         <div style="display: flex; border-bottom: 1px solid var(--g200); width: 100%; margin-top: 10px;">
@@ -2990,7 +2994,7 @@ input:checked + .slider:before {
             </div>
             <div>
               <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--g500)">Kaynak</label>
-              <select v-model="newCampaign.source" class="form-input" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
+              <select v-model="newCampaign.source" @change="fillUtmFromSource" class="form-input" style="width:100%;padding:8px;border:1px solid var(--g300);border-radius:4px">
                 <option value="QR Code">QR Kod</option>
                 <option value="LinkedIn">LinkedIn</option>
                 <option value="Kariyer.net">Kariyer.net</option>
@@ -5287,7 +5291,9 @@ input:checked + .slider:before {
         <div class="modal-tab" :class="{active:posTab==='candidates'}" @click="posTab='candidates';loadPositionApps(selectedPosition)">Adaylar ({{positionApps.length}})</div>
         <div class="modal-tab" :class="{active:posTab==='upload'}" @click="posTab='upload'">Aday Ekle (Toplu CV Yükle)</div>
         <div class="modal-tab" :class="{active:posTab==='matches'}" @click="posTab='matches';loadPositionMatches(selectedPosition)">Hızlı Eşleştirme</div>
-        <div class="modal-tab" :class="{active:posTab==='deep_ai'}" @click="posTab='deep_ai'">Explainable AI Analizi</div>
+        <!-- Bu sekmenin tek işlevi /api/positions/{id}/deep-analyze ucunu çağırmak,
+             o uç backend'de tanımlı değil (her tıklama 404). Uç yazılınca v-if kaldırılsın. -->
+        <div v-if="false" class="modal-tab" :class="{active:posTab==='deep_ai'}" @click="posTab='deep_ai'">Explainable AI Analizi</div>
       </div>
       <div class="modal-body">
         
@@ -6102,6 +6108,17 @@ input:checked + .slider:before {
         <button class="modal-x" @click="showNewInterviewModal=false">×</button>
       </div>
       <div class="modal-body">
+        <!-- Aday kartından değil de Mülakatlar sayfasından açıldıysa hangi
+             başvuru için planlandığını sormak gerekiyor. -->
+        <div class="fg" v-if="!selectedApp">
+          <label class="fl">Aday</label>
+          <select v-model.number="plannerApplicationId" class="fs">
+            <option :value="null">Aday seçin…</option>
+            <option v-for="a in schedulableApplications" :key="a.id" :value="a.id">
+              {{ (a.candidate || {}).name }} — {{ (a.position || {}).title }}
+            </option>
+          </select>
+        </div>
         <div class="form-row">
           <div class="fg"><label class="fl">Tur</label><select v-model.number="newIv.round_number" class="fs"><option :value="1">1. Tur</option><option :value="2">2. Tur</option><option :value="3">3. Tur</option></select></div>
           <div class="fg"><label class="fl">Tür</label><select v-model="newIv.interview_type" class="fs"><option value="hr">İK</option><option value="technical">Teknik</option><option value="video">Video</option><option value="onsite">Yüz Yüze</option></select></div>
@@ -6208,7 +6225,7 @@ input:checked + .slider:before {
       </div>
       <div class="modal-ftr">
         <button class="btn btn-secondary" @click="showNewOfferModal=false">İptal</button>
-        <button class="btn btn-primary" :disabled="matchedSalaryPolicy && newOffer.proposed_salary && (newOffer.proposed_salary < matchedSalaryPolicy.min_salary || newOffer.proposed_salary > matchedSalaryPolicy.max_salary) && !newOffer.deviation_reason" @click="saveOffer()">Oluştur</button>
+        <button class="btn btn-primary" :disabled="matchedSalaryPolicy && newOffer.proposed_salary && (newOffer.proposed_salary < matchedSalaryPolicy.min_salary || newOffer.proposed_salary > matchedSalaryPolicy.max_salary) && (!newOffer.deviation_reason || !(newOffer.deviation_explanation || '').trim())" @click="saveOffer()">Oluştur</button>
       </div>
     </div>
   </div>
