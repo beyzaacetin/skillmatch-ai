@@ -12,7 +12,7 @@ import os
 import re
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend")))
@@ -1040,6 +1040,114 @@ def test_adding_a_candidate_from_the_position_workspace_stamps_the_hotel():
         pending = client.get("/api/offers/approvals/pending").json()
         assert any(p.get("application_id") == app_id or p.get("offer_id") for p in pending), \
             "otelin kendi teklifi onay kuyruğuna hiç düşmüyor"
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
+
+
+def test_one_hotel_cannot_move_or_reject_another_hotels_application():
+    """An application carries its hotel's approval chain and ownership lock, but
+    the status, stage, notes and delete endpoints looked it up by id alone — the
+    HR of one hotel could reject another hotel's candidate outright."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    mine = make_hotel(name="Bizim Otel", code="BZM")
+    theirs = make_hotel(name="Öteki Otel", code="OTK")
+    pos = models.Position(title="Aşçı", hotel_id=theirs)
+    cand = models.Candidate(name="Öteki Aday", email="oteki-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(candidate_id=cand.id, position_id=pos.id,
+                                 hotel_id=theirs, status="applied")
+    db.add(app_row); db.commit()
+    app_id = app_row.id
+    db.add(models.Interview(application_id=app_id, interview_type="technical",
+                            status="scheduled"))
+    db.commit()
+    intruder = models.User(email="baska-hr2@ornek.com", full_name="Bizim İK",
+                           hashed_password="x", role="HOTEL_HR", is_active=True,
+                           data_visibility_scope="HOTEL", hotel_access_ids=[mine])
+    db.add(intruder); db.commit(); db.refresh(intruder)
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: intruder
+    try:
+        assert client.patch(f"/api/applications/{app_id}/status",
+                            json={"status": "rejected"}).status_code == 404
+        assert client.patch(f"/api/applications/{app_id}/stage",
+                            json={"stage": "hired"}).status_code == 404
+        assert client.put(f"/api/applications/{app_id}/notes?notes=x").status_code == 404
+        assert client.delete(f"/api/applications/{app_id}").status_code == 404
+        assert client.get(f"/api/interviews/application/{app_id}").status_code == 404
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
+
+    db = TestingSessionLocal()
+    assert db.query(models.Application).get(app_id).status == "applied", "durum yine de değişmiş"
+    db.close()
+
+
+def test_an_interview_row_with_nulls_does_not_500_the_whole_list(as_admin):
+    """round_number, interview_type, status and duration_minutes are nullable
+    columns with python-side defaults, but InterviewOut required all four, so a
+    row that did not come through the ORM turned the interview list for that
+    application into a 500."""
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Null Otel", code="NULO")
+    pos = models.Position(title="Garson", hotel_id=hotel_id)
+    cand = models.Candidate(name="Null Aday", email="null-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(candidate_id=cand.id, position_id=pos.id,
+                                 hotel_id=hotel_id, status="applied")
+    db.add(app_row); db.commit()
+    app_id = app_row.id
+    db.execute(text("INSERT INTO interviews (application_id, round_number, interview_type,"
+                    " status, duration_minutes) VALUES (:a, NULL, NULL, NULL, NULL)"),
+               {"a": app_id})
+    db.commit(); db.close()
+
+    res = client.get(f"/api/interviews/application/{app_id}")
+    assert res.status_code == 200, res.text
+    row = res.json()[0]
+    assert row["round_number"] == 1 and row["duration_minutes"] == 60
+    assert row["interview_type"] == "hr" and row["status"] == "scheduled"
+
+
+def test_the_kanban_board_only_shows_the_hotels_own_candidates():
+    """The candidate and position lists filter by hotel, but /pipeline — the
+    board people actually work on — did not, so a hotel saw every other hotel's
+    candidates on it. Dragging such a card now hits the scoped stage endpoint
+    and fails, so an unscoped board would show cards that refuse to move."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    mine = make_hotel(name="Pano Otel", code="PANO")
+    theirs = make_hotel(name="Uzak Otel", code="UZAK")
+    for hotel_id, who in ((mine, "Bizim Aday"), (theirs, "Uzak Aday")):
+        pos = models.Position(title=f"{who} Pozisyonu", hotel_id=hotel_id)
+        cand = models.Candidate(name=who, email=f"{who.replace(' ', '')}@ornek.com")
+        db.add_all([pos, cand]); db.commit()
+        db.add(models.Application(candidate_id=cand.id, position_id=pos.id,
+                                  hotel_id=hotel_id, status="applied"))
+    db.commit()
+    hotel_hr = models.User(email="pano-hr@ornek.com", full_name="Pano İK",
+                           hashed_password="x", role="HOTEL_HR", is_active=True,
+                           data_visibility_scope="HOTEL", hotel_access_ids=[mine])
+    db.add(hotel_hr); db.commit(); db.refresh(hotel_hr)
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: hotel_hr
+    try:
+        board = client.get("/api/applications/pipeline").json()
+        names = [(a.get("candidate") or {}).get("name")
+                 for col in board["columns"] for a in col["applications"]]
+        assert "Bizim Aday" in names
+        assert "Uzak Aday" not in names, "pano başka otelin adayını gösteriyor"
     finally:
         if previous is None:
             app.dependency_overrides.pop(get_current_user, None)

@@ -194,9 +194,14 @@ def bulk_update(data: dict, db: Session = Depends(database.get_db), current_user
     return {"message": "Toplu işlem başarıyla tamamlandı.", "updated_count": len(apps)}
 
 @router.get("/pipeline")
-def get_pipeline(position_id: Optional[int]=None, db: Session = Depends(database.get_db)):
+def get_pipeline(position_id: Optional[int]=None, db: Session = Depends(database.get_db),
+                 current_user: models.User = Depends(auth.get_current_user)):
     q = db.query(models.Application).join(models.Candidate).filter(models.Candidate.is_deleted == False).options(joinedload(models.Application.candidate), joinedload(models.Application.position))
     if position_id: q = q.filter(models.Application.position_id == position_id)
+    # The board is a per-hotel work surface: dragging a card changes that
+    # application's stage, and that endpoint is scoped, so an unscoped board
+    # would show cards that refuse to move.
+    q = _scope_applications(q, db, current_user)
     apps = q.order_by(models.Application.match_score.desc().nullslast()).all()
     stages = ["applied", "screening", "hr_interview", "tech_interview", "manager_interview", "reference_check", "offer", "hired", "rejected", "hold"]
     labels = {
@@ -239,20 +244,51 @@ def _app_dict(a):
     }
 
 @router.get("/{app_id}", response_model=schemas.ApplicationOut)
-def get_application(app_id: int, db: Session = Depends(database.get_db)):
+def get_application(app_id: int, db: Session = Depends(database.get_db),
+                    current_user: models.User = Depends(auth.get_current_user)):
+    _scoped_application(app_id, db, current_user)
     a = _load(app_id, db)
     if not a or (a.candidate and a.candidate.is_deleted): raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
     return a
+
+def _scope_applications(q, db: Session, current_user: models.User):
+    """Limit a query of applications to the hotels the user may see, using the
+    same hotel list the candidate and position lists use."""
+    if current_user.role in ("SYSTEM_ADMIN", "ADMIN") or current_user.data_visibility_scope == "GLOBAL":
+        return q
+    scope = (current_user.data_visibility_scope or "HOTEL").upper()
+    if scope == "HOTEL":
+        return q.filter(models.Application.hotel_id.in_(current_user.hotel_access_ids or []))
+    if scope == "REGIONAL":
+        hotel_ids = [h.id for h in db.query(models.Hotel).filter(
+            models.Hotel.region_id.in_(current_user.region_access_ids or [])).all()]
+        return q.filter(models.Application.hotel_id.in_(hotel_ids))
+    if scope == "DEPARTMENT":
+        return q.join(models.Position, models.Application.position_id == models.Position.id).filter(
+            models.Position.department_id.in_(current_user.department_access_ids or []))
+    return q
+
+
+def _scoped_application(app_id: int, db: Session, current_user: models.User):
+    """An application belongs to one hotel - it carries that hotel's approval
+    chain and ownership lock - but these endpoints only looked it up by id, so
+    one hotel could move or reject another hotel's candidate. 404 rather than
+    403 so an out-of-scope id says nothing."""
+    from services.scope_policy_service import scope_policy_service
+    a = scope_policy_service.application_in_scope(db, current_user, app_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+    return a
+
 
 @router.patch("/{app_id}/status")
 def update_status(
     app_id: int, 
     data: schemas.ApplicationStatusUpdate, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    a = db.query(models.Application).filter(models.Application.id == app_id).first()
-    if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+    a = _scoped_application(app_id, db, current_user)
     old_status = a.status
     _push_history(a, data.status, data.note)
     if data.status == "hired": a.hired_at = datetime.now(timezone.utc)
@@ -274,10 +310,9 @@ def update_hr_notes(
     app_id: int, 
     notes: str, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    a = db.query(models.Application).filter(models.Application.id == app_id).first()
-    if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+    a = _scoped_application(app_id, db, current_user)
     a.hr_notes = notes
     db.commit()
     from routers.candidates import _log
@@ -288,10 +323,9 @@ def update_hr_notes(
 def delete_application(
     app_id: int, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    a = db.query(models.Application).filter(models.Application.id == app_id).first()
-    if not a: raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+    a = _scoped_application(app_id, db, current_user)
     app_id_val = a.id
     candidate_id = a.candidate_id
     position_id = a.position_id
@@ -327,16 +361,14 @@ def update_application_stage(
     app_id: int, 
     payload: dict = Body(...), 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
     stage = payload.get("stage")
     if not stage:
         raise HTTPException(status_code=400, detail="Stage value is required")
         
-    a = db.query(models.Application).filter(models.Application.id == app_id).first()
-    if not a:
-        raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
-        
+    a = _scoped_application(app_id, db, current_user)
+
     old_status = a.status
     _push_history(a, stage, payload.get("note", "Aşama güncellendi."))
     if stage == "hired":

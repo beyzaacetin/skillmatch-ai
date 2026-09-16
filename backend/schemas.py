@@ -270,11 +270,14 @@ class InterviewFeedback(BaseModel):
 class InterviewOut(BaseModel):
     id: int
     application_id: int
-    round_number: int
-    interview_type: str
-    status: str
+    # All four are nullable columns with a python-side default, so a row that did
+    # not go through the ORM carries NULL - and a required field here turns the
+    # whole interview list for that application into a 500.
+    round_number: Optional[int] = 1
+    interview_type: Optional[str] = "hr"
+    status: Optional[str] = "scheduled"
     scheduled_at: Optional[datetime] = None
-    duration_minutes: int
+    duration_minutes: Optional[int] = 60
     location: Optional[str] = None
     meeting_link: Optional[str] = None
     interviewer_name: Optional[str] = None
@@ -290,6 +293,16 @@ class InterviewOut(BaseModel):
     result: Optional[str] = None
     result_note: Optional[str] = None
     created_at: datetime
+
+    @field_validator("round_number", "interview_type", "status", "duration_minutes", mode="before")
+    @classmethod
+    def fall_back_to_the_column_default(cls, v, info):
+        # Optional alone still hands NULL through to the screen, where it reads
+        # as "— Tur"; substitute what the column would have defaulted to.
+        if v is None:
+            return {"round_number": 1, "interview_type": "hr",
+                    "status": "scheduled", "duration_minutes": 60}[info.field_name]
+        return v
     class Config:
         from_attributes = True
 

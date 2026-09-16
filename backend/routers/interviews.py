@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import json, os
-import models, schemas, database
+import models, schemas, database, auth
 from config import settings
 
 router = APIRouter()
@@ -60,7 +60,12 @@ def create_interview(data: schemas.InterviewCreate, db: Session = Depends(databa
     return iv
 
 @router.get("/application/{app_id}", response_model=List[schemas.InterviewOut])
-def get_interviews(app_id: int, db: Session = Depends(database.get_db)):
+def get_interviews(app_id: int, db: Session = Depends(database.get_db),
+                   current_user: models.User = Depends(auth.get_current_user)):
+    # Interviews belong to the hotel their application does.
+    from services.scope_policy_service import scope_policy_service
+    if not scope_policy_service.application_in_scope(db, current_user, app_id):
+        raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
     return db.query(models.Interview).filter(models.Interview.application_id == app_id).order_by(models.Interview.round_number).all()
 
 @router.post("/{iv_id}/feedback", response_model=schemas.InterviewOut)
