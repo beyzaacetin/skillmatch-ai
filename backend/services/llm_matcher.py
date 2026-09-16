@@ -112,8 +112,13 @@ class LLMMatcherService:
         return round(min(max(score, 0.0), 100.0), 1)
 
     def get_skill_overlap_ratio(self, candidate_skills, position_required_skills) -> float:
+        # A position that lists no required skills used to score 1.0 here, i.e. a
+        # perfect skill match against nothing. In the no-LLM fallback that alone
+        # drove the combined score to ~100, so every candidate showed "%100
+        # eşleşme" on a position with no stated requirements. Unknown is not
+        # perfect - stay neutral.
         if not position_required_skills:
-            return 1.0
+            return 0.5
         c_skills = [s.lower().strip() for s in (candidate_skills or [])]
         p_skills = [s.lower().strip() for s in (position_required_skills or [])]
         
@@ -297,9 +302,9 @@ class LLMMatcherService:
                     if val > 0:
                         semantic_score_100 = val
                     else:
-                        semantic_score_100 = max(50.0, keyword_score_100)
+                        semantic_score_100 = keyword_score_100
                 else:
-                    semantic_score_100 = max(50.0, keyword_score_100)
+                    semantic_score_100 = keyword_score_100
             except Exception as ml_err:
                 logger.error(f"Semantic fallback failed: {ml_err}")
 
