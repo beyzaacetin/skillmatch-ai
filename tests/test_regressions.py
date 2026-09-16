@@ -229,6 +229,55 @@ def test_blacklist_can_be_added_and_removed(as_admin):
     assert off.json()["is_blacklisted"] is False
 
 
+# ── offers ───────────────────────────────────────────────────────────────────
+
+def test_creating_an_offer_does_not_blow_up_on_approval_status(as_admin):
+    """routers/offers.py passes approval_status= to models.Offer and reads it back
+    in the status transitions, and main.py migrates the column in, but the model
+    never declared it: every POST /api/offers/ raised TypeError."""
+    hotel_id = make_hotel()
+    db = TestingSessionLocal()
+    candidate = models.Candidate(name="Mehmet Kaya", email="mk@example.com", skills=[], experience=[])
+    position = models.Position(title="Gece Resepsiyonisti", hotel_id=hotel_id, is_active=True, headcount=1)
+    db.add_all([candidate, position])
+    db.commit()
+    application = models.Application(candidate_id=candidate.id, position_id=position.id, status="hr_interview")
+    db.add(application)
+    db.commit()
+    app_id = application.id
+    db.close()
+
+    created = client.post("/api/offers/", json={
+        "application_id": app_id,
+        "proposed_salary": 42000,
+        "currency": "TRY",
+        "position_title": "Gece Resepsiyonisti",
+        "benefits": ["Yemek kartı"],
+    })
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["proposed_salary"] == 42000
+    assert body["approval_status"] in ("APPROVED", "PENDING_APPROVAL")
+
+    fetched = client.get(f"/api/offers/application/{app_id}")
+    assert fetched.status_code == 200, fetched.text
+    assert fetched.json()["position_title"] == "Gece Resepsiyonisti"
+
+
+# ── matching ─────────────────────────────────────────────────────────────────
+
+def test_no_required_skills_is_not_a_perfect_match():
+    """A position listing no required skills scored 1.0 skill overlap, which drove
+    the rule-based fallback to 100 and showed every candidate as %100 eşleşme."""
+    from services.llm_matcher import llm_matcher_service
+
+    assert llm_matcher_service.get_skill_overlap_ratio(["Python"], []) == 0.5
+    assert llm_matcher_service.get_skill_overlap_ratio([], None) == 0.5
+    # a real overlap still scores on its merits
+    assert llm_matcher_service.get_skill_overlap_ratio(["Python", "SQL"], ["Python"]) == 1.0
+    assert llm_matcher_service.get_skill_overlap_ratio(["Java"], ["Python"]) == 0.0
+
+
 # ── CV parsing without an API key ────────────────────────────────────────────
 
 def test_cv_fallback_reads_the_file_instead_of_inventing_a_person():

@@ -231,6 +231,10 @@ class Offer(Base):
     deviation_reason = Column(String, nullable=True)
     deviation_explanation = Column(Text, nullable=True)
     approved_by = Column(JSON, default=[])
+    # main.py already migrates this column in, and routers/offers.py reads and
+    # writes it, but it was never declared here - so creating an offer raised
+    # TypeError: 'approval_status' is an invalid keyword argument for Offer.
+    approval_status = Column(String(50), default="APPROVED")  # APPROVED|PENDING_APPROVAL|REJECTED
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     application = relationship("Application", back_populates="offer")
     approval_requests = relationship("OfferApprovalRequest", back_populates="offer", cascade="all, delete-orphan")
