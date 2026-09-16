@@ -96,6 +96,17 @@ def read_positions(
     from services.scope_policy_service import scope_policy_service
     q = scope_policy_service.apply_position_scope(q, db, current_user)
     positions = q.offset(skip).limit(limit).all()
+
+    # The list view shows how many people applied and how many were hired; without
+    # these the "Aday" column and the pipeline bar read 0 for every position.
+    counts = dict(db.query(models.Application.position_id, func.count(models.Application.id))
+                    .group_by(models.Application.position_id).all())
+    hired = dict(db.query(models.Application.position_id, func.count(models.Application.id))
+                   .filter(models.Application.status == "hired")
+                   .group_by(models.Application.position_id).all())
+    for pos in positions:
+        pos.application_count = counts.get(pos.id, 0)
+        pos.hired_count = hired.get(pos.id, 0)
     return positions
 
 

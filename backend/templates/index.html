@@ -1915,7 +1915,7 @@ input:checked + .slider:before {
                       {{ !p.is_active ? 'Pasif' : (p.priority === 'Kritik' ? 'Kritik' : 'Aktif') }}
                     </span>
                   </td>
-                  <td class="text-bold">{{ p.applications?.length || 0 }} Aday</td>
+                  <td class="text-bold">{{ p.application_count || 0 }} Aday</td>
                   <td>{{ p.hiring_manager || 'Belirtilmedi' }}</td>
                   <td>{{ p.target_date || 'Belirtilmedi' }}</td>
                   <td style="width: 140px">

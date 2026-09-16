@@ -967,8 +967,7 @@ createApp({
     function positionProgress(position) {
       const target = position?.headcount || 0;
       if (!target) return 0;
-      const hired = (position.applications || []).filter(a => a.status === 'hired').length;
-      return Math.min(100, Math.round(hired / target * 100));
+      return Math.min(100, Math.round((position.hired_count || 0) / target * 100));
     }
 
     const offerAcceptanceRates = computed(() => {

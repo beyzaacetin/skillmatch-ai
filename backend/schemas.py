@@ -194,6 +194,9 @@ class PositionCreate(PositionBase):
 class Position(PositionBase):
     id: int
     created_at: datetime
+    # Filled in by the list endpoint; the table needs the counts, not the rows.
+    application_count: int = 0
+    hired_count: int = 0
     class Config:
         from_attributes = True
 

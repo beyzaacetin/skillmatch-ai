@@ -829,3 +829,28 @@ def test_every_page_with_its_own_data_reloads_when_you_navigate_to_it():
                               ("onboarding", "loadOnboardingBoard")):
         assert f"p === '{page_name}'" in body and loader in body, \
             f"{page_name} sayfasına geçişte {loader} çağrılmıyor"
+
+
+def test_position_list_reports_how_many_applied(as_admin):
+    """The Pozisyonlar table read p.applications, which /api/positions/ has
+    never returned, so every row said "0 Aday" and every pipeline bar 0%."""
+    db = TestingSessionLocal()
+    hotel_id = make_hotel()
+    pos = models.Position(title="Bar Şefi", hotel_id=hotel_id, headcount=2)
+    db.add(pos); db.commit()
+    pos_id = pos.id
+    for i, st in enumerate(["applied", "screening", "hired"]):
+        cand = models.Candidate(name=f"Aday {i}", email=f"aday{i}-pc@ornek.com")
+        db.add(cand); db.commit()
+        db.add(models.Application(candidate_id=cand.id, position_id=pos_id, status=st))
+    db.commit(); db.close()
+
+    row = next(p for p in client.get("/api/positions/").json() if p["id"] == pos_id)
+    assert row["application_count"] == 3
+    assert row["hired_count"] == 1
+
+    app_js = open(APP_JS, encoding="utf-8").read()
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    assert "p.applications?.length" not in html
+    start = app_js.index("function positionProgress(")
+    assert ".applications" not in app_js[start:start + 400]
