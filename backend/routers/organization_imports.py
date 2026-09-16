@@ -28,6 +28,17 @@ COL_MAPPINGS = {
     "active_fte": ["aktiffte", "aktif fte", "aktif_fte", "active_fte", "active"]
 }
 
+def cell(row, col) -> str:
+    """Read a cell as text, treating a blank/NaN as an empty string rather than
+    letting str() turn it into the literal "nan" or "None"."""
+    if not col:
+        return ""
+    value = row.get(col)
+    if value is None or pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
 def find_mapped_col(columns: List[str], key: str) -> Optional[str]:
     for col in columns:
         if col in COL_MAPPINGS[key]:
@@ -63,14 +74,15 @@ async def upload_organization_excel(
         orig_columns = list(df.columns)
         df.columns = [str(c).strip().lower() for c in df.columns]
         
-        # Find column mappings
+        # Find column mappings.
+        # df.columns was lower-cased above, so the lower-cased name is what row
+        # access needs. Mapping back to the original spelling meant every
+        # row.get(...) missed and the whole sheet came through as the literal
+        # string "None" with 0.0 FTE — and, being identical, every row after the
+        # first was then flagged "mükerrer kayıt".
         col_map = {}
         for key in COL_MAPPINGS.keys():
-            mapped = find_mapped_col(df.columns, key)
-            if mapped:
-                col_map[key] = orig_columns[df.columns.get_loc(mapped)]
-            else:
-                col_map[key] = None
+            col_map[key] = find_mapped_col(df.columns, key)
                 
         # Required validation
         required_keys = ["period", "hotel_code", "position_name", "budget_fte"]
@@ -113,16 +125,16 @@ async def upload_organization_excel(
         for idx, row in df.iterrows():
             total_rows += 1
             
-            period_val = str(row.get(col_map["period"])).strip() if col_map["period"] else "2026-08"
-            hotel_code_val = str(row.get(col_map["hotel_code"])).strip() if col_map["hotel_code"] else ""
-            hotel_name_val = str(row.get(col_map["hotel_name"])).strip() if col_map["hotel_name"] else hotel_code_val
-            city_val = str(row.get(col_map["city"])).strip() if col_map["city"] and not pd.isna(row.get(col_map["city"])) else "Antalya"
-            region_val = str(row.get(col_map["region"])).strip() if col_map["region"] and not pd.isna(row.get(col_map["region"])) else "Kemer"
-            main_category_val = str(row.get(col_map["main_category"])).strip() if col_map["main_category"] else "Genel"
-            sub_main_val = str(row.get(col_map["sub_main_category"])).strip() if col_map["sub_main_category"] and not pd.isna(row.get(col_map["sub_main_category"])) else ""
-            sub_cat_val = str(row.get(col_map["sub_category"])).strip() if col_map["sub_category"] and not pd.isna(row.get(col_map["sub_category"])) else ""
-            pos_code_val = str(row.get(col_map["position_code"])).strip() if col_map["position_code"] and not pd.isna(row.get(col_map["position_code"])) else ""
-            pos_name_val = str(row.get(col_map["position_name"])).strip() if col_map["position_name"] else ""
+            period_val = cell(row, col_map["period"]) or "2026-08"
+            hotel_code_val = cell(row, col_map["hotel_code"])
+            hotel_name_val = cell(row, col_map["hotel_name"]) or hotel_code_val
+            city_val = cell(row, col_map["city"]) or "Antalya"
+            region_val = cell(row, col_map["region"]) or "Kemer"
+            main_category_val = cell(row, col_map["main_category"]) or "Genel"
+            sub_main_val = cell(row, col_map["sub_main_category"])
+            sub_cat_val = cell(row, col_map["sub_category"])
+            pos_code_val = cell(row, col_map["position_code"])
+            pos_name_val = cell(row, col_map["position_name"])
             
             # Safe parsing values
             try:

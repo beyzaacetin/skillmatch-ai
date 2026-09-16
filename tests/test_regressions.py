@@ -264,6 +264,55 @@ def test_creating_an_offer_does_not_blow_up_on_approval_status(as_admin):
     assert fetched.json()["position_title"] == "Gece Resepsiyonisti"
 
 
+# ── organization / budget Excel import ───────────────────────────────────────
+
+def test_org_import_reads_the_sheet_it_documents(as_admin):
+    """The upload lower-cased df.columns but then mapped each key back to the
+    ORIGINAL spelling, so every row.get() missed: the whole sheet came through as
+    the literal string "None" with 0.0 FTE, and because every row then looked
+    identical, all but the first were flagged as duplicates. The documented
+    headers (Donem, OtelKodu, ...) are mixed case, so it never worked as
+    documented."""
+    import io
+    import pandas as pd
+
+    make_hotel(name="Rixos Sungate", code="SUN")
+    rows = [{
+        "Donem": 2026, "OtelKodu": "SUN", "OtelAdi": "Rixos Sungate",
+        "Sehir": "Antalya", "Bolge": "Akdeniz", "AnaKategori": "Yiyecek ve İçecek",
+        "AltAnaKategori": "Ana Otel", "AltKategori": "Servis",
+        "PozisyonKodu": "GRS", "PozisyonAdi": "Garson",
+        "ButceFTE": 12.5, "AktifFTE": 10,
+    }, {
+        "Donem": 2026, "OtelKodu": "SUN", "OtelAdi": "Rixos Sungate",
+        "Sehir": "Antalya", "Bolge": "Akdeniz", "AnaKategori": "Ön Büro",
+        "AltAnaKategori": "Ana Otel", "AltKategori": "Resepsiyon",
+        "PozisyonKodu": "RSP", "PozisyonAdi": "Resepsiyonist",
+        "ButceFTE": 8.25, "AktifFTE": 7,
+    }]
+    buf = io.BytesIO()
+    pd.DataFrame(rows).to_excel(buf, index=False)
+    buf.seek(0)
+
+    r = client.post(
+        "/api/organization-imports/upload",
+        files={"file": ("org.xlsx", buf,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total_rows"] == 2
+    # two genuinely different positions are not duplicates of each other
+    assert body["warning_count"] == 0, body["preview_rows"]
+
+    preview = {row["position_name"]: row for row in body["preview_rows"]}
+    assert set(preview) == {"Garson", "Resepsiyonist"}
+    assert preview["Garson"]["hotel_code"] == "SUN"
+    assert preview["Garson"]["budget_fte"] == 12.5
+    assert preview["Resepsiyonist"]["budget_fte"] == 8.25
+    assert preview["Resepsiyonist"]["main_category"] == "Ön Büro"
+
+
 # ── dashboard vs. real interviews ────────────────────────────────────────────
 
 def test_dashboard_survives_a_scheduled_interview(as_admin):
