@@ -781,9 +781,13 @@ class SalaryPolicyCreate(SalaryPolicyBase):
 
 class SalaryPolicyOut(SalaryPolicyBase):
     id: int
-    version: int
-    is_active: bool
-    status: str
+    # These three are nullable in the DB with Python-side ORM defaults only, so a
+    # row inserted any other way — including a backfill through this repo's
+    # ALTER TABLE migration list — reads back NULL and 500s the whole settings
+    # list, exactly as PositionBase.description used to.
+    version: Optional[int] = 1
+    is_active: Optional[bool] = True
+    status: Optional[str] = "active"
     class Config:
         from_attributes = True
 

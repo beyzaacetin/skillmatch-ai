@@ -358,6 +358,31 @@ def test_dashboard_survives_a_scheduled_interview(as_admin):
     assert client.get(f"/api/analytics/dashboard-stats?hotel_id={hotel_id}").status_code == 200
 
 
+# ── schemas stricter than the database ───────────────────────────────────────
+
+def test_salary_policy_list_survives_null_version_and_status(as_admin):
+    """SalaryPolicyOut required version/status, which are nullable columns with
+    Python-side ORM defaults only. Any row inserted another way — including a
+    backfill through this repo's ALTER TABLE migration list — reads back NULL and
+    500s the whole settings list, the way PositionBase.description used to."""
+    hotel_id = make_hotel()
+    db = TestingSessionLocal()
+    policy = models.SalaryPolicy(hotel_id=hotel_id, position_title="Garson",
+                                 min_salary=30000, target_salary=35000, max_salary=40000,
+                                 currency="TRY", is_active=True)
+    db.add(policy)
+    db.commit()
+    # simulate a row that never went through the ORM defaults
+    policy.version = None
+    policy.status = None
+    db.commit()
+    db.close()
+
+    r = client.get("/api/settings/salary-policy")
+    assert r.status_code == 200, r.text
+    assert r.json()[0]["position_title"] == "Garson"
+
+
 # ── offer approval chain ─────────────────────────────────────────────────────
 
 def _make_application(hotel_id, title="Garson", email="approval@example.com"):
