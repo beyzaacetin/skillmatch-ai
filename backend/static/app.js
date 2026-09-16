@@ -2086,6 +2086,10 @@ createApp({
         onboarding: '/onboarding',
         blacklist: '/blacklist'
       };
+      // Aday sayfalarında adres çubuğuna dokunma: burada '/' yazmak hem adayı
+      // şaşırtıyor hem de kampanya QR'ının utm_* parametrelerini siliyordu.
+      if (p === 'public_job' || p === 'public_walkin') return;
+
       const targetPath = reversePathMap[p] || '/';
       if (window.location.pathname !== targetPath) {
         window.history.pushState(null, '', targetPath);
@@ -3225,7 +3229,16 @@ createApp({
         }
         formData.append('cv_file', publicApplyCv.value);
 
-        const url = `/api/portal/job/${publicJob.value.id}/apply`;
+        // Kampanya QR'ı utm_* parametreleriyle geliyor ve uç bunları kabul ediyor,
+        // ama gönderilmiyordu: her başvuru kaynaksız kaydediliyor, kampanya
+        // performansı ölçülemiyordu.
+        const utm = new URLSearchParams();
+        const here = new URLSearchParams(window.location.search);
+        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'].forEach(k => {
+          if (here.get(k)) utm.append(k, here.get(k));
+        });
+        const qs = utm.toString();
+        const url = `/api/portal/job/${publicJob.value.id}/apply${qs ? '?' + qs : ''}`;
         const res = await fetch(url, {
           method: 'POST',
           body: formData
