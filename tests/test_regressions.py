@@ -755,3 +755,21 @@ def test_every_funnel_key_has_a_turkish_label():
     labelled = set(re.findall(r"^\s*([a-z_]+):", app_js[start:app_js.index("};", start)], re.M))
     missing = [k for k in keys if k not in labelled]
     assert not missing, f"stageLabelMap'te karşılığı olmayan funnel anahtarı: {missing}"
+
+
+def test_form_controls_use_the_ui_font():
+    """font-family is not inherited by button/select/input, so every control in
+    the app rendered in the browser's default face next to Inter body text."""
+    css = open(os.path.join(REPO, "backend", "static", "style.css"), encoding="utf-8").read()
+    assert re.search(r"button[^{}]*\{[^{}]*font-family:\s*inherit", css), \
+        "button/input/select için font-family:inherit sıfırlaması yok"
+
+
+def test_sidebar_items_are_all_built_the_same_way():
+    """One nav entry was an <a> with an inline-styled svg instead of a <button>
+    with a .nav-icon, so it sat further right and in a different typeface."""
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    nav = html[html.index('<nav class="sb-nav">'):html.index("</nav>")]
+    assert "<a " not in nav, "sb-nav içindeki bağlantı .nav-item düğmeleriyle hizalanmıyor"
+    stray = re.findall(r'(?<!<span class="nav-icon">)<svg', nav)
+    assert not stray, "nav ikonları .nav-icon içinde olmalı"

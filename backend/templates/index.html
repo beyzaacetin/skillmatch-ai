@@ -302,10 +302,10 @@ input:checked + .slider:before {
         <button class="nav-item" :class="{active: page==='headcount'}" @click="page='headcount'">
           <span class="nav-icon">◎</span> Kadro İhtiyaçları
         </button>
-        <a @click="page='staffing'" :class="{active: page==='staffing'}" class="nav-item" style="cursor:pointer">
-          <svg style="width:16px; height:16px; margin-right:12px; fill:currentColor;" viewBox="0 0 24 24"><path d="M20,6h-4V4c0-1.11-0.89-2-2-2h-4C8.89,2,8,2.89,8,4v2H4C2.89,6,2,6.89,2,8v11c0,1.11,0.89,2,2,2h16c1.11,0,2-0.89,2-2V8 C22,6.89,21.11,6,20,6z M10,4h4v2h-4V4z M20,19H4V8h16V19z"/></svg>
+        <button class="nav-item" :class="{active: page==='staffing'}" @click="page='staffing'">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M20,6h-4V4c0-1.11-0.89-2-2-2h-4C8.89,2,8,2.89,8,4v2H4C2.89,6,2,6.89,2,8v11c0,1.11,0.89,2,2,2h16c1.11,0,2-0.89,2-2V8 C22,6.89,21.11,6,20,6z M10,4h4v2h-4V4z M20,19H4V8h16V19z"/></svg></span>
           Kadro İhtiyacı
-        </a>
+        </button>
         <button class="nav-item" :class="{active: page==='jobs'}" @click="page='jobs'">
           <span class="nav-icon">▤</span> Pozisyonlar
         </button>
