@@ -385,6 +385,117 @@ bile, **403** alıyor.
 
 ---
 
+## 2b. Sunum provası sırasında çıkanlar (D-34 … D-42)
+
+Perşembe sunumu için akışı baştan sona **temiz veritabanıyla** prova ettim
+(kadro talebi → GM onayı → pozisyon → kampanya/QR → QR'dan başvuru → Kanban →
+mülakat → teklif → çift onay → kabul → işe giriş → rapor). Prova sırasında
+çıkan ve düzelttiğim maddeler:
+
+### ✅ D-34 — İşe giriş kontrol listesi sayfa yenilenince bozuluyordu
+`GET /api/onboarding/{id}` `{completion_percentage, tasks}` döndürüyor ama hem
+`loadOnboarding()` hem `selectOnboardingApp()` yanıtın **tamamını** görev
+dizisine atıyordu. Listeyi oluşturduktan hemen sonra doğru görünüyordu (POST
+yanıtı doğru okunuyor), sayfayı yenileyince listenin yerine iki çöp satır ve
+üstünde "henüz görev yok" kutusu geliyordu; aday kartının Onboarding sekmesi de
+`onboardingTasks.filter is not a function` ile patlıyordu. Artık `.tasks` okunuyor.
+
+### ✅ D-35 — QR kodu dış servisten indiriliyordu
+Hem kampanya hem ilan QR'ı `api.qrserver.com`'dan HTTP ile indiriliyordu — yani
+QR, aday karşısında/sahnede oluşturulurken **üçüncü parti bir servise bağımlıydı**.
+Bağlantı takılınca kayıt boş `qr_code_path` ile yazılıyor ve tabloda "—" görünüyordu;
+seed'deki kampanya tam olarak bu durumdaydı. Artık `qrcode` paketiyle yerelde
+çiziliyor (`requirements.txt`'e eklendi), ağ gerekmiyor. Tablodaki 40px küçük
+görsel de artık tıklanınca tam boyutta açılıyor.
+
+**Dikkat:** QR'ın içine `settings.FRONTEND_URL` yazılıyor, varsayılanı
+`http://localhost:8000`. **Telefonla okutulacaksa** bu adres telefonun
+erişebildiği bir adres olmalı (aşağıdaki sunum akışında anlatılıyor).
+
+### ✅ D-36 — Pozisyon modalinde kırık görsel
+İlan modali `/static/qrcodes/placeholder.png` gösteriyordu; depoda böyle bir
+dosya yok, yani ilan kaydedilene kadar kırık resim ikonu duruyordu. Boş durum kutusu kondu.
+
+### ✅ D-37 — Raporda "interview" yazıyordu
+`/api/analytics/stats` üç mülakat aşamasını tek `interview` anahtarında
+topluyor, `stageLabelMap`'te bu anahtar yoktu; huni grafiğinde Türkçe
+aşamaların arasında İngilizce `interview` yazıyordu. "Mülakat" etiketi eklendi.
+
+### ✅ D-38 — Butonlar ve açılır listeler farklı yazı tipindeydi
+`font-family` `button`/`input`/`select`/`textarea`'ya miras geçmiyor, stil
+dosyası da sadece `body`'ye veriyordu. Yani **uygulamadaki bütün butonlar ve
+menüler** tarayıcının varsayılan yazı tipiyle, yanlarındaki metin Inter ile
+çiziliyordu. Tek satırlık `font-family:inherit` sıfırlaması eklendi; on bir
+sayfada taşma/kırpılma kontrolü yapıldı, hiçbiri bozulmadı.
+
+Aynı yerde: sol menüdeki **"Kadro İhtiyacı"** maddesi tek `<a>` olarak yazılmış,
+ikonu da satır-içi `margin-right` taşıdığı için komşularından ~25px sağda ve
+farklı yazı tipiyle duruyordu. Diğerleri gibi `<button class="nav-item">` oldu.
+
+### ✅ D-39 — Oteller kendi kadro taleplerini onaylayabiliyordu (yetki)
+Kadro talebini onaylamak **pozisyon açıyor ve bütçe harcıyor**, yani merkezin
+kararı. Ne uç nokta ne tablo rol kontrolü yapıyordu: talebi giren otel İK'sı
+kendi satırında Onayla/Reddet görüyor ve basabiliyordu. Artık uç nokta
+ADMIN/SYSTEM_ADMIN/CENTRAL_HR dışındakini **403** ile çeviriyor, tabloda
+diğerlerine "Merkez onayı bekleniyor" yazıyor.
+
+### ✅ D-40 — Onayla açılan pozisyon listede görünmüyordu
+Pozisyonlar, adaylar ve genel bakış verisi yalnızca açılışta bir kez
+çekiliyordu. GM kadro talebini onaylayınca pozisyon oluşuyor ama Pozisyonlar
+sayfasında **tarayıcı yenilenene kadar** yoktu. (Kadro/talep/kampanya/işe giriş
+sayfalarında aynı boşluğu daha önce kapatmıştım; kalan üçü de eklendi.)
+
+### ✅ D-41 — Pozisyon tablosunda herkes "0 Aday"dı
+Tablo `p.applications` okuyordu, `/api/positions/` böyle bir alan hiç
+döndürmemiş. Yani üstte "65 Aktif Aday" yazarken tablodaki her satır "0 Aday"
+ve boş ilerleme çubuğu gösteriyordu. Uç nokta artık `application_count` ve
+`hired_count` sayılarını dönüyor (başvuru satırlarını değil — tablonun ihtiyacı
+iki sayı).
+
+### ✅ D-42 — "Ahmet" adlı adaya uydurma %91 uyum veriliyordu
+`/with-best-position` içinde ilk seed isimlerine sabitlenmiş skorlar vardı:
+adı "ahmet" geçen bir aday Garson ilanına başvurunca **91**, "elif"
+Resepsiyonist'e **87**, "mehmet" lifeguard'a **83**. Üstelik bu değer
+`match_scores` tablosuna **yazılıyordu**, yani uydurma skor istekten sonra da
+kalıyordu. Diğer gösteri verileri gibi `settings.DEMO_DATA` arkasına alındı.
+
+### ✅ D-43 — Onay bekleyen teklif "Taslak" görünüp gönder butonu sunuyordu
+Bant dışı teklif `PENDING_APPROVAL` ile oluşuyor ve gönderme ucu onu reddediyor;
+ama ekran sade "Taslak" rozeti ve **kesinlikle hata verecek** bir "Teklifi
+Gönder" butonu gösteriyordu. Artık "Onay Bekliyor" / "Onay Reddedildi" rozeti
+var, onay bitene kadar gönder butonu çıkmıyor.
+
+### ✅ D-44 — Adayın teklife verdiği cevap hiçbir yerden kaydedilemiyordu
+Teklif "Gönderildi"den ileri gidemiyordu: `accepted`/`rejected` durumları hem
+rozette hem `/api/analytics/offer-acceptance` raporunda var, uç nokta da kabul
+ediyor — ama **hiçbir ekran çağırmıyordu**. Yani "Teklif Kabul / Red Oranları"
+raporu gerçek kullanımda hep boş kalıyordu. Gönderilmiş teklife "Aday Kabul
+Etti" / "Aday Reddetti" butonları eklendi (kabul, başvuruyu `hired` yapıyor —
+bunu uç nokta zaten yapıyordu).
+
+### ✅ D-45 — Boş ilan açıklaması başlığı
+Kadro talebinin onayıyla açılan pozisyonun açıklaması yok; adayın gördüğü ilan
+sayfasında "POZİSYON TANIMI & KAPSAMI" başlığı boş paragrafın üstünde
+duruyordu. Yanındaki "Aranan Yetenekler" bloğu gibi koşula bağlandı.
+
+**Sunum öncesi bilmen gerekenler (düzeltme değil, karar):**
+
+- **`GEMINI_API_KEY` boş.** CV analizi, aday-pozisyon eşleştirme, mülakat sorusu
+  üretimi, teklif mektubu ve chatbot bu anahtar olmadan çalışmıyor. Aday
+  havuzunda "En Uygun Pozisyon (AI)" sütunu bu yüzden "Uygun pozisyon yok"
+  diyor — yanlış değil, sadece AI analizi yok. Sunumda AI tarafını göstermek
+  istiyorsan **kendi anahtarını** `backend/.env` içine koy.
+  (`backend/.env.example` içindeki anahtarı kullanma — commit'lenmiş, muhtemelen
+  sızmış; iptal ettirmeni öneririm.)
+- **Kampanya UTM alanları elle doldurulmalı.** Kaynak listesinden "Instagram"
+  seçmek `utm_source`'u kendiliğinden doldurmuyor; üç kutuyu boş bırakırsan
+  kampanya satırında UTM "—" görünür ve rapordaki kaynak kırılımına düşmez.
+- **Teklif sapma açıklaması aslında zorunlu değil.** Etiket "Açıklama *" diyor
+  ama Oluştur butonu yalnızca *sapma nedeni* seçilmemişse kapalı. Davranışı
+  değiştirmedim; istersen açıklamayı da zorunlu yaparım.
+
+---
+
 ## 3. 📋 Senin sorduğun 3 madde
 
 ### 1. GM ekranlarını tek tek gezmek
