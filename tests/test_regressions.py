@@ -358,6 +358,72 @@ def test_dashboard_survives_a_scheduled_interview(as_admin):
     assert client.get(f"/api/analytics/dashboard-stats?hotel_id={hotel_id}").status_code == 200
 
 
+# ── phone matching / blacklist bypass ────────────────────────────────────────
+
+def test_normalize_phone_folds_turkish_formats_together():
+    from routers.candidates import normalize_phone
+    same = {normalize_phone("+90 555 987 65 43"),
+            normalize_phone("0555 987 65 43"),
+            normalize_phone("+905559876543"),
+            normalize_phone("555 987 65 43")}
+    assert same == {"905559876543"}, same
+    assert normalize_phone("") == ""
+    assert normalize_phone(None) == ""
+
+
+def test_blacklist_cannot_be_bypassed_by_reformatting_the_phone(as_admin):
+    """The blacklist compared the raw phone string, so the same person got back in
+    by writing 0555... instead of +90 555... with a different e-mail address."""
+    hotel_id = make_hotel()
+    db = TestingSessionLocal()
+    db.add(models.Candidate(
+        name="Kemal Demir", email="kemal@example.com",
+        phone="+90 555 987 65 43", phone_normalized="905559876543",
+        is_blacklisted=True, blacklist_reason="Görüşmeye gelmedi",
+        skills=[], experience=[]))
+    position = models.Position(title="Garson", hotel_id=hotel_id, is_active=True, headcount=1)
+    db.add(position)
+    db.commit()
+    db.close()
+
+    from routers.candidates import normalize_phone
+
+    # every spelling of that number resolves to the blacklisted record
+    for spelling in ("+90 555 987 65 43", "0555 987 65 43", "+905559876543"):
+        db = TestingSessionLocal()
+        norm = normalize_phone(spelling)
+        hit = db.query(models.Candidate).filter(
+            models.Candidate.is_blacklisted == True,
+            ((models.Candidate.email == "baska@example.com") |
+             (models.Candidate.phone == spelling) |
+             (models.Candidate.phone_normalized == norm))
+        ).first()
+        db.close()
+        assert hit is not None, f"{spelling} kara listeyi atlattı"
+
+    # an unrelated number is not caught by it
+    db = TestingSessionLocal()
+    other = db.query(models.Candidate).filter(
+        models.Candidate.is_blacklisted == True,
+        models.Candidate.phone_normalized == normalize_phone("0533 111 22 33")
+    ).first()
+    db.close()
+    assert other is None
+
+
+def test_new_candidates_get_their_phone_normalized(as_admin):
+    """phone_normalized is read by the duplicate and blacklist checks but was
+    written nowhere, so it was NULL on every row."""
+    app_js_paths = [
+        os.path.join(REPO, "backend", "routers", "portal.py"),
+        os.path.join(REPO, "backend", "routers", "candidates.py"),
+    ]
+    for path in app_js_paths:
+        src = open(path, encoding="utf-8").read()
+        assert "phone_normalized=norm_phone" in src, f"{path} aday oluştururken normalize telefonu yazmıyor"
+        assert "phone_normalized == norm_phone" in src, f"{path} kontrollerde normalize telefonu kullanmıyor"
+
+
 # ── schemas stricter than the database ───────────────────────────────────────
 
 def test_salary_policy_list_survives_null_version_and_status(as_admin):

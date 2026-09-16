@@ -17,6 +17,7 @@ from typing import List, Optional
 import models, schemas
 from database import get_db
 from auth import get_candidate_from_token, get_current_user
+from routers.candidates import normalize_phone
 
 router = APIRouter()
 
@@ -346,15 +347,24 @@ async def apply_public_position(
         except Exception:
             pass
 
+    # Comparing the raw phone let the same person through under a different
+    # formatting of the same number: "+90 555 987 65 43" was blocked while
+    # "0555 987 65 43" with another e-mail sailed past the blacklist.
+    norm_phone = normalize_phone(phone)
+
     bl = db.query(models.Candidate).filter(
-        ((models.Candidate.email == email) & (models.Candidate.is_blacklisted == True)) |
-        ((models.Candidate.phone == phone) & (models.Candidate.is_blacklisted == True))
+        models.Candidate.is_blacklisted == True,
+        ((models.Candidate.email == email) |
+         (models.Candidate.phone == phone) |
+         ((models.Candidate.phone_normalized == norm_phone) if norm_phone else False))
     ).first()
     if bl:
         raise HTTPException(status_code=403, detail=f"Aday kara listededir: {bl.blacklist_reason or 'Sebep belirtilmemiş'}")
 
     candidate = db.query(models.Candidate).filter(
-        (models.Candidate.email == email) | (models.Candidate.phone == phone)
+        (models.Candidate.email == email) |
+        (models.Candidate.phone == phone) |
+        ((models.Candidate.phone_normalized == norm_phone) if norm_phone else False)
     ).first()
 
     if not candidate:
@@ -363,6 +373,7 @@ async def apply_public_position(
             full_name=name,
             email=email,
             phone=phone,
+            phone_normalized=norm_phone,
             position_id=position.id,
             tenant_id=1,
             summary=analysis.get("summary", ""),
@@ -504,15 +515,24 @@ async def apply_walkin_qr(
         except Exception:
             pass
 
+    # Comparing the raw phone let the same person through under a different
+    # formatting of the same number: "+90 555 987 65 43" was blocked while
+    # "0555 987 65 43" with another e-mail sailed past the blacklist.
+    norm_phone = normalize_phone(phone)
+
     bl = db.query(models.Candidate).filter(
-        ((models.Candidate.email == email) & (models.Candidate.is_blacklisted == True)) |
-        ((models.Candidate.phone == phone) & (models.Candidate.is_blacklisted == True))
+        models.Candidate.is_blacklisted == True,
+        ((models.Candidate.email == email) |
+         (models.Candidate.phone == phone) |
+         ((models.Candidate.phone_normalized == norm_phone) if norm_phone else False))
     ).first()
     if bl:
         raise HTTPException(status_code=403, detail=f"Aday kara listededir: {bl.blacklist_reason or 'Sebep belirtilmemiş'}")
 
     candidate = db.query(models.Candidate).filter(
-        (models.Candidate.email == email) | (models.Candidate.phone == phone)
+        (models.Candidate.email == email) |
+        (models.Candidate.phone == phone) |
+        ((models.Candidate.phone_normalized == norm_phone) if norm_phone else False)
     ).first()
 
     if not candidate:
@@ -521,6 +541,7 @@ async def apply_walkin_qr(
             full_name=name,
             email=email,
             phone=phone,
+            phone_normalized=norm_phone,
             position_id=position.id,
             tenant_id=1,
             summary=analysis.get("summary", ""),

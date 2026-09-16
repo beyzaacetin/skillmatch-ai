@@ -43,11 +43,18 @@ async def upload_cv(
     email = analysis.get("email")
     phone = analysis.get("phone")
     
+    # Match on the normalized number too, otherwise the same person reaches the
+    # system twice — and a blacklisted one gets straight back in — just by
+    # writing 0555... instead of +90 555...
+    norm_phone = normalize_phone(phone)
+
     # Blacklist check
     if email or phone:
         bl = db.query(models.Candidate).filter(
-            ((models.Candidate.email == email) & (models.Candidate.is_blacklisted == True)) |
-            ((models.Candidate.phone == phone) & (models.Candidate.is_blacklisted == True))
+            models.Candidate.is_blacklisted == True,
+            ((models.Candidate.email == email) |
+             (models.Candidate.phone == phone) |
+             ((models.Candidate.phone_normalized == norm_phone) if norm_phone else False))
         ).first()
         if bl:
             raise HTTPException(status_code=403, detail=f"Aday kara listededir: {bl.blacklist_reason or 'Sebep belirtilmemiş'}")
@@ -57,7 +64,8 @@ async def upload_cv(
     if email or phone:
         db_candidate = db.query(models.Candidate).filter(
             ((models.Candidate.email == email) & (models.Candidate.email != None)) |
-            ((models.Candidate.phone == phone) & (models.Candidate.phone != None))
+            ((models.Candidate.phone == phone) & (models.Candidate.phone != None)) |
+            ((models.Candidate.phone_normalized == norm_phone) if norm_phone else False)
         ).first()
 
     # If duplicate found, check lock status
@@ -88,6 +96,7 @@ async def upload_cv(
             upload_status="Completed",
             email=email,
             phone=phone,
+            phone_normalized=norm_phone,
             summary=analysis.get("summary"),
             skills=analysis.get("skills", []),
             experience=analysis.get("experience", []),

@@ -238,9 +238,16 @@ try:
             from database import SessionLocal
             db_session = SessionLocal()
             try:
+                from routers.candidates import normalize_phone
                 candidates = db_session.query(models.Candidate).all()
                 for cand in candidates:
                     modified = False
+                    # phone_normalized is read by the duplicate and blacklist checks
+                    # but was never written, so it was NULL on every row and those
+                    # checks only ever matched an identically formatted number.
+                    if cand.phone and not cand.phone_normalized:
+                        cand.phone_normalized = normalize_phone(cand.phone)
+                        modified = True
                     if cand.experience and isinstance(cand.experience, str):
                         cand.experience = [{"title": "Deneyim", "company": "Belirtilmemiş", "years": "", "description": cand.experience}]
                         modified = True
@@ -250,7 +257,7 @@ try:
                     if modified:
                         db_session.add(cand)
                 db_session.commit()
-                print("[Startup] Candidate experience and education normalized.")
+                print("[Startup] Candidate phone, experience and education normalized.")
             except Exception as norm_err:
                 db_session.rollback()
                 print(f"[Startup] Candidate normalization failed: {norm_err}")
