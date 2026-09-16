@@ -623,6 +623,53 @@ Mevcut kayıtlar startup'ta pozisyonlarından onarılıyor (depodaki
 
 ---
 
+## 2e. Başvuru tarafı kapsam turu (D-49 … D-51)
+
+D-47'yi (pozisyon/teklif) kapattıktan sonra aynı soruyu başvurulara sordum.
+
+### 🔴 D-49 — Bir otel, başka otelin adayını reddedebiliyordu
+Sadece otel 1'e yetkili İK hesabıyla, Almaty'nin (otel 2) başvurusu üzerinde:
+
+```
+PATCH /api/applications/66/status  {"status":"rejected"}   → 200  ✔ reddedildi
+```
+
+Aynı durum `/stage`, `/notes` ve `DELETE` için de geçerliydi. Bu, "ortak aday
+havuzu" tartışmasının dışında: başvuru **o otelin onay zincirini ve sahiplik
+kilidini taşıyor**, yani bir otelin başka otelin sürecinin içinde işlem
+yapmasıydı. Dördü de artık otel kapsamından geçiyor ve **404** dönüyor.
+
+Kapsam kararı veren bu uçlar `get_current_user_optional` okuyordu;
+`None` olabilen bir kullanıcıyla yetki kontrolü yapılamayacağı için
+`get_current_user`'a çevrildi.
+
+### 🔴 D-50 — Kanban panosu bütün otellerin adaylarını gösteriyordu
+`/api/applications/pipeline` — yani **asıl çalışılan ekran** — hiç
+süzülmüyordu; yanındaki aday ve pozisyon listeleri süzülürken pano herkesi
+gösteriyordu.
+
+Bunu düzeltmek zorunluydu: D-49'da sürükle-bırak hedefini kapsama aldım, panoyu
+almasaydım ekranda **sürüklenince 404 veren kartlar** kalacaktı. Tarayıcıda
+doğrulandı — merkez 66 kartın hepsini, otel İK kendi 65'ini görüyor.
+
+### ✅ D-51 — Tek bir NULL satır mülakat listesini komple 500'lüyordu
+`GET /api/interviews/application/{id}` sızdırmıyordu ama **çöküyordu**:
+`round_number`, `interview_type`, `status` ve `duration_minutes` veritabanında
+nullable (varsayılanları Python tarafında), `InterviewOut` ise dördünü de
+zorunlu istiyordu. ORM'den geçmemiş tek bir satır (toplu içe aktarma, elle
+SQL, eski kayıt) o başvurunun **bütün mülakat listesini 500 yapıyordu** —
+aday kartının Mülakatlar sekmesi tamamen açılmıyordu.
+
+Şema artık NULL'a tolerans gösteriyor ve ekranda "— Tur" yazmaması için
+kolonun varsayılanına düşüyor (`Position.description` için daha önce yapılanın
+aynısı).
+
+> Bu, "şema veritabanından katı" sınıfının canlı bir örneği. Kalan alanlar için
+> (bkz. *Düzeltmediklerim*) hâlâ söylemeni bekliyorum; bunu düzelttim çünkü
+> elimde gerçek bir 500 vardı.
+
+---
+
 ## 3. 📋 Senin sorduğun 3 madde
 
 ### 1. GM ekranlarını tek tek gezmek
