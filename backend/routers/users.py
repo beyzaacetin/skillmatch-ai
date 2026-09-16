@@ -32,6 +32,36 @@ def list_users(
     """Admin lists all users."""
     return db.query(models.User).all()
 
+SCOPES = ("GLOBAL", "HOTEL", "DEPARTMENT")
+
+
+def _scope_fields(user_in) -> dict:
+    """Read the visibility scope off the payload, leaving out what was not sent
+    so an edit that does not touch the scope does not clear it."""
+    out = {}
+    scope = getattr(user_in, "data_visibility_scope", None)
+    if scope is not None:
+        scope = scope.upper()
+        if scope not in SCOPES:
+            raise HTTPException(status_code=400, detail=f"Geçersiz görünürlük kapsamı: {scope}")
+        out["data_visibility_scope"] = scope
+    hotels = getattr(user_in, "hotel_access_ids", None)
+    if hotels is not None:
+        out["hotel_access_ids"] = hotels
+    departments = getattr(user_in, "department_access_ids", None)
+    if departments is not None:
+        out["department_access_ids"] = departments
+
+    # A scope with nothing selected shows nothing at all, which reads as a broken
+    # account rather than a restricted one.
+    final_scope = out.get("data_visibility_scope") or getattr(user_in, "data_visibility_scope", None)
+    if final_scope == "HOTEL" and "hotel_access_ids" in out and not out["hotel_access_ids"]:
+        raise HTTPException(status_code=400, detail="Otel kapsamı için en az bir otel seçilmelidir.")
+    if final_scope == "DEPARTMENT" and "department_access_ids" in out and not out["department_access_ids"]:
+        raise HTTPException(status_code=400, detail="Departman kapsamı için en az bir departman seçilmelidir.")
+    return out
+
+
 @router.post("/", response_model=schemas.UserOut, status_code=201)
 def create_user(
     user_in: schemas.UserCreate,
@@ -51,7 +81,8 @@ def create_user(
         department=user_in.department,
         phone=user_in.phone,
         is_active=True,
-        is_verified=True
+        is_verified=True,
+        **_scope_fields(user_in)
     )
     db.add(new_user)
     db.commit()
@@ -88,6 +119,8 @@ def update_user(
     if user_in.department is not None: user.department = user_in.department
     if user_in.role is not None: user.role = user_in.role
     if user_in.is_active is not None: user.is_active = user_in.is_active
+    for field, value in _scope_fields(user_in).items():
+        setattr(user, field, value)
     if user_in.password is not None and user_in.password.strip() != "":
         user.hashed_password = get_password_hash(user_in.password)
         

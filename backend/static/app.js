@@ -349,7 +349,8 @@ createApp({
     const showNewUserModal = ref(false);
     const showEditUserModal = ref(false);
     const showPasswordResetModal = ref(false);
-    const newUser = ref({ full_name: '', email: '', password: '', department: '', role: 'RECRUITER', is_active: true });
+    const newUser = ref({ full_name: '', email: '', password: '', department: '', role: 'RECRUITER', is_active: true,
+                          data_visibility_scope: 'GLOBAL', hotel_access_ids: [], department_access_ids: [] });
     const editingUser = ref(null);
     const passwordResetData = ref({ userId: null, password: '', confirmPassword: '' });
 
@@ -1062,9 +1063,18 @@ createApp({
       showNewUserModal.value = true;
     }
 
+    function scopedUserPayload(form) {
+      // Sadece seçili kapsamın listesini gönder; diğeri boşaltılsın ki
+      // kapsam değişince eski seçim geride kalmasın.
+      const p = { ...form };
+      p.hotel_access_ids = p.data_visibility_scope === 'HOTEL' ? (p.hotel_access_ids || []) : [];
+      p.department_access_ids = p.data_visibility_scope === 'DEPARTMENT' ? (p.department_access_ids || []) : [];
+      return p;
+    }
+
     async function saveNewUser() {
       try {
-        const res = await api('POST', '/api/users/', newUser.value);
+        const res = await api('POST', '/api/users/', scopedUserPayload(newUser.value));
         allUsers.value.push(res);
         showNewUserModal.value = false;
         alert('Kullanıcı başarıyla oluşturuldu.');
@@ -1081,13 +1091,19 @@ createApp({
     }
 
     function editUser(user) {
-      editingUser.value = { ...user, password: '' };
+      editingUser.value = {
+        ...user,
+        password: '',
+        data_visibility_scope: user.data_visibility_scope || 'GLOBAL',
+        hotel_access_ids: [...(user.hotel_access_ids || [])],
+        department_access_ids: [...(user.department_access_ids || [])],
+      };
       showEditUserModal.value = true;
     }
 
     async function updateUser() {
       try {
-        const payload = { ...editingUser.value };
+        const payload = scopedUserPayload(editingUser.value);
         if (!payload.password || payload.password.trim() === '') {
           delete payload.password;
         }

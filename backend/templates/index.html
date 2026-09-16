@@ -6257,10 +6257,35 @@ input:checked + .slider:before {
         <div class="fg"><label class="fl">Rol</label>
           <select v-model="newUser.role" class="fs">
             <option value="ADMIN">ADMIN</option>
+            <option value="CENTRAL_HR">CENTRAL_HR (Merkez İK)</option>
+            <option value="HOTEL_HR">HOTEL_HR (Otel İK)</option>
+            <option value="DEPARTMENT_MANAGER">DEPARTMENT_MANAGER (Departman Müdürü)</option>
             <option value="RECRUITER">RECRUITER</option>
             <option value="HIRING_MANAGER">HIRING_MANAGER</option>
             <option value="VIEWER">VIEWER</option>
           </select>
+        </div>
+        <!-- Görünürlük kapsamı: hangi otel/departman verisini görebileceğini belirler. -->
+        <div class="fg"><label class="fl">Görünürlük Kapsamı</label>
+          <select v-model="newUser.data_visibility_scope" class="fs">
+            <option value="GLOBAL">Tüm organizasyon</option>
+            <option value="HOTEL">Sadece seçili oteller</option>
+            <option value="DEPARTMENT">Sadece seçili departmanlar</option>
+          </select>
+        </div>
+        <div class="fg" v-if="newUser.data_visibility_scope === 'HOTEL'">
+          <label class="fl">Yetkili Olduğu Oteller</label>
+          <select v-model="newUser.hotel_access_ids" class="fs" multiple size="5">
+            <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
+          </select>
+          <div style="font-size:11px; color:var(--g500); margin-top:4px">Birden fazla seçmek için Ctrl/Cmd basılı tutun.</div>
+        </div>
+        <div class="fg" v-if="newUser.data_visibility_scope === 'DEPARTMENT'">
+          <label class="fl">Yetkili Olduğu Departmanlar</label>
+          <select v-model="newUser.department_access_ids" class="fs" multiple size="5">
+            <option v-for="d in settingsData.departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+          <div style="font-size:11px; color:var(--g500); margin-top:4px">Departman müdürü yalnızca burada seçilen departmanları görür.</div>
         </div>
         <div class="fg"><label class="fl">Şifre</label><input v-model="newUser.password" type="password" class="fi" placeholder="••••••••" required></div>
         <div class="fg">
@@ -6290,10 +6315,35 @@ input:checked + .slider:before {
         <div class="fg"><label class="fl">Rol</label>
           <select v-model="editingUser.role" class="fs">
             <option value="ADMIN">ADMIN</option>
+            <option value="CENTRAL_HR">CENTRAL_HR (Merkez İK)</option>
+            <option value="HOTEL_HR">HOTEL_HR (Otel İK)</option>
+            <option value="DEPARTMENT_MANAGER">DEPARTMENT_MANAGER (Departman Müdürü)</option>
             <option value="RECRUITER">RECRUITER</option>
             <option value="HIRING_MANAGER">HIRING_MANAGER</option>
             <option value="VIEWER">VIEWER</option>
           </select>
+        </div>
+        <!-- Görünürlük kapsamı: hangi otel/departman verisini görebileceğini belirler. -->
+        <div class="fg"><label class="fl">Görünürlük Kapsamı</label>
+          <select v-model="editingUser.data_visibility_scope" class="fs">
+            <option value="GLOBAL">Tüm organizasyon</option>
+            <option value="HOTEL">Sadece seçili oteller</option>
+            <option value="DEPARTMENT">Sadece seçili departmanlar</option>
+          </select>
+        </div>
+        <div class="fg" v-if="editingUser.data_visibility_scope === 'HOTEL'">
+          <label class="fl">Yetkili Olduğu Oteller</label>
+          <select v-model="editingUser.hotel_access_ids" class="fs" multiple size="5">
+            <option v-for="h in settingsData.hotels" :key="h.id" :value="h.id">{{ h.name }}</option>
+          </select>
+          <div style="font-size:11px; color:var(--g500); margin-top:4px">Birden fazla seçmek için Ctrl/Cmd basılı tutun.</div>
+        </div>
+        <div class="fg" v-if="editingUser.data_visibility_scope === 'DEPARTMENT'">
+          <label class="fl">Yetkili Olduğu Departmanlar</label>
+          <select v-model="editingUser.department_access_ids" class="fs" multiple size="5">
+            <option v-for="d in settingsData.departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+          <div style="font-size:11px; color:var(--g500); margin-top:4px">Departman müdürü yalnızca burada seçilen departmanları görür.</div>
         </div>
         <div class="fg"><label class="fl">Şifre (Değiştirmek istemiyorsanız boş bırakın)</label><input v-model="editingUser.password" type="password" class="fi" placeholder="••••••••"></div>
         <div class="fg">

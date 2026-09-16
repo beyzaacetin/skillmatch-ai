@@ -1281,3 +1281,48 @@ def test_picking_a_department_from_the_headcount_filter_actually_filters(as_admi
         rows = client.get(f"/api/headcount/summary?month=8&hotel_id={hotel_id}",
                           params={"department": spelling}).json()["rows"]
         assert rows, f"'{spelling}' yazımı eşleşmiyor"
+
+
+def test_a_department_manager_can_be_assigned_from_the_user_form(as_admin):
+    """The backend scoped on data_visibility_scope and department_access_ids all
+    along, but no screen ever sent them and the schemas dropped them, so a
+    department manager could only be wired up with SQL."""
+    db = TestingSessionLocal()
+    dept = models.Department(name="Mutfak", code="KITCHEN-U")
+    db.add(dept); db.commit()
+    dept_id = dept.id
+    db.close()
+
+    created = client.post("/api/users/", json={
+        "email": "mudur-form@ornek.com", "full_name": "Mutfak Müdürü",
+        "password": "Mudur1234!", "role": "DEPARTMENT_MANAGER",
+        "data_visibility_scope": "DEPARTMENT", "department_access_ids": [dept_id],
+        "hotel_access_ids": [],
+    })
+    assert created.status_code == 201, created.text
+    user_id = created.json()["id"]
+
+    db = TestingSessionLocal()
+    saved = db.query(models.User).get(user_id)
+    assert saved.data_visibility_scope == "DEPARTMENT"
+    assert saved.department_access_ids == [dept_id]
+    db.close()
+
+    # A scope with nothing selected would show nothing at all.
+    empty = client.post("/api/users/", json={
+        "email": "bos-kapsam@ornek.com", "full_name": "Kapsamsız",
+        "password": "x", "role": "DEPARTMENT_MANAGER",
+        "data_visibility_scope": "DEPARTMENT", "department_access_ids": [],
+    })
+    assert empty.status_code == 400, empty.text
+
+    assert client.put(f"/api/users/{user_id}", json={
+        "data_visibility_scope": "GLOBAL", "department_access_ids": [],
+    }).status_code == 200
+    db = TestingSessionLocal()
+    assert db.query(models.User).get(user_id).data_visibility_scope == "GLOBAL"
+    db.close()
+
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    assert html.count("data_visibility_scope") >= 4, "kapsam alanı iki kullanıcı formunda da yok"
+    assert "department_access_ids" in html

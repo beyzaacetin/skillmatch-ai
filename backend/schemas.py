@@ -456,6 +456,11 @@ class UserBase(BaseModel):
     department: Optional[str] = None
     role: str = "hr"
     phone: Optional[str] = None
+    # What this user may see. The backend has scoped on these all along, but
+    # nothing could set them: a department manager had to be wired up in SQL.
+    data_visibility_scope: Optional[str] = None      # GLOBAL | HOTEL | DEPARTMENT
+    hotel_access_ids: Optional[List[int]] = None
+    department_access_ids: Optional[List[int]] = None
 
 class UserCreate(UserBase):
     password: str
@@ -545,6 +550,9 @@ class UserAdminUpdate(BaseModel):
     role: Optional[str] = None
     password: Optional[str] = None
     is_active: Optional[bool] = None
+    data_visibility_scope: Optional[str] = None
+    hotel_access_ids: Optional[List[int]] = None
+    department_access_ids: Optional[List[int]] = None
 
 class RecruitmentTaskCreate(BaseModel):
     title: str
