@@ -107,6 +107,18 @@ createApp({
     const positions = ref([]);
     const stats = ref({});
     const avgTimeToHire = ref(0);
+    const customReport = ref({ hotel_id: '', department: '', date_range: '30d',
+                               metrics: { candidate_count: true, application_count: true,
+                                          interview_count: true, hire_count: true } });
+    const customReportResult = ref(null);
+    const offerAcceptance = ref(null);
+    const customReportLoading = ref(false);
+    const CUSTOM_REPORT_LABELS = {
+      candidate_count: 'Aday sayısı', application_count: 'Başvuru sayısı',
+      interview_count: 'Mülakat sayısı', offer_count: 'Teklif sayısı',
+      hire_count: 'İşe alım sayısı', avg_match_score: 'Ortalama uyum skoru',
+      avg_time_to_hire: 'Ortalama işe alım süresi (gün)'
+    };
     const salaryStats = ref({ avg_offered: 0, median_offered: 0, avg_accepted: 0, acceptance_rate: 0, deviation_rate: 0, policy_benchmarks: [] });
     const pipeline = ref([]);
     const pipelineLoading = ref(false);
@@ -909,20 +921,81 @@ createApp({
       await aiGeneratePosition();
     }
 
+    function customReportQuery() {
+      const r = customReport.value;
+      return {
+        hotel_ids: r.hotel_id ? [Number(r.hotel_id)] : [],
+        departments: r.department ? [r.department] : [],
+        date_range: r.date_range,
+        metrics: Object.keys(r.metrics).filter(k => r.metrics[k])
+      };
+    }
+
+    async function runCustomReport() {
+      customReportLoading.value = true;
+      try {
+        customReportResult.value = await api('POST', '/api/reports/custom', customReportQuery());
+      } catch (e) {
+        showToast('Rapor oluşturulamadı: ' + e.message, 'error');
+      } finally {
+        customReportLoading.value = false;
+      }
+    }
+
+    async function exportCustomReport() {
+      const q = customReportQuery();
+      const params = new URLSearchParams({ date_range: q.date_range });
+      if (q.hotel_ids.length) params.append('hotel_ids', q.hotel_ids.join(','));
+      if (q.departments.length) params.append('departments', q.departments.join(','));
+      try {
+        const headers = {};
+        if (token.value) headers['Authorization'] = `Bearer ${token.value}`;
+        const r = await fetch('/api/reports/custom/export?' + params.toString(), { headers });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'ozel_rapor.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) { showToast('Dışa aktarılamadı: ' + e.message, 'error'); }
+    }
+
+    // Her satırda sabit %65 gösteriliyordu. Gerçek doluluk: işe alınan / onaylı kadro.
+    function positionProgress(position) {
+      const target = position?.headcount || 0;
+      if (!target) return 0;
+      const hired = (position.applications || []).filter(a => a.status === 'hired').length;
+      return Math.min(100, Math.round(hired / target * 100));
+    }
+
+    const offerAcceptanceRates = computed(() => {
+      const o = offerAcceptance.value;
+      if (!o) return null;
+      const decided = (o.accepted || 0) + (o.rejected || 0);
+      if (!decided) return null;
+      return {
+        accepted: Math.round((o.accepted || 0) / decided * 1000) / 10,
+        rejected: Math.round((o.rejected || 0) / decided * 1000) / 10
+      };
+    });
+
     async function loadAnalytics() {
       try {
         const posFilter = analyticsPositionFilter.value ? `&position_id=${analyticsPositionFilter.value}` : '';
         const dateFilter = analyticsDateFilter.value ? `&date_range=${analyticsDateFilter.value}` : '';
-        const [data, logsData, salaryData, tthData] = await Promise.all([
+        const [data, logsData, salaryData, tthData, offerData] = await Promise.all([
           api('GET', `/api/analytics/stats?${posFilter}${dateFilter}`),
           api('GET', '/api/analytics/logs'),
           api('GET', '/api/analytics/salary-report'),
-          api('GET', '/api/analytics/time-to-hire')
+          api('GET', '/api/analytics/time-to-hire'),
+          api('GET', '/api/analytics/offer-acceptance')
         ]);
         stats.value = data;
         logs.value = logsData;
         salaryStats.value = salaryData;
         avgTimeToHire.value = tthData?.avg_days ?? 0;
+        offerAcceptance.value = offerData || null;
         // Build topSkills from chart data
         if (data.charts?.skills) {
           const sk = {};
@@ -3645,6 +3718,9 @@ createApp({
       filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
       salaryStats,
       avgTimeToHire,
+      customReport, customReportResult, customReportLoading, CUSTOM_REPORT_LABELS,
+      offerAcceptance, offerAcceptanceRates, positionProgress,
+      runCustomReport, exportCustomReport,
       showHeadcountLayoutModal,
       showHeadcountColumnsModal,
       HEADCOUNT_COLUMNS,

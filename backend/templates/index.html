@@ -1869,7 +1869,7 @@ input:checked + .slider:before {
             </div>
             <div class="positions-kpi-card">
               <div class="kpi-card-title">Ortalama İlerleme</div>
-              <div class="kpi-card-value" style="color: #F59E0B">82%</div>
+              <div class="kpi-card-value" style="color: #F59E0B">—</div>
             </div>
           </div>
 
@@ -1916,9 +1916,9 @@ input:checked + .slider:before {
                   <td style="width: 140px">
                     <div style="display:flex;align-items:center;gap:8px">
                       <div class="progress-bar-bg" style="flex:1;height:6px;background:#E5E7EB;border-radius:3px;overflow:hidden">
-                        <div class="progress-bar-fill" :style="{width: '65%', background: 'var(--primary)'}" style="height:100%"></div>
+                        <div class="progress-bar-fill" :style="{width: positionProgress(p) + '%', background: 'var(--primary)'}" style="height:100%"></div>
                       </div>
-                      <span style="font-size:11px;font-weight:700">65%</span>
+                      <span style="font-size:11px;font-weight:700">{{ positionProgress(p) }}%</span>
                     </div>
                   </td>
                   <td>{{ p.salary_min ? p.salary_min.toLocaleString() : '0' }} - {{ p.salary_max ? p.salary_max.toLocaleString() : '0' }} {{ p.salary_currency }}</td>
@@ -1998,11 +1998,11 @@ input:checked + .slider:before {
           </div>
           <div class="workspace-kpi-item">
             <div class="workspace-kpi-lbl">Pipeline Uyum Ort.</div>
-            <div class="workspace-kpi-val">82%</div>
+            <div class="workspace-kpi-val">—</div>
           </div>
           <div class="workspace-kpi-item">
             <div class="workspace-kpi-lbl">Gün Açık</div>
-            <div class="workspace-kpi-val">18 Gün</div>
+            <div class="workspace-kpi-val">{{ selectedPosition?.created_at ? Math.max(0, Math.floor((Date.now() - new Date(selectedPosition.created_at)) / 86400000)) + ' Gün' : '—' }}</div>
           </div>
           <div class="workspace-kpi-item">
             <div class="workspace-kpi-lbl">Maaş Bütçesi</div>
@@ -3172,15 +3172,15 @@ input:checked + .slider:before {
         <div class="card" style="padding:24px; background:#fff; border:1px solid var(--g200); border-radius:12px; margin-top:24px;">
           <h3 style="font-weight:700; font-size:16px; color:var(--g800); margin-bottom:16px;">Özel Rapor Oluşturucu</h3>
           <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
-            <select class="form-input" style="flex:1; min-width:200px;">
+            <select v-model="customReport.hotel_id" class="form-input" style="flex:1; min-width:200px;">
               <option value="">Tüm Oteller</option>
               <option v-for="hotel in settingsData.hotels" :key="hotel.id" :value="hotel.id">{{hotel.name}}</option>
             </select>
-            <select class="form-input" style="flex:1; min-width:200px;">
+            <select v-model="customReport.department" class="form-input" style="flex:1; min-width:200px;">
               <option value="">Tüm Departmanlar</option>
-              <option v-for="dept in settingsData.departments" :key="dept.id" :value="dept.id">{{dept.name}}</option>
+              <option v-for="dept in settingsData.departments" :key="dept.id" :value="dept.name">{{dept.name}}</option>
             </select>
-            <select class="form-input" style="flex:1; min-width:200px;">
+            <select v-model="customReport.date_range" class="form-input" style="flex:1; min-width:200px;">
               <option value="7d">Son 7 Gün</option>
               <option value="30d">Son 30 Gün</option>
               <option value="90d">Son 3 Ay</option>
@@ -3190,48 +3190,31 @@ input:checked + .slider:before {
           <div style="margin-bottom:16px;">
             <div style="font-weight:600; font-size:13px; margin-bottom:8px; color:var(--g700);">Metrikler</div>
             <div style="display:flex; gap:16px; flex-wrap:wrap;">
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> Aday sayısı</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> Başvuru sayısı</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> Mülakat sayısı</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" checked> İşe alım sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" v-model="customReport.metrics.candidate_count"> Aday sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" v-model="customReport.metrics.application_count"> Başvuru sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" v-model="customReport.metrics.interview_count"> Mülakat sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" v-model="customReport.metrics.hire_count"> İşe alım sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" v-model="customReport.metrics.offer_count"> Teklif sayısı</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" v-model="customReport.metrics.avg_match_score"> Ortalama uyum skoru</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" v-model="customReport.metrics.avg_time_to_hire"> Ortalama işe alım süresi</label>
             </div>
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center;">
-             <button class="btn btn-primary" onclick="alert('Rapor oluşturuluyor...')">Rapor Oluştur</button>
-             <button class="btn btn-secondary" onclick="alert('Dışa aktarılıyor...')">Dışa Aktar (Excel)</button>
+             <button class="btn btn-primary" @click="runCustomReport()" :disabled="customReportLoading">
+               {{ customReportLoading ? 'Hesaplanıyor…' : 'Rapor Oluştur' }}
+             </button>
+             <button class="btn btn-secondary" @click="exportCustomReport()">Dışa Aktar (CSV)</button>
           </div>
-          
-          <div style="margin-top:24px; border:1px solid #eaeaea; border-radius:8px; overflow:hidden;">
-            <table class="data-table" style="width:100%; text-align:left; border-collapse:collapse;">
-              <thead style="background:#f9f9f9; border-bottom:2px solid #eaeaea;">
-                <tr>
-                  <th style="padding:12px 16px;">Otel</th>
-                  <th style="padding:12px 16px;">Departman</th>
-                  <th style="padding:12px 16px;">Aday Sayısı</th>
-                  <th style="padding:12px 16px;">Başvuru Sayısı</th>
-                  <th style="padding:12px 16px;">Mülakat Sayısı</th>
-                  <th style="padding:12px 16px;">İşe Alım</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style="border-bottom:1px solid #eaeaea;">
-                  <td style="padding:12px 16px;">Rixos Premium Tekirova</td>
-                  <td style="padding:12px 16px;">Yiyecek & İçecek</td>
-                  <td style="padding:12px 16px;">145</td>
-                  <td style="padding:12px 16px;">98</td>
-                  <td style="padding:12px 16px;">32</td>
-                  <td style="padding:12px 16px;">12</td>
-                </tr>
-                <tr style="border-bottom:1px solid #eaeaea;">
-                  <td style="padding:12px 16px;">Rixos Downtown Antalya</td>
-                  <td style="padding:12px 16px;">Ön Büro</td>
-                  <td style="padding:12px 16px;">88</td>
-                  <td style="padding:12px 16px;">65</td>
-                  <td style="padding:12px 16px;">24</td>
-                  <td style="padding:12px 16px;">8</td>
-                </tr>
-              </tbody>
-            </table>
+
+          <div v-if="customReportResult" style="margin-top:24px; display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:16px">
+            <div v-for="(value, key) in customReportResult" :key="key"
+                 style="background:var(--g50); border:1px solid var(--g200); border-radius:10px; padding:16px">
+              <div style="font-size:12px; color:var(--g500); font-weight:600">{{ CUSTOM_REPORT_LABELS[key] || key }}</div>
+              <div style="font-size:24px; font-weight:700; color:var(--primary); margin-top:6px">{{ value }}</div>
+            </div>
+          </div>
+          <div v-else style="margin-top:24px; padding:24px; text-align:center; color:var(--g400); font-size:13px; border:1px dashed var(--g200); border-radius:10px">
+            Filtreleri seçip "Rapor Oluştur"a basın.
           </div>
         </div>
 
@@ -3299,14 +3282,17 @@ input:checked + .slider:before {
           <!-- Teklif Kabul / Red Oranı -->
           <div class="card" style="padding:20px">
             <div style="font-weight:700; font-size:15px; color:var(--g800); margin-bottom:12px">Teklif Kabul / Red Oranları</div>
-            <div style="display:flex; justify-content:space-around; align-items:center; text-align:center; padding:10px">
+            <div v-if="!offerAcceptanceRates" style="text-align:center; padding:24px; color:var(--g400); font-size:13px">
+              Sonuçlanmış teklif yok; oran hesaplanamıyor.
+            </div>
+            <div v-else style="display:flex; justify-content:space-around; align-items:center; text-align:center; padding:10px">
               <div>
-                <div style="font-size:24px; font-weight:800; color:var(--green)">%84.2</div>
+                <div style="font-size:24px; font-weight:800; color:var(--green)">%{{ offerAcceptanceRates.accepted }}</div>
                 <div style="font-size:12px; color:var(--g500); margin-top:4px">Teklif Kabul</div>
               </div>
               <div style="width:1px; height:40px; background:var(--g200)"></div>
               <div>
-                <div style="font-size:24px; font-weight:800; color:var(--red)">%15.8</div>
+                <div style="font-size:24px; font-weight:800; color:var(--red)">%{{ offerAcceptanceRates.rejected }}</div>
                 <div style="font-size:12px; color:var(--g500); margin-top:4px">Teklif Red / Pasif</div>
               </div>
             </div>
