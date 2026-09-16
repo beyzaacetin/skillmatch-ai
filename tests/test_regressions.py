@@ -1647,3 +1647,53 @@ def test_email_is_wired_but_a_missing_smtp_never_breaks_the_flow(as_admin):
 
     reqs = open(os.path.join(REPO, "requirements.txt"), encoding="utf-8").read()
     assert "fastapi-mail" in reqs
+
+
+def test_reports_are_scoped_the_same_way_the_screens_are():
+    """The screens were scoped but analytics was not: a department manager whose
+    board showed one position and nine candidates read 65 candidates, six
+    positions, every hotel's funnel and the whole chain's salary report."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Rapor Otel", code="RPR")
+    mine = models.Department(name="Mutfak", code="KITCHEN-A")
+    theirs = models.Department(name="Ön Büro", code="FRONT-A")
+    db.add_all([mine, theirs]); db.commit()
+    for dept, title in ((mine, "Aşçı"), (theirs, "Resepsiyonist")):
+        pos = models.Position(title=title, hotel_id=hotel_id, department_id=dept.id,
+                              department=dept.name, is_active=True)
+        cand = models.Candidate(name=f"{title} Adayı", email=f"{title}-an@ornek.com")
+        db.add_all([pos, cand]); db.commit()
+        app_row = models.Application(candidate_id=cand.id, position_id=pos.id,
+                                     hotel_id=hotel_id, status="hired")
+        db.add(app_row); db.commit()
+        db.add(models.Offer(application_id=app_row.id, position_id=pos.id,
+                            candidate_id=cand.id, proposed_salary=40000, status="accepted"))
+        db.add(models.SalaryPolicy(hotel_id=hotel_id, department_id=dept.id,
+                                   position_title=title, min_salary=1, target_salary=2,
+                                   max_salary=3, currency="TRY", is_active=True))
+    db.commit()
+    manager = make_department_manager(db, mine.id, hotel_id, email="rapor-mudur@ornek.com")
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: manager
+    try:
+        stats = client.get("/api/analytics/stats?date_range=all").json()
+        assert stats["total_positions"] == 1, stats["total_positions"]
+        assert stats["total_candidates"] == 1, stats["total_candidates"]
+
+        board = client.get("/api/analytics/dashboard-stats").json()
+        depts = {p.get("department") for p in board.get("active_positions") or []}
+        assert depts == {"Mutfak"}, depts
+
+        assert client.get("/api/analytics/funnel").json()["hired"] == 1
+
+        salary = client.get("/api/analytics/salary-report").json()
+        titles = {b["position"] for b in salary.get("policy_benchmarks") or []}
+        assert titles == {"Aşçı"}, titles
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous

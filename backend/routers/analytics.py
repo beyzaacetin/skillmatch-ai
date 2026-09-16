@@ -10,12 +10,58 @@ import random
 
 router = APIRouter()
 
+# ── Görünürlük kapsamı ───────────────────────────────────────────────────────
+# Bu dosyadaki uçlar sistemin tamamını sayıyordu: bir departman müdürü kendi
+# ekranında 1 pozisyon ve 9 aday görürken raporlarda 6 pozisyon, 65 aday ve
+# bütün otellerin maaş verisini okuyordu.
+
+def _visible_application_ids(db: Session, user: Optional[models.User]):
+    """The application ids this user may count. None means "everything"."""
+    if user is None or user.role in ("SYSTEM_ADMIN", "ADMIN") or user.data_visibility_scope == "GLOBAL":
+        return None
+    scope = (user.data_visibility_scope or "HOTEL").upper()
+    q = db.query(models.Application.id)
+    if scope == "DEPARTMENT":
+        q = q.join(models.Position, models.Application.position_id == models.Position.id).filter(
+            models.Position.department_id.in_(user.department_access_ids or []))
+    elif scope == "REGIONAL":
+        hotel_ids = [h.id for h in db.query(models.Hotel).filter(
+            models.Hotel.region_id.in_(user.region_access_ids or [])).all()]
+        q = q.filter(models.Application.hotel_id.in_(hotel_ids))
+    else:
+        q = q.filter(models.Application.hotel_id.in_(user.hotel_access_ids or []))
+    return [row_id for (row_id,) in q.all()]
+
+
+def _scope_applications(query, db: Session, user: Optional[models.User]):
+    ids = _visible_application_ids(db, user)
+    return query if ids is None else query.filter(models.Application.id.in_(ids))
+
+
+def _scope_positions(query, db: Session, user: Optional[models.User]):
+    if user is None:
+        return query
+    from services.scope_policy_service import scope_policy_service
+    return scope_policy_service.apply_position_scope(query, db, user)
+
+
+def _scope_offers(query, db: Session, user: Optional[models.User]):
+    ids = _visible_application_ids(db, user)
+    return query if ids is None else query.filter(models.Offer.application_id.in_(ids))
+
+
 @router.get("/stats")
-def get_stats(position_id: Optional[int] = None, date_range: Optional[str] = "30d", db: Session = Depends(database.get_db)):
+def get_stats(position_id: Optional[int] = None, date_range: Optional[str] = "30d", db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     # 1. Base candidate/position queries
     candidate_query = db.query(models.Candidate).filter(models.Candidate.is_deleted == False)
     position_query = db.query(models.Position).filter(models.Position.is_active == True)
     app_query = db.query(models.Application)
+
+    from services.scope_policy_service import scope_policy_service
+    candidate_query = scope_policy_service.apply_candidate_scope(candidate_query, db, current_user)
+    position_query = _scope_positions(position_query, db, current_user)
+    app_query = _scope_applications(app_query, db, current_user)
     
     # Apply Date Range filter
     if date_range != "all":
@@ -160,24 +206,25 @@ def get_logs(limit: int = 100, db: Session = Depends(database.get_db)):
 
 
 @router.get("/funnel")
-def get_funnel_analytics(db: Session = Depends(database.get_db)):
+def get_funnel_analytics(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return application count by pipeline stage."""
     stages = ["applied", "screening", "hr_interview", "tech_interview", "offer", "hired", "rejected"]
     counts = {}
     for s in stages:
+        base = _scope_applications(db.query(models.Application), db, current_user)
         if s == "hr_interview":
-            counts[s] = db.query(models.Application).filter(models.Application.status.in_(["hr_interview", "interview"])).count()
-        elif s == "tech_interview":
-            counts[s] = db.query(models.Application).filter(models.Application.status == "tech_interview").count()
+            counts[s] = base.filter(models.Application.status.in_(["hr_interview", "interview"])).count()
         else:
-            counts[s] = db.query(models.Application).filter(models.Application.status == s).count()
+            counts[s] = base.filter(models.Application.status == s).count()
     return counts
 
 
 @router.get("/source-performance")
-def get_source_performance(db: Session = Depends(database.get_db)):
+def get_source_performance(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return candidates source counts."""
-    results = db.query(models.Application.source, func.count(models.Application.id)).group_by(models.Application.source).all()
+    results = _scope_applications(db.query(models.Application.source, func.count(models.Application.id)), db, current_user).group_by(models.Application.source).all()
     data = {}
     for src, count in results:
         label = (src or "direkt").lower().strip()
@@ -188,9 +235,10 @@ def get_source_performance(db: Session = Depends(database.get_db)):
 
 
 @router.get("/time-to-hire")
-def get_time_to_hire(db: Session = Depends(database.get_db)):
+def get_time_to_hire(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return average days from applied_at to hired_at for hired candidates."""
-    hired = db.query(models.Application).filter(models.Application.status == "hired", models.Application.hired_at != None).all()
+    hired = _scope_applications(db.query(models.Application), db, current_user).filter(models.Application.status == "hired", models.Application.hired_at != None).all()
     if not hired:
         # 18.5 was a hard-coded benchmark presented as this company's own figure
         return {"avg_days": 18.5 if settings.DEMO_DATA else 0}
@@ -202,17 +250,19 @@ def get_time_to_hire(db: Session = Depends(database.get_db)):
 
 
 @router.get("/offer-acceptance")
-def get_offer_acceptance(db: Session = Depends(database.get_db)):
+def get_offer_acceptance(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return count of offers accepted vs rejected vs pending."""
-    accepted = db.query(models.Offer).filter(models.Offer.status == "accepted").count()
-    rejected = db.query(models.Offer).filter(models.Offer.status == "rejected").count()
-    negotiating = db.query(models.Offer).filter(models.Offer.status == "negotiating").count()
-    draft = db.query(models.Offer).filter(models.Offer.status == "draft").count()
+    def offers(status):
+        return _scope_offers(db.query(models.Offer), db, current_user).filter(models.Offer.status == status).count()
+    accepted, rejected = offers("accepted"), offers("rejected")
+    negotiating, draft = offers("negotiating"), offers("draft")
     return {"accepted": accepted, "rejected": rejected, "negotiating": negotiating, "draft": draft}
 
 
 @router.get("/department-performance")
-def get_department_performance(db: Session = Depends(database.get_db)):
+def get_department_performance(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return application, hiring, and active job count by department."""
     results = db.query(
         models.Position.department,
@@ -242,7 +292,8 @@ def get_department_performance(db: Session = Depends(database.get_db)):
 
 
 @router.get("/interviewer-performance")
-def get_interviewer_performance(db: Session = Depends(database.get_db)):
+def get_interviewer_performance(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return count of interviews and average score given by interviewer."""
     results = db.query(
         models.Interview.interviewer_name,
@@ -264,7 +315,8 @@ def get_interviewer_performance(db: Session = Depends(database.get_db)):
 
 
 @router.get("/hiring-forecast")
-def get_hiring_forecast(db: Session = Depends(database.get_db)):
+def get_hiring_forecast(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return projected hires and interview volumes for next 3 months."""
     total_apps = db.query(models.Application).count()
     hired = db.query(models.Application).filter(models.Application.status == "hired").count()
@@ -283,7 +335,8 @@ def get_hiring_forecast(db: Session = Depends(database.get_db)):
 
 
 @router.get("/cost-by-department")
-def get_cost_by_department(db: Session = Depends(database.get_db)):
+def get_cost_by_department(db: Session = Depends(database.get_db),
+                     current_user: Optional[models.User] = Depends(auth.get_current_user)):
     """Return average recruitment cost per hire (15% of hired candidate salary benchmark)."""
     results = db.query(
         models.Position.department,
@@ -308,7 +361,7 @@ def get_cost_by_department(db: Session = Depends(database.get_db)):
 
 
 @router.get("/salary-report")
-def get_salary_report(db: Session = Depends(database.get_db), current_user: Optional[models.User] = Depends(auth.get_current_user_optional)):
+def get_salary_report(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     """Generates salary analytics comparing policy, offered, and accepted salary metrics."""
     total_offers = 0
     avg_offered = 0
@@ -319,7 +372,9 @@ def get_salary_report(db: Session = Depends(database.get_db), current_user: Opti
     policy_benchmarks = []
 
     try:
-        offers = db.query(models.Offer).all()
+        # Maaş verisi en hassası: bir departman müdürü bütün otellerin
+        # tekliflerini okuyabiliyordu.
+        offers = _scope_offers(db.query(models.Offer), db, current_user).all()
         total_offers = len(offers)
         
         if total_offers > 0:
@@ -350,8 +405,17 @@ def get_salary_report(db: Session = Depends(database.get_db), current_user: Opti
             func.avg(models.SalaryPolicy.target_salary).label("avg_target"),
             func.avg(models.SalaryPolicy.min_salary).label("avg_min"),
             func.avg(models.SalaryPolicy.max_salary).label("avg_max")
-        ).join(models.Hotel, models.SalaryPolicy.hotel_id == models.Hotel.id)\
-         .group_by(models.Hotel.name, models.SalaryPolicy.position_title).all()
+        ).join(models.Hotel, models.SalaryPolicy.hotel_id == models.Hotel.id)
+        # Ücret bantları da otelin - departman müdüründe kendi departmanının - verisi.
+        if current_user and current_user.role not in ("SYSTEM_ADMIN", "ADMIN") \
+           and current_user.data_visibility_scope != "GLOBAL":
+            if (current_user.data_visibility_scope or "").upper() == "DEPARTMENT":
+                policies = policies.filter(
+                    models.SalaryPolicy.department_id.in_(current_user.department_access_ids or []))
+            else:
+                policies = policies.filter(
+                    models.SalaryPolicy.hotel_id.in_(current_user.hotel_access_ids or []))
+        policies = policies.group_by(models.Hotel.name, models.SalaryPolicy.position_title).all()
          
         for hotel_name, pos_title, avg_target, avg_min, avg_max in policies:
             policy_benchmarks.append({
@@ -402,7 +466,7 @@ def get_dashboard_stats(
         budget_query = budget_query.filter(models.WorkforceHeadcountBudget.hotel_id == active_hotel_id)
     total_budget = budget_query.scalar() or 0
 
-    hired_query = db.query(models.Application).filter(models.Application.status == "hired")
+    hired_query = _scope_applications(db.query(models.Application), db, current_user).filter(models.Application.status == "hired")
     if active_hotel_id:
         hired_query = hired_query.join(models.Position).filter(models.Position.hotel_id == active_hotel_id)
     total_hired = hired_query.count()
@@ -411,7 +475,7 @@ def get_dashboard_stats(
     if total_open_headcount == 0 and settings.DEMO_DATA:
         total_open_headcount = 127
 
-    active_query = db.query(models.Application).filter(models.Application.status.in_(["applied", "screening", "hr_interview", "tech_interview", "manager_interview", "offer"]))
+    active_query = _scope_applications(db.query(models.Application), db, current_user).filter(models.Application.status.in_(["applied", "screening", "hr_interview", "tech_interview", "manager_interview", "offer"]))
     if active_hotel_id:
         active_query = active_query.join(models.Position).filter(models.Position.hotel_id == active_hotel_id)
     active_candidates = active_query.count()
@@ -526,6 +590,7 @@ def get_dashboard_stats(
 
     # --- 2. Active Positions Table ---
     pos_query = db.query(models.Position).filter(models.Position.is_active == True)
+    pos_query = _scope_positions(pos_query, db, current_user)
     if active_hotel_id:
         pos_query = pos_query.filter(models.Position.hotel_id == active_hotel_id)
     
@@ -678,7 +743,7 @@ def get_dashboard_stats(
         })
 
     # Scan and map candidates without applications to active positions
-    active_positions = db.query(models.Position).filter(models.Position.is_active == True).all()
+    active_positions = _scope_positions(db.query(models.Position).filter(models.Position.is_active == True), db, current_user).all()
     for c in recent_candidates:
         if c.id in seen_candidate_ids:
             continue
