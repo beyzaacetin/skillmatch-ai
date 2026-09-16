@@ -358,6 +358,115 @@ def test_dashboard_survives_a_scheduled_interview(as_admin):
     assert client.get(f"/api/analytics/dashboard-stats?hotel_id={hotel_id}").status_code == 200
 
 
+# ── offer approval chain ─────────────────────────────────────────────────────
+
+def _make_application(hotel_id, title="Garson", email="approval@example.com"):
+    db = TestingSessionLocal()
+    candidate = models.Candidate(name="Aday", email=email, skills=[], experience=[])
+    position = models.Position(title=title, hotel_id=hotel_id, is_active=True, headcount=1)
+    db.add_all([candidate, position])
+    db.commit()
+    application = models.Application(candidate_id=candidate.id, position_id=position.id,
+                                     hotel_id=hotel_id, status="tech_interview")
+    db.add(application)
+    db.commit()
+    app_id = application.id
+    db.close()
+    return app_id
+
+
+def test_offer_outside_the_salary_band_needs_approval_before_it_can_be_sent(as_admin):
+    """An offer above the position's salary policy has to go through the sequential
+    approval chain, and must not be sendable until it clears."""
+    hotel_id = make_hotel()
+    app_id = _make_application(hotel_id, title="Garson")
+
+    db = TestingSessionLocal()
+    db.add(models.SalaryPolicy(hotel_id=hotel_id, position_title="Garson",
+                               min_salary=30000, target_salary=35000, max_salary=40000,
+                               currency="TRY", is_active=True))
+    db.commit()
+    db.close()
+
+    # inside the band -> straight through
+    ok = client.post("/api/offers/", json={"application_id": app_id, "proposed_salary": 35000,
+                                           "currency": "TRY", "position_title": "Garson"})
+    assert ok.status_code == 201, ok.text
+    assert ok.json()["approval_status"] == "APPROVED"
+
+    # above the band -> held, with a reason, and two sequential requests raised
+    db = TestingSessionLocal()
+    db.query(models.Offer).delete()
+    db.commit()
+    db.close()
+    over = client.post("/api/offers/", json={"application_id": app_id, "proposed_salary": 48000,
+                                             "currency": "TRY", "position_title": "Garson"})
+    assert over.status_code == 201, over.text
+    offer_id = over.json()["id"]
+    assert over.json()["approval_status"] == "PENDING_APPROVAL"
+    assert over.json()["deviation_reason"]
+
+    db = TestingSessionLocal()
+    reqs = db.query(models.OfferApprovalRequest).filter_by(offer_id=offer_id).order_by(
+        models.OfferApprovalRequest.sequence_number).all()
+    steps = [(r.approver_role, r.status) for r in reqs]
+    first_id, second_id = reqs[0].id, reqs[1].id
+    db.close()
+    assert steps == [("HOTEL_HR", "PENDING"), ("CENTRAL_HR", "WAITING")], steps
+
+    # cannot be sent while it is still pending
+    blocked = client.patch(f"/api/offers/{offer_id}/status?status=sent")
+    assert blocked.status_code == 400
+    assert "onaylanmadı" in blocked.json()["detail"]
+
+    # first approval promotes the second step
+    assert client.post(f"/api/offers/approvals/{first_id}/resolve",
+                       json={"status": "APPROVED", "notes": "Uygun"}).status_code == 200
+    db = TestingSessionLocal()
+    assert db.get(models.OfferApprovalRequest, second_id).status == "PENDING"
+    db.close()
+
+    # second approval clears the offer, and only then can it be sent
+    assert client.post(f"/api/offers/approvals/{second_id}/resolve",
+                       json={"status": "APPROVED", "notes": "Merkez onayı"}).status_code == 200
+    db = TestingSessionLocal()
+    assert db.get(models.Offer, offer_id).approval_status == "APPROVED"
+    db.close()
+    assert client.patch(f"/api/offers/{offer_id}/status?status=sent").status_code == 200
+
+
+def test_rejecting_one_step_stops_the_whole_offer(as_admin):
+    hotel_id = make_hotel()
+    app_id = _make_application(hotel_id, title="Aşçı", email="reject@example.com")
+    db = TestingSessionLocal()
+    db.add(models.SalaryPolicy(hotel_id=hotel_id, position_title="Aşçı",
+                               min_salary=30000, target_salary=35000, max_salary=40000,
+                               currency="TRY", is_active=True))
+    db.commit()
+    db.close()
+
+    offer_id = client.post("/api/offers/", json={"application_id": app_id, "proposed_salary": 60000,
+                                                 "currency": "TRY", "position_title": "Aşçı"}).json()["id"]
+    db = TestingSessionLocal()
+    first = db.query(models.OfferApprovalRequest).filter_by(offer_id=offer_id, sequence_number=1).first().id
+    db.close()
+
+    assert client.post(f"/api/offers/approvals/{first}/resolve",
+                       json={"status": "REJECTED", "notes": "Bütçe uygun değil"}).status_code == 200
+
+    db = TestingSessionLocal()
+    offer = db.get(models.Offer, offer_id)
+    waiting = db.query(models.OfferApprovalRequest).filter_by(offer_id=offer_id, sequence_number=2).first()
+    assert offer.approval_status == "REJECTED"
+    # the step that was still waiting is cancelled too
+    assert waiting.status == "REJECTED"
+    db.close()
+
+    blocked = client.patch(f"/api/offers/{offer_id}/status?status=sent")
+    assert blocked.status_code == 400
+    assert "reddedildi" in blocked.json()["detail"]
+
+
 # ── matching ─────────────────────────────────────────────────────────────────
 
 def test_no_required_skills_is_not_a_perfect_match():
