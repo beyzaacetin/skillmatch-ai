@@ -473,16 +473,35 @@ except Exception as startup_err:
     # Define fallback app to expose the traceback on HTTP so we can read it on Railway
     app = FastAPI(title="SkillMatch AI v4 - Fallback Diagnostic Server", version="4.0.0")
     
+    # The traceback is already on stdout above, which is where Railway's logs
+    # read it from. Putting it in the HTTP response as well handed file paths,
+    # library versions and sometimes connection strings to anyone who opened the
+    # site while it was down, so that only happens with DEBUG on.
+    try:
+        from config import settings as _settings
+        _show_traceback = bool(getattr(_settings, "DEBUG", False))
+    except Exception:
+        _show_traceback = False
+
     @app.get("/{rest_of_path:path}")
     def fallback_route(rest_of_path: str):
-        html_content = f"""
-        <html>
-            <head><title>Startup Error Traceback</title></head>
-            <body style="font-family: monospace; padding: 20px; background: #fff5f5; color: #900; line-height: 1.5;">
+        if _show_traceback:
+            body = f"""
                 <h1 style="border-bottom: 2px solid #fcc; padding-bottom: 10px;">Critical Startup Error Traceback</h1>
                 <pre style="background: #fff; border: 1px solid #ecc; padding: 15px; overflow-x: auto; border-radius: 4px;">{tb}</pre>
-                <p style="margin-top: 20px; color: #666; font-size: 12px;">SkillMatch AI v4 - Fallback Diagnostic Server</p>
+            """
+        else:
+            body = """
+                <h1 style="border-bottom: 2px solid #fcc; padding-bottom: 10px;">Servis şu anda kullanılamıyor</h1>
+                <p>Uygulama başlatılamadı. Hata ayrıntıları sunucu kayıtlarında.</p>
+            """
+        html_content = f"""
+        <html>
+            <head><title>SkillMatch AI</title></head>
+            <body style="font-family: monospace; padding: 20px; background: #fff5f5; color: #900; line-height: 1.5;">
+                {body}
+                <p style="margin-top: 20px; color: #666; font-size: 12px;">SkillMatch AI v4</p>
             </body>
         </html>
         """
-        return HTMLResponse(content=html_content, status_code=200)
+        return HTMLResponse(content=html_content, status_code=503)

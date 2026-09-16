@@ -1426,3 +1426,92 @@ def test_the_position_workspace_and_interview_edits_stay_inside_the_hotel():
     survivor = db.query(models.Interview).get(iv_id)
     assert survivor is not None and survivor.status == "scheduled", "mülakat yine de değişmiş/silinmiş"
     db.close()
+
+
+def test_a_hotel_can_only_act_on_a_candidate_that_applied_to_it():
+    """Reading a candidate is open across hotels by design — the pool is shared
+    and another hotel's lock only masks the record. Acting on one was open too:
+    any hotel could blacklist, rate or delete a candidate that had never applied
+    to them."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    mine = make_hotel(name="Eylem Otel", code="EYL")
+    theirs = make_hotel(name="Eylem Komşu", code="EYK")
+    pos = models.Position(title="Aşçı", hotel_id=theirs)
+    stranger = models.Candidate(name="Yabancı Aday", email="yabanci-rg@ornek.com")
+    ours = models.Candidate(name="Bizim Aday", email="bizim-rg@ornek.com")
+    db.add_all([pos, stranger, ours]); db.commit()
+    db.add(models.Application(candidate_id=stranger.id, position_id=pos.id,
+                              hotel_id=theirs, status="applied"))
+    mine_pos = models.Position(title="Garson", hotel_id=mine)
+    db.add(mine_pos); db.commit()
+    db.add(models.Application(candidate_id=ours.id, position_id=mine_pos.id,
+                              hotel_id=mine, status="applied"))
+    db.commit()
+    hotel_hr = models.User(email="eylem-hr@ornek.com", full_name="Eylem İK",
+                           hashed_password="x", role="HOTEL_HR", is_active=True,
+                           data_visibility_scope="HOTEL", hotel_access_ids=[mine])
+    db.add(hotel_hr); db.commit(); db.refresh(hotel_hr)
+    stranger_id, ours_id = stranger.id, ours.id
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: hotel_hr
+    try:
+        # Okumak serbest - ortak havuz tasarımı
+        assert client.get(f"/api/candidates/{stranger_id}").status_code == 200
+
+        # Ama üzerinde işlem yapmak değil
+        assert client.post(f"/api/candidates/{stranger_id}/blacklist",
+                           json={"reason": "x"}).status_code == 403
+        assert client.patch(f"/api/candidates/{stranger_id}/rating",
+                            json={"rating": 1}).status_code == 403
+        assert client.delete(f"/api/candidates/{stranger_id}").status_code == 403
+
+        # Kendi otelinin adayında sorun yok
+        assert client.patch(f"/api/candidates/{ours_id}/rating",
+                            json={"rating": 4}).status_code == 200
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
+
+    db = TestingSessionLocal()
+    left_alone = db.query(models.Candidate).get(stranger_id)
+    assert not left_alone.is_blacklisted and not left_alone.is_deleted
+    db.close()
+
+
+def test_an_expired_ownership_returns_the_candidate_to_the_pool():
+    """The release marked the application "rejected" — the candidate was
+    eliminated because HR had been slow — while the note it wrote beside it said
+    "Ortak havuza aktarıldı". The lock is what expires, not the application."""
+    import datetime
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Kilit Otel", code="KLT")
+    pos = models.Position(title="Garson", hotel_id=hotel_id)
+    cand = models.Candidate(name="Kilitli Aday", email="kilit-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(
+        candidate_id=cand.id, position_id=pos.id, hotel_id=hotel_id,
+        status="screening", lock_status="LOCKED",
+        ownership_expires_at=datetime.datetime.utcnow() - datetime.timedelta(days=1))
+    db.add(app_row); db.commit()
+    app_id = app_row.id
+    db.close()
+
+    from services.ownership_service import check_and_release_expired_ownerships
+    db = TestingSessionLocal()
+    check_and_release_expired_ownerships(db)
+    db.close()
+
+    db = TestingSessionLocal()
+    released = db.query(models.Application).get(app_id)
+    assert released.lock_status == "UNLOCKED"
+    assert released.status == "screening", "süre dolunca aday elenmiş"
+    assert released.ownership_expires_at is None
+    note = (released.status_history or [])[-1]
+    assert "havuza" in note["note"].lower()
+    db.close()

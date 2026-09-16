@@ -8,6 +8,22 @@ from config import settings
 
 router = APIRouter()
 
+def _our_candidate(candidate_id: int, db: Session, current_user: models.User, include_deleted: bool = False):
+    """Fetch a candidate this user may act on. Reading is open across hotels by
+    design, but blacklisting, rating or deleting a shared candidate is only this
+    hotel's call when the candidate applied here."""
+    from services.scope_policy_service import scope_policy_service
+    q = db.query(models.Candidate).filter(models.Candidate.id == candidate_id)
+    if not include_deleted:
+        q = q.filter(models.Candidate.is_deleted == False)
+    c = q.first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    if not scope_policy_service.candidate_is_ours(db, current_user, candidate_id):
+        raise HTTPException(status_code=403, detail="Bu aday otelinize başvurmadı; üzerinde işlem yapamazsınız.")
+    return c
+
+
 def _log(db: Session, action: str, target_type: str, target_id: int, details: dict = {}, user: models.User = None):
     log = models.Log(action=action, target_type=target_type, target_id=target_id, details=details)
     db.add(log)
@@ -325,11 +341,9 @@ def update_rating(
     candidate_id: int, 
     data: schemas.CandidateRatingUpdate, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c = _our_candidate(candidate_id, db, current_user)
     c.rating = max(1, min(5, data.rating))
     db.commit()
     _log(db, "candidate_rating_updated", "candidate", c.id, {"rating": c.rating}, current_user)
@@ -340,11 +354,9 @@ def update_notes(
     candidate_id: int, 
     data: schemas.CandidateNotesUpdate, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c = _our_candidate(candidate_id, db, current_user)
     c.notes = data.notes
     db.commit()
     _log(db, "candidate_notes_updated", "candidate", c.id, {"notes": c.notes}, current_user)
@@ -354,11 +366,9 @@ def update_notes(
 def toggle_favorite(
     candidate_id: int, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c = _our_candidate(candidate_id, db, current_user)
     c.is_favorite = not c.is_favorite
     db.commit()
     _log(db, "candidate_favorite_toggled", "candidate", c.id, {"is_favorite": c.is_favorite}, current_user)
@@ -369,10 +379,9 @@ def blacklist_candidate(
     candidate_id: int, 
     payload: dict = Body(...), 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
-    if not c: raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c = _our_candidate(candidate_id, db, current_user)
     
     reason_code = payload.get("reason_code")
     evidence = payload.get("evidence")
@@ -424,11 +433,9 @@ def blacklist_candidate(
 def delete_candidate(
     candidate_id: int, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c = _our_candidate(candidate_id, db, current_user)
     from datetime import datetime
     c.is_deleted = True
     c.deleted_at = datetime.utcnow()
@@ -441,11 +448,9 @@ def delete_candidate(
 def restore_candidate(
     candidate_id: int, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c = _our_candidate(candidate_id, db, current_user, include_deleted=True)
     c.is_deleted = False
     c.deleted_at = None
     c.deleted_by = None
@@ -457,11 +462,9 @@ def restore_candidate(
 def hard_delete_candidate(
     candidate_id: int, 
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.get_current_user_optional)
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    c = db.query(models.Candidate).filter(models.Candidate.id == candidate_id).first()
-    if not c:
-        raise HTTPException(status_code=404, detail="Aday bulunamadı")
+    c = _our_candidate(candidate_id, db, current_user, include_deleted=True)
         
     # Delete related match_scores
     db.query(models.MatchScore).filter(models.MatchScore.candidate_id == candidate_id).delete()

@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     APP_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = "http://localhost:8000"
 
+    # When the app fails to start it used to answer every request with the full
+    # traceback as HTML - file paths, library versions, sometimes connection
+    # strings - to whoever opened the site. On with DEBUG, off in production.
+    DEBUG: bool = False
+
     # Feature Flags
     # When the real query comes back empty, the dashboard and the headcount table
     # used to substitute hard-coded sample rows - candidate names, interview times,

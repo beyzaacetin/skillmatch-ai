@@ -23,12 +23,15 @@ def check_and_release_expired_ownerships(db: Session):
         cand_name = candidate.name if candidate else "Bilinmeyen Aday"
         hotel_name = hotel.name if hotel else "Bilinmeyen Otel"
 
-        # Update application state
+        # The lock is what expires, not the application: the candidate goes back
+        # to the shared pool so another hotel can pick them up. Closing it as
+        # "rejected" meant an applicant was eliminated because HR was slow, which
+        # is not what the note beside it said.
         app.lock_status = 'UNLOCKED'
-        app.status = "rejected"  # Close this application
+        app.ownership_expires_at = None
         history = app.status_history or []
         history.append({
-            "status": "rejected",
+            "status": app.status,
             "changed_at": now.isoformat(),
             "changed_by": "SYSTEM",
             "note": f"Sahiplik süresi doldu ({hotel_name}). Ortak havuza aktarıldı."

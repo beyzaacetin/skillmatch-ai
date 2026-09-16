@@ -86,6 +86,27 @@ class ScopePolicyService:
         return ScopePolicyService.apply_position_scope(q, db, user).first()
 
     @staticmethod
+    def candidate_is_ours(db: Session, user: models.User, candidate_id: int) -> bool:
+        """Reading a candidate is open across hotels by design - the pool is shared
+        and another hotel's active lock only masks the record. Acting on one is
+        not: blacklisting or deleting a shared candidate is only this hotel's call
+        when the candidate actually applied here."""
+        if user.role in ("SYSTEM_ADMIN", "ADMIN") or user.data_visibility_scope == "GLOBAL":
+            return True
+        q = db.query(models.Application.id).filter(models.Application.candidate_id == candidate_id)
+        scope = (user.data_visibility_scope or "HOTEL").upper()
+        if scope == "DEPARTMENT":
+            q = q.join(models.Position, models.Application.position_id == models.Position.id).filter(
+                models.Position.department_id.in_(user.department_access_ids or []))
+        elif scope == "REGIONAL":
+            hotel_ids = [h.id for h in db.query(models.Hotel).filter(
+                models.Hotel.region_id.in_(user.region_access_ids or [])).all()]
+            q = q.filter(models.Application.hotel_id.in_(hotel_ids))
+        else:
+            q = q.filter(models.Application.hotel_id.in_(user.hotel_access_ids or []))
+        return q.first() is not None
+
+    @staticmethod
     def application_in_scope(db: Session, user: models.User, application_id: int):
         app = db.query(models.Application).filter(models.Application.id == application_id).first()
         if not app:
