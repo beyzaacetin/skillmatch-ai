@@ -4,6 +4,7 @@ from typing import List
 import json
 import models, schemas, database, auth
 from services import pdf_parser, ai_analyzer
+from config import settings
 
 router = APIRouter()
 
@@ -209,13 +210,16 @@ def get_candidates_with_best_position(
                     overlap = set(pos_skills).intersection(set(cand_skills))
                     score += (len(overlap) / len(pos_skills)) * 50.0
                 
-                # Default mock values for specific seed candidates to match frontend expectation exactly
-                if "ahmet" in cand.name.lower() and "garson" in pos.title.lower():
-                    score = 91.0
-                elif "elif" in cand.name.lower() and "resepsiyonist" in pos.title.lower():
-                    score = 87.0
-                elif "mehmet" in cand.name.lower() and "lifeguard" in pos.title.lower():
-                    score = 83.0
+                # Showcase scores for the original seed names. These are written into
+                # match_scores, so any real Ahmet applying for Garson used to be
+                # stamped with a 91% nobody computed.
+                if settings.DEMO_DATA:
+                    if "ahmet" in cand.name.lower() and "garson" in pos.title.lower():
+                        score = 91.0
+                    elif "elif" in cand.name.lower() and "resepsiyonist" in pos.title.lower():
+                        score = 87.0
+                    elif "mehmet" in cand.name.lower() and "lifeguard" in pos.title.lower():
+                        score = 83.0
 
                 if score >= 40:
                     decision = "strong_match" if score >= 80 else "potential_match" if score >= 60 else "weak_match"

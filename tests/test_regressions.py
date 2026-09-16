@@ -854,3 +854,24 @@ def test_position_list_reports_how_many_applied(as_admin):
     assert "p.applications?.length" not in html
     start = app_js.index("function positionProgress(")
     assert ".applications" not in app_js[start:start + 400]
+
+
+def test_a_candidate_named_ahmet_is_not_handed_a_91_percent_match(as_admin):
+    """/with-best-position stamped hardcoded showcase scores on any candidate
+    whose name matched an original seed name, and persisted them to
+    match_scores, so a real applicant carried a score nobody computed."""
+    db = TestingSessionLocal()
+    hotel_id = make_hotel()
+    pos = models.Position(title="Garson", hotel_id=hotel_id, required_skills=["Servis"])
+    cand = models.Candidate(name="Ahmet Yıldız", email="ahmet-rg@ornek.com", skills=[])
+    db.add_all([pos, cand]); db.commit()
+    cand_id = cand.id
+    db.close()
+
+    row = next(c for c in client.get("/api/candidates/with-best-position").json() if c["id"] == cand_id)
+    assert row["best_score"] != 91.0, "uydurma eşleşme skoru hâlâ veriliyor"
+
+    db = TestingSessionLocal()
+    stored = db.query(models.MatchScore).filter(models.MatchScore.candidate_id == cand_id).all()
+    assert not [m for m in stored if m.overall_score == 91.0]
+    db.close()
