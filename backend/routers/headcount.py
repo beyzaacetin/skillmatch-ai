@@ -498,8 +498,8 @@ def get_position_headcount_details(
         if avg_sal_q:
             avg_salary = int(sum([s[0] for s in avg_sal_q if s[0]]) / len(avg_sal_q))
             
-    # Fallback to screenshot mock if no DB entries
-    if not position_id:
+    # Showcase figures for a position with no record behind it; off unless DEMO_DATA.
+    if not position_id and settings.DEMO_DATA:
         active = 39
         confirmed = 2
         candidates = 26

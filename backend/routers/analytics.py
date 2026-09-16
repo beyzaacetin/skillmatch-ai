@@ -182,7 +182,7 @@ def get_source_performance(db: Session = Depends(database.get_db)):
     for src, count in results:
         label = (src or "direkt").lower().strip()
         data[label] = data.get(label, 0) + count
-    if not data:
+    if not data and settings.DEMO_DATA:
         data = {"linkedin": 5, "kariyer.net": 3, "referral": 2, "direkt": 1}
     return data
 
@@ -192,7 +192,8 @@ def get_time_to_hire(db: Session = Depends(database.get_db)):
     """Return average days from applied_at to hired_at for hired candidates."""
     hired = db.query(models.Application).filter(models.Application.status == "hired", models.Application.hired_at != None).all()
     if not hired:
-        return {"avg_days": 18.5} # Fallback benchmark
+        # 18.5 was a hard-coded benchmark presented as this company's own figure
+        return {"avg_days": 18.5 if settings.DEMO_DATA else 0}
     total_days = 0
     for app in hired:
         delta = app.hired_at - app.applied_at
@@ -389,9 +390,11 @@ def get_dashboard_stats(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     active_hotel_id = hotel_id
-    if test_role == "RECRUITER" and current_user.department:
-        if not active_hotel_id:
-            active_hotel_id = 1
+    if test_role == "RECRUITER" and current_user.department and not active_hotel_id:
+        # This used to hard-code hotel 1 (Rixos Sungate), so a recruiter at any
+        # other property saw Sungate's numbers. Scope to what the user can see.
+        allowed = current_user.hotel_access_ids or []
+        active_hotel_id = allowed[0] if allowed else None
 
     # --- 1. KPI Stats ---
     budget_query = db.query(func.sum(models.WorkforceHeadcountBudget.headcount_budget))
