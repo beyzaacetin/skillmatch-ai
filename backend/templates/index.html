@@ -1881,8 +1881,8 @@ input:checked + .slider:before {
               <div class="kpi-card-value" style="color: #EF4444">{{ positions.filter(p => p.priority === 'Kritik').length }}</div>
             </div>
             <div class="positions-kpi-card">
-              <div class="kpi-card-title">Ortalama İlerleme</div>
-              <div class="kpi-card-value" style="color: #F59E0B">—</div>
+              <div class="kpi-card-title" title="Pozisyonların (işe alınan / hedef kadro) ortalaması">Ortalama İlerleme</div>
+              <div class="kpi-card-value" style="color: #F59E0B">{{ averagePositionProgress === null ? '—' : '%' + averagePositionProgress }}</div>
             </div>
           </div>
 
@@ -2010,8 +2010,8 @@ input:checked + .slider:before {
             <div class="workspace-kpi-val">{{ workspaceData.applications?.filter(a => a.status !== 'hired' && a.status !== 'rejected').length || 0 }}</div>
           </div>
           <div class="workspace-kpi-item">
-            <div class="workspace-kpi-lbl">Pipeline Uyum Ort.</div>
-            <div class="workspace-kpi-val">—</div>
+            <div class="workspace-kpi-lbl" title="Aktif başvuruların ortalama eşleşme skoru">Pipeline Uyum Ort.</div>
+            <div class="workspace-kpi-val">{{ workspaceMatchAverage === null ? '—' : '%' + workspaceMatchAverage }}</div>
           </div>
           <div class="workspace-kpi-item">
             <div class="workspace-kpi-lbl">Gün Açık</div>

@@ -15,21 +15,29 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-# FastAPI-Mail yapılandırması
-mail_config = ConnectionConfig(
-    MAIL_USERNAME=settings.MAIL_USERNAME,
-    MAIL_PASSWORD=settings.MAIL_PASSWORD,
-    MAIL_FROM=settings.MAIL_FROM,
-    MAIL_PORT=settings.MAIL_PORT,
-    MAIL_SERVER=settings.MAIL_SERVER,
-    MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-    MAIL_STARTTLS=settings.MAIL_STARTTLS,
-    MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True,
-)
+# SMTP kimlik bilgisi girilmeden bu servis kurulamaz. Kurulamaması uygulamayı
+# durdurmamalı: e-posta yan bir işlev, başvuru alınmaya devam etmeli.
+def is_configured() -> bool:
+    return bool(settings.MAIL_USERNAME and settings.MAIL_PASSWORD and settings.MAIL_SERVER)
 
-fast_mail = FastMail(mail_config)
+
+fast_mail = None
+if is_configured():
+    mail_config = ConnectionConfig(
+        MAIL_USERNAME=settings.MAIL_USERNAME,
+        MAIL_PASSWORD=settings.MAIL_PASSWORD,
+        MAIL_FROM=settings.MAIL_FROM,
+        MAIL_PORT=settings.MAIL_PORT,
+        MAIL_SERVER=settings.MAIL_SERVER,
+        MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
+        MAIL_STARTTLS=settings.MAIL_STARTTLS,
+        MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+        USE_CREDENTIALS=True,
+        VALIDATE_CERTS=True,
+    )
+    fast_mail = FastMail(mail_config)
+else:
+    logger.info("E-posta gönderimi kapalı: MAIL_USERNAME/MAIL_PASSWORD/MAIL_SERVER tanımlı değil.")
 
 
 # ─── TEMEL GÖNDERIM FONKSİYONU ────────────────────────────────────────────────
@@ -40,6 +48,9 @@ async def send_email(
     html_body: str,
 ) -> bool:
     """Temel HTML e-posta gönderim fonksiyonu."""
+    if fast_mail is None:
+        logger.info("E-posta gönderilmedi (SMTP tanımsız): %s → %s", subject, recipients)
+        return False
     try:
         message = MessageSchema(
             subject=subject,

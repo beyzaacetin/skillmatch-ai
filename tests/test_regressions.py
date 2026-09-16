@@ -1622,3 +1622,28 @@ def test_every_application_gets_a_ten_day_evaluation_deadline(as_admin):
     html = open(INDEX_HTML, encoding="utf-8").read()
     assert "function evaluationOverdue(" in app_js
     assert "evaluationOverdue(app)" in html
+
+
+def test_email_is_wired_but_a_missing_smtp_never_breaks_the_flow(as_admin):
+    """email_service.py existed but nothing imported it and fastapi_mail was not
+    installed, so the app sent nothing, ever. Now two events send — and because
+    SMTP is unset on most installs, a send that cannot happen must not take the
+    application or the offer down with it."""
+    from services import email_service
+
+    assert email_service.is_configured() is False
+    assert email_service.fast_mail is None, "SMTP yokken istemci kurulmamalı"
+
+    import asyncio
+    sent = asyncio.get_event_loop().run_until_complete(
+        email_service.send_email(["x@ornek.com"], "konu", "<p>gövde</p>"))
+    assert sent is False, "SMTP yokken gönderildi diye raporlamamalı"
+
+    portal = open(os.path.join(REPO, "backend", "routers", "portal.py"), encoding="utf-8").read()
+    offers = open(os.path.join(REPO, "backend", "routers", "offers.py"), encoding="utf-8").read()
+    assert "send_status_update" in portal, "başvuru alındı bildirimi bağlı değil"
+    assert "send_offer_notification" in offers, "teklif bildirimi bağlı değil"
+    assert "BackgroundTasks" in offers, "teklif e-postası isteği bekletmemeli"
+
+    reqs = open(os.path.join(REPO, "requirements.txt"), encoding="utf-8").read()
+    assert "fastapi-mail" in reqs

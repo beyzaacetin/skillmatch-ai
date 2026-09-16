@@ -20,3 +20,4 @@ reportlab
 pandas
 openpyxl
 qrcode[pil]
+fastapi-mail

@@ -965,6 +965,24 @@ createApp({
     }
 
     // Her satırda sabit %65 gösteriliyordu. Gerçek doluluk: işe alınan / onaylı kadro.
+    // Ekranda kalıcı olarak "—" duran iki metrik. Tanımları:
+    //   Ortalama İlerleme  = pozisyonların (işe alınan / hedef kadro) ortalaması
+    //   Pipeline Uyum Ort. = bu pozisyonun aktif başvurularının ortalama eşleşme skoru
+    const averagePositionProgress = computed(() => {
+      const list = (positions.value || []).filter(p => (p.headcount || 0) > 0);
+      if (!list.length) return null;
+      const total = list.reduce((acc, p) => acc + positionProgress(p), 0);
+      return Math.round(total / list.length);
+    });
+
+    const workspaceMatchAverage = computed(() => {
+      const done = ['hired', 'rejected', 'withdrawn'];
+      const scored = (workspaceData.value?.applications || [])
+        .filter(a => !done.includes(a.status) && typeof a.match_score === 'number');
+      if (!scored.length) return null;
+      return Math.round(scored.reduce((acc, a) => acc + a.match_score, 0) / scored.length);
+    });
+
     // Başvuru alındıktan 10 gün sonra hâlâ açık aşamadaysa uyar. Otomatik
     // hiçbir şey olmuyor - sadece görünür oluyor.
     const CLOSED_STAGES = ['hired', 'rejected', 'withdrawn'];
@@ -3734,7 +3752,7 @@ createApp({
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis, plannerApplicationId, schedulableApplications, openInterviewPlanner,
       workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
-      posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments, fte, evaluationOverdue,
+      posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments, fte, evaluationOverdue, averagePositionProgress, workspaceMatchAverage,
 
       // Headcount state and methods
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,

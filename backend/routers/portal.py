@@ -9,6 +9,7 @@ POST /api/portal/offer/{id}/accept — Teklifi kabul et
 POST /api/portal/offer/{id}/reject — Teklifi reddet
 GET  /api/portal/notifications     — Bildirimler
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -20,6 +21,7 @@ from auth import get_candidate_from_token, get_current_user
 from routers.candidates import normalize_phone
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _get_portal_user(
@@ -452,6 +454,19 @@ async def apply_public_position(
         db.add(audit)
         db.commit()
         trigger_scoped_routing(candidate.id, position.hotel_id, position.title, db)
+
+    # Adaya "başvurunuz alındı" bildirimi. SMTP tanımsızsa sessizce atlanır;
+    # e-posta gönderilememesi başvuruyu geçersiz kılmamalı.
+    try:
+        from services.email_service import send_status_update
+        await send_status_update(
+            candidate_email=candidate.email,
+            candidate_name=candidate.name,
+            position_title=position.title,
+            new_status="applied",
+        )
+    except Exception as mail_err:
+        logger.warning(f"Başvuru bildirimi gönderilemedi: {mail_err}")
 
     return {"message": "Başvurunuz başarıyla alındı.", "application_id": app.id}
 

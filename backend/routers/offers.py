@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Body, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timezone, timedelta
 import json, os
@@ -8,6 +9,7 @@ from config import settings
 from services.salary_service import validate_offer_salary, create_offer_approval_flow
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 def _scoped_offer(offer_id: int, db: Session, current_user: models.User):
     """An offer belongs to the hotel its application does - its salary band,
@@ -119,7 +121,8 @@ def check_salary_band(offer_id: int, db: Session = Depends(database.get_db),
     return val_res
 
 @router.patch("/{offer_id}/status")
-def update_offer_status(offer_id: int, status: str, db: Session = Depends(database.get_db),
+def update_offer_status(offer_id: int, status: str, background: BackgroundTasks,
+                        db: Session = Depends(database.get_db),
                         current_user: models.User = Depends(auth.get_current_user)):
     offer = _scoped_offer(offer_id, db, current_user)
     
@@ -139,7 +142,36 @@ def update_offer_status(offer_id: int, status: str, db: Session = Depends(databa
     elif status == "sent":
         offer.sent_at = datetime.now(timezone.utc)
     db.commit()
+
+    # Teklif gönderildiğinde adaya bildirim. Arka planda: SMTP yavaşsa ya da
+    # tanımsızsa "Teklifi Gönder" butonu bunu beklememeli.
+    if status == "sent":
+        candidate = offer.application.candidate if offer.application else None
+        position = offer.application.position if offer.application else None
+        if candidate and candidate.email:
+            background.add_task(
+                _notify_offer_sent,
+                candidate.email,
+                candidate.name or "Aday",
+                offer.position_title or (position.title if position else "Pozisyon"),
+                int(offer.proposed_salary or 0),
+                offer.currency or "TRY",
+                offer.start_date.isoformat() if offer.start_date else "Belirlenecek",
+                list(offer.benefits or []),
+            )
     return {"status": offer.status}
+
+
+async def _notify_offer_sent(email, name, title, salary, currency, start_date, benefits):
+    try:
+        from services.email_service import send_offer_notification
+        await send_offer_notification(
+            candidate_email=email, candidate_name=name, position_title=title,
+            proposed_salary=salary, currency=currency, start_date=start_date,
+            benefits=benefits,
+        )
+    except Exception as mail_err:
+        logger.warning(f"Teklif bildirimi gönderilemedi: {mail_err}")
 
 @router.post("/{offer_id}/generate-letter")
 def generate_letter(offer_id: int, db: Session = Depends(database.get_db),

@@ -41,7 +41,7 @@ This document tracks the end-to-end implementation of the SkillMatch AI ATS, Wor
 - [x] Pipeline templates settings page (RecruitmentPipeline CRUD)
 - [x] 10-day evaluation counter logic (`evaluation_deadline` on Application) — başvurudan itibaren 10 gün; süre dolan ve hâlâ açık olan başvuru Kanban kartında uyarı rozetiyle işaretlenir
 - [x] 7-day meaningful locks mechanism (`ownership_expires_at` enforcement)
-- [x] Regional candidate routing hierarchy (Same Hotel → Region → City → Pool via `routing_service.py`)
+- [x] Regional candidate routing hierarchy (Same Hotel → Region → City → Central HR via `services/budget_service.py` → `trigger_scoped_routing`, portal başvuru yollarına bağlı)
 
 ### Faz 5: AI Matching, Interviews & Assistant
 - [x] Explainable score component (Sub-scores: `experience_score`, `skill_score`, `education_score`, `certification_score`)
