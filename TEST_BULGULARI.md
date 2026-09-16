@@ -3,8 +3,8 @@
 Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıldı.
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
-**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 32/32 pytest geçiyor
-(16 mevcut + 16 yeni regresyon testi) · **26 commit**
+**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 35/35 pytest geçiyor
+(16 mevcut + 19 yeni regresyon testi) · **29 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -346,6 +346,17 @@ departmanlar (33 seçenek) geliyor.
 erişebildiği tüm sayfalar hatasız açılıyor. (Konsolda hâlâ zararsız bir 403
 görünüyor — sunucu doğru davranıyor, sadece gereksiz bir istek.)
 
+### ✅ D-32 — Maaş politikası listesi NULL alanda 500 veriyordu
+`SalaryPolicyOut` `version`, `is_active` ve `status` alanlarını **zorunlu**
+istiyor; bu kolonlar veritabanında nullable ve varsayılanları yalnızca
+Python tarafında (ORM insert'inde) uygulanıyor. ORM dışından gelen herhangi bir
+satır NULL kalıyor ve **tüm listeyi** 500'lüyor — D-03'teki
+`PositionBase.description` ile birebir aynı hata.
+
+Bu projede özellikle önemli: kolonlar Alembic ile değil, `main.py` içindeki
+idempotent `ALTER TABLE` listesiyle ekleniyor ve o yolla eklenen bir kolon
+**mevcut tüm satırlarda NULL** olur.
+
 ---
 
 ## 3. 📋 Senin sorduğun 3 madde
@@ -519,6 +530,23 @@ istersin?
   Blacklist sayfasında göründü → listeden çıkar → temizlendi
 - **Kanban sürükle-bırak**: kart taşındı, durum veritabanında değişti
 - **RECRUITER rolüyle** tüm sayfalar gezildi
+
+### Teklif onay zinciri — uçtan uca doğrulandı (kod değişmedi, testle sabitlendi)
+
+İşin en kritik iş kuralı. HOTEL_HR rolünde ikinci bir kullanıcı açıp hem API'den
+hem arayüzden çalıştırdım:
+
+1. Bant **içi** teklif (35.000 / bant 30–40K) → doğrudan `APPROVED`
+2. Bant **üstü** teklif (48.000) → `PENDING_APPROVAL` + sapma gerekçesi,
+   iki sıralı onay isteği açılıyor (HOTEL_HR `PENDING`, CENTRAL_HR `WAITING`)
+3. Onay beklerken göndermeyi denedim → **400**: *"Teklif henüz onaylanmadı. Gönderilemez."*
+4. HOTEL_HR onayladı (arayüzdeki "Teklif Onayları" sekmesinden) → 2. adım `PENDING`'e geçti
+5. Merkez onayladı → teklif `APPROVED`, artık gönderilebiliyor
+6. Reddetme senaryosu: 1. adım reddedilince teklif `REJECTED`, bekleyen 2. adım
+   da iptal ediliyor, gönderme → **400**: *"Teklif onay sürecinde reddedildi."*
+
+ℹ️ Bir SYSTEM_ADMIN'in bekleyen onaylar listesinin boş görünmesi **hata değil** —
+sıralı akış önce otel İK'sını bekliyor, merkez adımı henüz `WAITING`.
 - **6 adımlı pozisyon sihirbazı**: boş gönderimde net Türkçe uyarı veriyor
   ("Otel ve Pozisyon Başlığı alanları zorunludur…"), gerçek veriyle tam tur
   atıldı ve pozisyon oluştu
