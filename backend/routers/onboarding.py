@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List
 from datetime import datetime, timezone
 import json, os
-import models, database
+import models, database, auth
 from config import settings
 
 router = APIRouter()
@@ -23,8 +23,17 @@ DEFAULT_TASKS = [
     {"title": "1. ay değerlendirme görüşmesi", "category": "Performans", "responsible": "Yönetici", "due_days": 30},
 ]
 
+def _require_application_in_scope(app_id: int, db: Session, current_user: models.User):
+    """The checklist belongs to the hotel its application does."""
+    from services.scope_policy_service import scope_policy_service
+    if not scope_policy_service.application_in_scope(db, current_user, app_id):
+        raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
+
+
 @router.post("/{app_id}/generate")
-def generate_checklist(app_id: int, db: Session = Depends(database.get_db)):
+def generate_checklist(app_id: int, db: Session = Depends(database.get_db),
+                       current_user: models.User = Depends(auth.get_current_user)):
+    _require_application_in_scope(app_id, db, current_user)
     app = db.query(models.Application).options(
         joinedload(models.Application.position),
         joinedload(models.Application.candidate),
@@ -65,7 +74,9 @@ JSON: {{"tasks": [{{"title": "...", "category": "...", "responsible": "İK/IT/Y�
     return {"count": len(created), "tasks": [{"id": t.id, "title": t.title, "category": t.category, "responsible": t.responsible, "due_days": t.due_days, "status": t.status} for t in created]}
 
 @router.get("/{app_id}")
-def get_tasks(app_id: int, db: Session = Depends(database.get_db)):
+def get_tasks(app_id: int, db: Session = Depends(database.get_db),
+              current_user: models.User = Depends(auth.get_current_user)):
+    _require_application_in_scope(app_id, db, current_user)
     tasks = db.query(models.OnboardingTask).filter(
         models.OnboardingTask.application_id == app_id
     ).order_by(models.OnboardingTask.due_days, models.OnboardingTask.order_index).all()
@@ -90,9 +101,11 @@ def get_tasks(app_id: int, db: Session = Depends(database.get_db)):
     }
 
 @router.patch("/task/{task_id}")
-def update_task(task_id: int, status: str, db: Session = Depends(database.get_db)):
+def update_task(task_id: int, status: str, db: Session = Depends(database.get_db),
+                current_user: models.User = Depends(auth.get_current_user)):
     task = db.query(models.OnboardingTask).filter(models.OnboardingTask.id == task_id).first()
     if not task: raise HTTPException(status_code=404, detail="Görev bulunamadı")
+    _require_application_in_scope(task.application_id, db, current_user)
     task.status = status
     if status == "completed": task.completed_at = datetime.now(timezone.utc)
     db.commit()
@@ -102,10 +115,12 @@ from fastapi import UploadFile, File
 import shutil
 
 @router.post("/task/{task_id}/upload-document")
-def upload_document(task_id: int, file: UploadFile = File(...), db: Session = Depends(database.get_db)):
+def upload_document(task_id: int, file: UploadFile = File(...), db: Session = Depends(database.get_db),
+                    current_user: models.User = Depends(auth.get_current_user)):
     task = db.query(models.OnboardingTask).filter(models.OnboardingTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Görev bulunamadı")
+    _require_application_in_scope(task.application_id, db, current_user)
         
     os.makedirs("uploads/onboarding", exist_ok=True)
     file_path = f"uploads/onboarding/{task_id}_{file.filename}"

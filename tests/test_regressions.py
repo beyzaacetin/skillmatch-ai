@@ -1326,3 +1326,57 @@ def test_a_department_manager_can_be_assigned_from_the_user_form(as_admin):
     html = open(INDEX_HTML, encoding="utf-8").read()
     assert html.count("data_visibility_scope") >= 4, "kapsam alanı iki kullanıcı formunda da yok"
     assert "department_access_ids" in html
+
+
+def test_an_offer_and_its_onboarding_stay_with_the_hotel_that_owns_the_application():
+    """The rest of the offer and onboarding endpoints took an id and nothing
+    else: one hotel could raise an offer on another hotel's application, mark
+    that offer accepted — which hires the candidate — read its salary band, and
+    generate or tick off the new hire's onboarding checklist."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    mine = make_hotel(name="Teklif Otel", code="TKF")
+    theirs = make_hotel(name="Komşu Teklif", code="KTK")
+    pos = models.Position(title="Bar Şefi", hotel_id=theirs)
+    cand = models.Candidate(name="Komşu Teklif Adayı", email="kt-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    app_row = models.Application(candidate_id=cand.id, position_id=pos.id,
+                                 hotel_id=theirs, status="offer")
+    db.add(app_row); db.commit()
+    offer = models.Offer(application_id=app_row.id, position_id=pos.id,
+                         candidate_id=cand.id, proposed_salary=90000,
+                         status="sent", approval_status="APPROVED")
+    db.add(offer); db.commit()
+    task = models.OnboardingTask(application_id=app_row.id, title="SGK bildirimi",
+                                 status="pending")
+    db.add(task); db.commit()
+    intruder = models.User(email="teklif-hr@ornek.com", full_name="Teklif İK",
+                           hashed_password="x", role="HOTEL_HR", is_active=True,
+                           data_visibility_scope="HOTEL", hotel_access_ids=[mine])
+    db.add(intruder); db.commit(); db.refresh(intruder)
+    app_id, offer_id, task_id = app_row.id, offer.id, task.id
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: intruder
+    try:
+        assert client.post("/api/offers/", json={
+            "application_id": app_id, "proposed_salary": 1, "currency": "TRY",
+        }).status_code == 404
+        assert client.get(f"/api/offers/{offer_id}/salary-check").status_code == 404
+        assert client.patch(f"/api/offers/{offer_id}/status?status=accepted").status_code == 404
+        assert client.post(f"/api/offers/{offer_id}/generate-letter").status_code == 404
+        assert client.get(f"/api/onboarding/{app_id}").status_code == 404
+        assert client.post(f"/api/onboarding/{app_id}/generate").status_code == 404
+        assert client.patch(f"/api/onboarding/task/{task_id}?status=completed").status_code == 404
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
+
+    db = TestingSessionLocal()
+    assert db.query(models.Offer).get(offer_id).status == "sent", "teklif yine de değişmiş"
+    assert db.query(models.Application).get(app_id).status == "offer", "aday yine de işe alınmış"
+    assert db.query(models.OnboardingTask).get(task_id).status == "pending"
+    db.close()

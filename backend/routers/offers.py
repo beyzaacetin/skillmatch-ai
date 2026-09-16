@@ -9,8 +9,25 @@ from services.salary_service import validate_offer_salary, create_offer_approval
 
 router = APIRouter()
 
+def _scoped_offer(offer_id: int, db: Session, current_user: models.User):
+    """An offer belongs to the hotel its application does - its salary band,
+    its approval chain and the hire it produces are all that hotel's."""
+    from services.scope_policy_service import scope_policy_service
+    offer = db.query(models.Offer).options(
+        joinedload(models.Offer.application).joinedload(models.Application.candidate),
+        joinedload(models.Offer.application).joinedload(models.Application.position),
+    ).filter(models.Offer.id == offer_id).first()
+    if not offer or not scope_policy_service.application_in_scope(db, current_user, offer.application_id):
+        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+    return offer
+
+
 @router.post("/", response_model=schemas.OfferOut, status_code=201)
-def create_offer(data: schemas.OfferCreate, db: Session = Depends(database.get_db)):
+def create_offer(data: schemas.OfferCreate, db: Session = Depends(database.get_db),
+                 current_user: models.User = Depends(auth.get_current_user)):
+    from services.scope_policy_service import scope_policy_service
+    if not scope_policy_service.application_in_scope(db, current_user, data.application_id):
+        raise HTTPException(status_code=404, detail="Başvuru bulunamadı")
     app = db.query(models.Application).options(
         joinedload(models.Application.position)
     ).filter(models.Application.id == data.application_id).first()
@@ -84,12 +101,9 @@ def get_offer(app_id: int, db: Session = Depends(database.get_db),
     return offer
 
 @router.get("/{offer_id}/salary-check")
-def check_salary_band(offer_id: int, db: Session = Depends(database.get_db)):
-    offer = db.query(models.Offer).options(
-        joinedload(models.Offer.application).joinedload(models.Application.position)
-    ).filter(models.Offer.id == offer_id).first()
-    if not offer:
-        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+def check_salary_band(offer_id: int, db: Session = Depends(database.get_db),
+                      current_user: models.User = Depends(auth.get_current_user)):
+    offer = _scoped_offer(offer_id, db, current_user)
     
     app = offer.application
     if not app:
@@ -105,11 +119,9 @@ def check_salary_band(offer_id: int, db: Session = Depends(database.get_db)):
     return val_res
 
 @router.patch("/{offer_id}/status")
-def update_offer_status(offer_id: int, status: str, db: Session = Depends(database.get_db)):
-    offer = db.query(models.Offer).options(
-        joinedload(models.Offer.application)
-    ).filter(models.Offer.id == offer_id).first()
-    if not offer: raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+def update_offer_status(offer_id: int, status: str, db: Session = Depends(database.get_db),
+                        current_user: models.User = Depends(auth.get_current_user)):
+    offer = _scoped_offer(offer_id, db, current_user)
     
     # Block submission if approval is pending or rejected
     if status == "sent" and offer.approval_status == "PENDING_APPROVAL":
@@ -130,13 +142,10 @@ def update_offer_status(offer_id: int, status: str, db: Session = Depends(databa
     return {"status": offer.status}
 
 @router.post("/{offer_id}/generate-letter")
-def generate_letter(offer_id: int, db: Session = Depends(database.get_db)):
+def generate_letter(offer_id: int, db: Session = Depends(database.get_db),
+                    current_user: models.User = Depends(auth.get_current_user)):
     """AI ile kişiselleştirilmiş teklif mektubu üret."""
-    offer = db.query(models.Offer).options(
-        joinedload(models.Offer.application).joinedload(models.Application.candidate),
-        joinedload(models.Offer.application).joinedload(models.Application.position),
-    ).filter(models.Offer.id == offer_id).first()
-    if not offer: raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+    offer = _scoped_offer(offer_id, db, current_user)
     candidate = offer.application.candidate if offer.application else None
     position = offer.application.position if offer.application else None
     benefits_str = "\n".join([f"- {b}" for b in (offer.benefits or [])])
