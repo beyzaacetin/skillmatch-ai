@@ -3,8 +3,8 @@
 Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıldı.
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
-**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 27/27 pytest geçiyor
-(16 mevcut + 11 yeni regresyon testi) · **14 commit**
+**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 29/29 pytest geçiyor
+(16 mevcut + 13 yeni regresyon testi) · **16 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -235,6 +235,21 @@ semantik fallback anahtar kelime skorunu taban almıyor. %100 alan walk-in aday
 📋 **Bu bir puanlama politikası kararı** (çökme değil) — `net_open` yuvarlama
 kararı gibi senin onayını bekliyor.
 
+### ✅ D-25 — Teklif oluşturma her seferinde 500 veriyordu
+Aday kartı → **Teklif** sekmesi → "Teklif Oluştur" → "Oluştur" dediğinde
+`POST /api/offers/` **500** dönüyordu:
+
+```
+TypeError: 'approval_status' is an invalid keyword argument for Offer
+```
+
+`main.py` bu kolonu veritabanına ekliyor, `schemas.OfferOut` alanı zaten
+tanımlıyor, `routers/offers.py` hem yazıyor hem "gönder" ve onay geçişlerinde
+okuyor — ama `models.Offer` içinde **hiç tanımlanmamış**. Yani pipeline'ın
+teklif adımı hiçbir zaman tamamlanamıyormuş.
+
+Model kolonu eklendikten sonra tüm zincir çalışıyor (aşağıda).
+
 ---
 
 ## 3. 📋 Senin sorduğun 3 madde
@@ -406,6 +421,21 @@ istersin?
 - **Pipeline / mülakat listesi**: dürüst boş durum ("Henüz mülakat planlanmamış")
 - **Aday Kanban**: kartlar, kolonlar ve kaynak etiketi ("QR Walk-In") doğru
 - **Ayarlar → Organizasyon Yapısı**: gerçek organizasyon kaydını gösteriyor
+
+### Uçtan uca doğrulanan tam işe alım zinciri
+
+D-25 düzeltildikten sonra çekirdek ATS akışının tamamı gerçek veriyle çalıştırıldı:
+
+1. **QR walk-in başvurusu** → aday + başvuru oluştu (`QR Walk-In` kaynağıyla)
+2. **Kanban** → kart "Başvurdu" kolonunda, %62 eşleşme rozetiyle
+3. **Teklif oluştur** → 42.000 TRY, maaş politikası kontrolü (`has_policy:false`, geçerli)
+4. **Gönder** → `sent`, `sent_at` damgalandı
+5. **Kabul** → `accepted`, başvuru otomatik `hired` oldu
+6. **İşe Giriş** → aday listede çıktı, 12 maddelik kontrol listesi üretildi
+   (Evrak / IT Setup / Tanışma / Eğitim, sorumlularıyla)
+7. **Görev işaretle** → ilerleme %0 → %8
+
+Ayrıca: 6 adımlı pozisyon sihirbazı gerçek veriyle tamamlanıp pozisyon oluşturdu.
 
 ---
 
