@@ -1515,3 +1515,43 @@ def test_an_expired_ownership_returns_the_candidate_to_the_pool():
     note = (released.status_history or [])[-1]
     assert "havuza" in note["note"].lower()
     db.close()
+
+
+def test_approving_two_and_a_half_fte_does_not_lose_the_half():
+    """headcount was an integer and the approval did int(needed_fte), so a 2.5
+    FTE request opened a position for 2 — half a post quietly dropped, and
+    across sixteen hotels that adds up."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="FTE Otel", code="FTE")
+    central = models.User(email="fte-merkez@ornek.com", full_name="Merkez",
+                          hashed_password="x", role="CENTRAL_HR", is_active=True,
+                          data_visibility_scope="GLOBAL")
+    db.add(central); db.commit(); db.refresh(central)
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: central
+    try:
+        created = client.post("/api/staffing-needs/", json={
+            "hotel_id": hotel_id, "position_title": "Garson",
+            "needed_fte": 2.5, "priority": "normal",
+        })
+        assert created.status_code == 200, created.text
+        approved = client.put(f"/api/staffing-needs/{created.json()['id']}/approve")
+        assert approved.status_code == 200, approved.text
+        pos_id = approved.json()["created_position_id"]
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
+
+    db = TestingSessionLocal()
+    assert db.query(models.Position).get(pos_id).headcount == 2.5
+    db.close()
+
+    app_js = open(APP_JS, encoding="utf-8").read()
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    assert "function fte(" in app_js, "ondalık FTE için biçimlendirici yok"
+    assert "{{ p.headcount }}" not in html, "FTE ham basılıyor, 2.5 olarak görünür"

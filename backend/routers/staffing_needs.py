@@ -137,7 +137,7 @@ def approve_staffing_need(
         hotel_id=need.hotel_id,
         department_id=need.department_id,
         title=need.position_title,
-        headcount=int(need.needed_fte),
+        headcount=need.needed_fte,   # 2,5 FTE 2 kadroya kırpılmasın
         is_active=True
     )
     db.add(pos)

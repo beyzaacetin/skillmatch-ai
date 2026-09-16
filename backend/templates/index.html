@@ -1863,7 +1863,7 @@ input:checked + .slider:before {
           <div class="positions-kpi-grid">
             <div class="positions-kpi-card">
               <div class="kpi-card-title">Toplam Açık Kadro</div>
-              <div class="kpi-card-value" style="color: var(--primary)">{{ positions.reduce((acc, p) => acc + (p.headcount || 0), 0) }}</div>
+              <div class="kpi-card-value" style="color: var(--primary)">{{ fte(positions.reduce((acc, p) => acc + (p.headcount || 0), 0)) }}</div>
             </div>
             <div class="positions-kpi-card">
               <div class="kpi-card-title">Aktif Aday</div>
@@ -1909,7 +1909,7 @@ input:checked + .slider:before {
               </thead>
               <tbody>
                 <tr v-for="p in filteredPositions" :key="p.id">
-                  <td class="text-bold" style="font-size:14px">{{ p.title }} <span style="font-size:11px;color:var(--g500);font-weight:normal">(x{{ p.headcount }})</span></td>
+                  <td class="text-bold" style="font-size:14px">{{ p.title }} <span style="font-size:11px;color:var(--g500);font-weight:normal">(x{{ fte(p.headcount) }})</span></td>
                   <td><span class="skill-tag" style="background:#F3F4F6; color:var(--g600)">{{ p.department || 'Genel' }}</span></td>
                   <td>
                     <span class="badge" :class="{ 'b-hired': p.is_active && p.priority !== 'Kritik', 'b-rejected': !p.is_active, 'b-screening': p.is_active && p.priority === 'Kritik' }">
@@ -1992,7 +1992,7 @@ input:checked + .slider:before {
         <div class="workspace-kpi-row" v-if="workspaceData">
           <div class="workspace-kpi-item">
             <div class="workspace-kpi-lbl">Açık Kadro</div>
-            <div class="workspace-kpi-val">{{ workspaceData.applications?.filter(a => a.status === 'hired').length || 0 }} / {{ selectedPosition.headcount || 1 }}</div>
+            <div class="workspace-kpi-val">{{ workspaceData.applications?.filter(a => a.status === 'hired').length || 0 }} / {{ fte(selectedPosition.headcount || 1) }}</div>
           </div>
           <div class="workspace-kpi-item">
             <div class="workspace-kpi-lbl">Doldurulan</div>
@@ -5673,7 +5673,7 @@ input:checked + .slider:before {
               </div>
               <div class="fg">
                 <label class="fl">İşe Alınacak Kişi Sayısı *</label>
-                <input v-model.number="newPos.headcount" type="number" class="fi" min="1">
+                <input v-model.number="newPos.headcount" type="number" class="fi" min="0.5" step="0.5">
               </div>
             </div>
 
@@ -5898,7 +5898,7 @@ input:checked + .slider:before {
                 <div><span style="color:var(--g500)">Pozisyon:</span> <b style="color:var(--g800)">{{ newPos.title || 'Başlık Belirtilmemiş' }}</b></div>
                 <div><span style="color:var(--g500)">Sözleşme:</span> <b style="color:var(--g800)">{{ newPos.employment_type }} · {{ newPos.contract_type }}</b></div>
                 <div><span style="color:var(--g500)">Lojman:</span> <b style="color:var(--g800)">{{ newPos.accommodation }}</b></div>
-                <div><span style="color:var(--g500)">Kadro Adedi:</span> <b style="color:var(--g800)">{{ newPos.headcount }} kişi</b></div>
+                <div><span style="color:var(--g500)">Kadro Adedi:</span> <b style="color:var(--g800)">{{ fte(newPos.headcount) }} FTE</b></div>
                 <div><span style="color:var(--g500)">Hedef Tarih:</span> <b style="color:var(--g800)">{{ newPos.target_date }}</b></div>
                 <div><span style="color:var(--g500)">Hedef Ücret:</span> <b style="color:var(--g800)">{{ newPos.salary_target ? newPos.salary_target.toLocaleString() + ' TRY' : 'Belirtilmemiş' }}</b></div>
                 <div><span style="color:var(--g500)">Onay Akışı:</span> <b style="color:var(--g800)">{{ newPos.offer_approval_rule }}</b></div>
@@ -5973,7 +5973,7 @@ input:checked + .slider:before {
               </div>
               <div style="display:flex; justify-content:space-between">
                 <span style="color:var(--g500)">Kadro:</span>
-                <span style="font-weight:700; color:var(--g800)">{{ newPos.headcount }} kişi</span>
+                <span style="font-weight:700; color:var(--g800)">{{ fte(newPos.headcount) }} FTE</span>
               </div>
               <div style="display:flex; justify-content:space-between">
                 <span style="color:var(--g500)">Ücret Bandı:</span>

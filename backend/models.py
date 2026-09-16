@@ -92,7 +92,7 @@ class Position(Base):
     # v4 new fields
     is_active = Column(Boolean, default=True)
     location = Column(String, nullable=True)
-    headcount = Column(Integer, default=1)
+    headcount = Column(Float, default=1)   # FTE - yarım kadro (0,5) mümkün
     priority = Column(String, default="Orta")
     hiring_manager = Column(String, nullable=True)
     target_date = Column(String, nullable=True)

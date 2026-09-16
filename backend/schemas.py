@@ -147,7 +147,7 @@ class PositionBase(BaseModel):
     salary_currency: Optional[str] = "TRY"
     is_active: Optional[bool] = True
     location: Optional[str] = None
-    headcount: Optional[int] = 1
+    headcount: Optional[float] = 1
     priority: Optional[str] = "Orta"
     hiring_manager: Optional[str] = None
     target_date: Optional[str] = None

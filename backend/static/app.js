@@ -2463,6 +2463,14 @@ createApp({
       return ['Tümü', ...[...names].sort((a, b) => a.localeCompare(b, 'tr'))];
     });
 
+    // FTE artık ondalık olabiliyor (2,5 kadro). Tam sayıysa ondalık gösterme,
+    // değilse Türkçe ayraçla yaz: 3 → "3", 2.5 → "2,5".
+    function fte(n) {
+      const v = Number(n);
+      if (!isFinite(v)) return '0';
+      return Number.isInteger(v) ? String(v) : v.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+    }
+
     // Kadro ekranının departman filtresi: önce gerçekten kadro verisi olan
     // departmanlar (uç noktadan geliyor), yoksa tanımlı departman listesi.
     const headcountDepartments = computed(() => {
@@ -3673,7 +3681,7 @@ createApp({
       toasts, showMatchDetails, currentMatchScore, matchScoreLoading,
       interviewTab, ivAssistant, ivAnalysis,
       workspaceData, workspaceLoading, matchingLoading, insightsLoading, questionsGenerating, reportsGenerating, isAnalyzingCompletion, activeInterviewApp, interviewQuestions, activeQuestionIndex, candidateAnswer, questionScore, recruiterNotes, decisionData, activeDecisionApp, activeReportApp, selectedReportType,
-      posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments,
+      posSearchQuery, selectedDepPill, departmentPills, filteredPositions, headcountDepartments, fte,
 
       // Headcount state and methods
       headcountData, headcountFilter, selectedHeadcountDetail, showHeadcountDetail, importingHeadcount,

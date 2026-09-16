@@ -218,7 +218,11 @@ try:
             "ALTER TABLE match_scores ADD COLUMN skill_score FLOAT",
             "ALTER TABLE match_scores ADD COLUMN certification_score FLOAT",
 
-            "ALTER TABLE staffing_needs ADD COLUMN needed_by DATE"
+            "ALTER TABLE staffing_needs ADD COLUMN needed_by DATE",
+
+            # headcount artık FTE tutuyor (2,5 gibi). SQLite tip yakınlığı sayesinde
+            # zaten ondalık saklıyor; PostgreSQL'de kolon tipini genişletmek gerek.
+            "ALTER TABLE positions ALTER COLUMN headcount TYPE DOUBLE PRECISION"
         ]
         for q in queries:
             try:
