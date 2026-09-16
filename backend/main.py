@@ -258,6 +258,25 @@ try:
                         db_session.add(cand)
                 db_session.commit()
                 print("[Startup] Candidate phone, experience and education normalized.")
+
+                # Applications added from the position workspace were stored with no
+                # hotel_id, and that is the column the hotel filters match on, so
+                # they were invisible to the hotel that owns the position.
+                orphans = db_session.query(models.Application).filter(
+                    models.Application.hotel_id.is_(None),
+                    models.Application.position_id.isnot(None),
+                ).all()
+                if orphans:
+                    hotels = dict(db_session.query(models.Position.id, models.Position.hotel_id).all())
+                    fixed = 0
+                    for a in orphans:
+                        hotel_id = hotels.get(a.position_id)
+                        if hotel_id:
+                            a.hotel_id = hotel_id
+                            db_session.add(a)
+                            fixed += 1
+                    db_session.commit()
+                    print(f"[Startup] {fixed} application(s) given the hotel of their position.")
             except Exception as norm_err:
                 db_session.rollback()
                 print(f"[Startup] Candidate normalization failed: {norm_err}")

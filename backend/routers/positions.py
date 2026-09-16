@@ -373,11 +373,14 @@ def get_position_candidates(position_id: int, db: Session = Depends(database.get
 
 # POST CANDIDATE (Add existing candidate to position)
 @router.post("/{position_id}/candidates")
-def add_candidate_to_position(position_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db)):
+def add_candidate_to_position(position_id: int, payload: dict = Body(...), db: Session = Depends(database.get_db),
+                              current_user: models.User = Depends(auth.get_current_user)):
     candidate_id = payload.get("candidate_id")
     if not candidate_id:
         raise HTTPException(status_code=400, detail="Candidate ID is required")
         
+    position = _scoped_position(position_id, db, current_user)
+
     candidate = db.query(models.Candidate).filter(models.Candidate.id == candidate_id, models.Candidate.is_deleted == False).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
@@ -393,6 +396,10 @@ def add_candidate_to_position(position_id: int, payload: dict = Body(...), db: S
     app = models.Application(
         candidate_id=candidate_id,
         position_id=position_id,
+        # Every other path that creates an application copies this across, and the
+        # hotel filters match on it: without it the application is invisible to
+        # the hotel that owns the position, the offer approval queue included.
+        hotel_id=position.hotel_id,
         status="applied",
         source="Manuel Ekleme"
     )

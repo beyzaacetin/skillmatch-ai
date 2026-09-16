@@ -997,3 +997,51 @@ def test_a_position_and_its_offer_stay_inside_the_hotel_that_owns_them():
             app.dependency_overrides.pop(get_current_user, None)
         else:
             app.dependency_overrides[get_current_user] = previous
+
+
+def test_adding_a_candidate_from_the_position_workspace_stamps_the_hotel():
+    """Every other path that creates an application copies the position's
+    hotel_id; POST /api/positions/{id}/candidates did not. hotel_id is what the
+    hotel filters match on, so such an application was invisible to the hotel
+    that owns it — including in the offer approval queue, where an offer on it
+    never reached the approver."""
+    from auth import get_current_user
+    db = TestingSessionLocal()
+    hotel_id = make_hotel(name="Kapsam Otel", code="KPSM")
+    pos = models.Position(title="Bar Şefi", hotel_id=hotel_id)
+    cand = models.Candidate(name="Workspace Adayı", email="ws-rg@ornek.com")
+    db.add_all([pos, cand]); db.commit()
+    pos_id, cand_id = pos.id, cand.id
+    hotel_hr = models.User(email="kapsam-hr@ornek.com", full_name="Kapsam İK",
+                           hashed_password="x", role="HOTEL_HR", is_active=True,
+                           data_visibility_scope="HOTEL", hotel_access_ids=[hotel_id])
+    db.add(hotel_hr); db.commit(); db.refresh(hotel_hr)
+    db.close()
+
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: hotel_hr
+    try:
+        res = client.post(f"/api/positions/{pos_id}/candidates", json={"candidate_id": cand_id})
+        assert res.status_code == 200, res.text
+        app_id = res.json()["id"]
+
+        db = TestingSessionLocal()
+        row = db.query(models.Application).get(app_id)
+        assert row.hotel_id == hotel_id, "başvuru hangi otele ait olduğunu taşımıyor"
+        db.add(models.Offer(application_id=app_id, position_id=pos_id, candidate_id=cand_id,
+                            proposed_salary=52000, status="draft",
+                            approval_status="PENDING_APPROVAL"))
+        db.commit()
+        req = models.OfferApprovalRequest(
+            offer_id=db.query(models.Offer).filter_by(application_id=app_id).first().id,
+            approver_role="HOTEL_HR", sequence_number=1, status="PENDING")
+        db.add(req); db.commit(); db.close()
+
+        pending = client.get("/api/offers/approvals/pending").json()
+        assert any(p.get("application_id") == app_id or p.get("offer_id") for p in pending), \
+            "otelin kendi teklifi onay kuyruğuna hiç düşmüyor"
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
