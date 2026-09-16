@@ -2905,7 +2905,10 @@ createApp({
     // ─── SYSTEM SETTINGS METHODS IMPLEMENTATION ───────────────────────
     async function loadSettings() {
       try {
-        const [orgs, cities, regions, hotels, depts, mappings, roles, configs, logs, requests, policies] = await Promise.all([
+        // Promise.all used to be used here, so a single 403 took the whole batch
+        // down: a non-admin gets 403 on audit-logs, which left settingsData empty
+        // and every hotel and department dropdown in the app blank for them.
+        const results = await Promise.allSettled([
           api('GET', '/api/settings/organizations'),
           api('GET', '/api/settings/cities'),
           api('GET', '/api/settings/regions'),
@@ -2918,6 +2921,8 @@ createApp({
           api('GET', '/api/ownership/extension-requests'),
           api('GET', '/api/settings/salary-policy')
         ]);
+        const [orgs, cities, regions, hotels, depts, mappings, roles, configs, logs, requests, policies] =
+          results.map(r => (r.status === 'fulfilled' && r.value) ? r.value : []);
 
         settingsData.value.organizations = orgs;
         settingsData.value.cities = cities;

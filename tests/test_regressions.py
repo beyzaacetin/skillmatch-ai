@@ -396,6 +396,20 @@ def test_cv_fallback_reads_the_file_instead_of_inventing_a_person():
     assert "analiz edilmedi" in data["summary"]
 
 
+# ── settings load under a non-admin role ─────────────────────────────────────
+
+def test_settings_batch_tolerates_a_forbidden_endpoint():
+    """loadSettings() fetched eleven endpoints with Promise.all. A non-admin gets
+    403 on audit-logs, which rejected the whole batch, so settingsData stayed
+    empty and every hotel/department dropdown in the app was blank for them —
+    they could not create a staffing need, a campaign, or filter by hotel."""
+    app_js = open(APP_JS, encoding="utf-8").read()
+    start = app_js.index("async function loadSettings()")
+    body = app_js[start:start + 2000]
+    assert "Promise.allSettled" in body, "loadSettings tek bir 403'te komple düşmemeli"
+    assert "Promise.all(" not in body
+
+
 # ── frontend wiring (static checks, no browser needed) ───────────────────────
 
 def test_every_nav_target_has_a_page_template():
