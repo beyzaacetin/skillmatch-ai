@@ -447,6 +447,8 @@ createApp({
     const stageLabelMap = {
       applied: 'Başvurdu',
       screening: 'Değerlendirme',
+      // analytics/stats collapses the three interview stages into one funnel row
+      interview: 'Mülakat',
       hr_interview: 'İK Mülakatı',
       tech_interview: 'Teknik Mülakat',
       manager_interview: 'Yönetici Mülakatı',

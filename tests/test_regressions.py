@@ -739,3 +739,19 @@ def test_qr_code_is_drawn_locally_not_fetched_from_a_web_service(tmp_path, as_ad
         assert Image.open(on_disk).size[0] >= 100, "QR okunamayacak kadar küçük"
     finally:
         os.remove(on_disk)
+
+
+def test_every_funnel_key_has_a_turkish_label():
+    """/api/analytics/stats reports the interview stages under one `interview`
+    key, which stageLabelMap had no entry for, so the report screen printed the
+    raw English key next to the Turkish ones."""
+    analytics = open(os.path.join(REPO, "backend", "routers", "analytics.py"), encoding="utf-8").read()
+    stages = re.search(r'stages = \[([^\]]+)\]', analytics).group(1)
+    keys = re.findall(r'"([a-z_]+)"', stages)
+    assert keys, "analytics.py artık funnel aşamalarını bu şekilde listelemiyor"
+
+    app_js = open(APP_JS, encoding="utf-8").read()
+    start = app_js.index("const stageLabelMap = {")
+    labelled = set(re.findall(r"^\s*([a-z_]+):", app_js[start:app_js.index("};", start)], re.M))
+    missing = [k for k in keys if k not in labelled]
+    assert not missing, f"stageLabelMap'te karşılığı olmayan funnel anahtarı: {missing}"
