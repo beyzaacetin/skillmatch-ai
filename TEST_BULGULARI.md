@@ -3,8 +3,8 @@
 Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıldı.
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
-**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 35/35 pytest geçiyor
-(16 mevcut + 19 yeni regresyon testi) · **31 commit**
+**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 38/38 pytest geçiyor
+(16 mevcut + 22 yeni regresyon testi) · **32 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -356,6 +356,32 @@ satır NULL kalıyor ve **tüm listeyi** 500'lüyor — D-03'teki
 Bu projede özellikle önemli: kolonlar Alembic ile değil, `main.py` içindeki
 idempotent `ALTER TABLE` listesiyle ekleniyor ve o yolla eklenen bir kolon
 **mevcut tüm satırlarda NULL** olur.
+
+### ✅ D-33 — Kara liste, telefonu yeniden yazarak atlatılabiliyordu 🔒
+Kara listedeki bir aday, **kendi numarasını farklı biçimde yazarak** sisteme
+geri girebiliyordu. Çalışan sunucuda birebir üretildi:
+
+| Başvuru | Sonuç |
+|---|---|
+| `+90 555 987 65 43` (kayıtlı biçim) | **403 — "Aday kara listededir"** ✅ |
+| `0555 987 65 43` + farklı e-posta | **200 — kabul edildi** ❌ |
+
+Aynı açık, sıradan mükerrer tespitini de bozuyordu: tek kişi iki ayrı aday
+kaydına bölünüyordu.
+
+**Parçaların hepsi zaten vardı, sadece birbirine bağlanmamıştı:**
+`normalize_phone()` `routers/candidates.py` içinde duruyor, `phone_normalized`
+kolonu `main.py`'de migrasyonla ekleniyor, mükerrer-kontrol ucu onu sorguluyor —
+ama **hiçbir yer onu yazmıyordu**, yani her satırda NULL'dı ve yalnızca birebir
+aynı biçimdeki metin eşleşiyordu.
+
+Düzeltme: her iki portal başvuru yolu ve CV yükleme artık normalize edilmiş
+numarayı saklıyor ve kara liste/mükerrer kontrollerinde onu da kullanıyor;
+mevcut kayıtlar startup'taki normalizasyon adımında geriye dönük dolduruluyor
+(deponun migrasyon desenine uygun).
+
+Düzeltmeden sonra: `0555 987 65 43` de `+905559876543` de, farklı e-postayla
+bile, **403** alıyor.
 
 ---
 
