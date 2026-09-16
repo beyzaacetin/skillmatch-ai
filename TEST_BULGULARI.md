@@ -3,8 +3,8 @@
 Chrome (Playwright + Chromium) ile yerel ortamda sistematik gezilerek çıkarıldı.
 Sunucu `http://127.0.0.1:8000`, SQLite, giriş `demo@skillmatch.ai / demo123`.
 
-**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 29/29 pytest geçiyor
-(16 mevcut + 13 yeni regresyon testi) · **16 commit**
+**Dal:** `claude/pensive-johnson-wtyezh` · **Test durumu:** 31/31 pytest geçiyor
+(16 mevcut + 15 yeni regresyon testi) · **19 commit**
 
 | Durum | Anlamı |
 |---|---|
@@ -250,6 +250,45 @@ teklif adımı hiçbir zaman tamamlanamıyormuş.
 
 Model kolonu eklendikten sonra tüm zincir çalışıyor (aşağıda).
 
+### ✅ D-26 — Bir mülakat planlanır planlanmaz dashboard çöküyordu
+`GET /api/analytics/dashboard-stats` → **500**:
+
+```
+AttributeError: 'Interview' object has no attribute 'candidate_id'
+```
+
+`models.Interview` yalnızca `application_id` taşıyor; aday ve pozisyon
+başvurunun üzerinden geliniyor. Ama `analytics.py` `iv.candidate_id` /
+`iv.position_id` okuyor, otel filtresinde de `Interview.position_id` ile
+sorguluyordu. Bu kod **hiç çalışmamıştı**, çünkü veritabanında hiç mülakat yoktu
+ve uydurma fallback widget'ı dolduruyordu — gerçek veri girer girmez patladı.
+
+Ek olarak widget'ın başlığı "**Bugünkü** programım" ama sorgusunda **hiç tarih
+filtresi yoktu**: üç hafta sonraki mülakat "bugün" diye listeleniyor, hemen
+yanındaki sayaç ise 0 diyordu. Artık sayacın kullandığı aralığı kullanıyor.
+
+### ✅ D-27 — Organizasyon/Bütçe Excel importer'ı hiç çalışmamış
+Faz 1'in amiral gemisi olan tek-Excel importer'ı, kolon adlarını küçük harfe
+çevirip alias tablosuyla eşleştiriyor, ama sonra **orijinal yazımına geri
+çeviriyordu**. Satır okumaları küçük harfli DataFrame'de yapıldığı için her
+`row.get()` ıskalıyordu:
+
+- Tüm alanlar `"None"` **stringi** olarak geliyordu
+- Tüm FTE'ler `0.0` oluyordu
+- Satırlar birbirinin aynısı göründüğü için ilki hariç hepsi
+  *"Aynı dönem, otel ve pozisyon için mükerrer kayıt"* diye işaretleniyordu
+
+Importer'ın kendi belgelediği başlıklar (`Donem`, `OtelKodu`, `OtelAdi`…)
+büyük-küçük karışık olduğu için **belgelendiği hâliyle hiç çalışmamış**;
+yalnızca tamamı küçük harfli bir dosya geçebilirmiş.
+
+Düzeltmeden sonra 3 satırlık dosya doğru okunuyor: SUN/Garson/12,5 ·
+PRM/Resepsiyonist/8,25 · bilinmeyen `XXX` otel kodu da doğru şekilde
+"eşleşmeyen otel" olarak raporlanıyor.
+
+Ayrıca boş hücreler artık `"nan"` / `"None"` stringi olarak değil, boş olarak
+okunuyor.
+
 ---
 
 ## 3. 📋 Senin sorduğun 3 madde
@@ -435,7 +474,11 @@ D-25 düzeltildikten sonra çekirdek ATS akışının tamamı gerçek veriyle ç
    (Evrak / IT Setup / Tanışma / Eğitim, sorumlularıyla)
 7. **Görev işaretle** → ilerleme %0 → %8
 
-Ayrıca: 6 adımlı pozisyon sihirbazı gerçek veriyle tamamlanıp pozisyon oluşturdu.
+8. **Mülakat planla** → başvuru modalından planlandı, Pipeline listesinde
+   ve dashboard'un "Bugünkü programım" kartında doğru göründü
+
+Ayrıca: 6 adımlı pozisyon sihirbazı gerçek veriyle tamamlanıp pozisyon oluşturdu;
+Ayarlar'dan yeni kullanıcı oluşturuldu; organizasyon/bütçe Excel'i içe aktarıldı.
 
 ---
 
