@@ -106,6 +106,7 @@ createApp({
     const candidates = ref([]);
     const positions = ref([]);
     const stats = ref({});
+    const avgTimeToHire = ref(0);
     const salaryStats = ref({ avg_offered: 0, median_offered: 0, avg_accepted: 0, acceptance_rate: 0, deviation_rate: 0, policy_benchmarks: [] });
     const pipeline = ref([]);
     const pipelineLoading = ref(false);
@@ -912,14 +913,16 @@ createApp({
       try {
         const posFilter = analyticsPositionFilter.value ? `&position_id=${analyticsPositionFilter.value}` : '';
         const dateFilter = analyticsDateFilter.value ? `&date_range=${analyticsDateFilter.value}` : '';
-        const [data, logsData, salaryData] = await Promise.all([
+        const [data, logsData, salaryData, tthData] = await Promise.all([
           api('GET', `/api/analytics/stats?${posFilter}${dateFilter}`),
           api('GET', '/api/analytics/logs'),
-          api('GET', '/api/analytics/salary-report')
+          api('GET', '/api/analytics/salary-report'),
+          api('GET', '/api/analytics/time-to-hire')
         ]);
         stats.value = data;
         logs.value = logsData;
         salaryStats.value = salaryData;
+        avgTimeToHire.value = tthData?.avg_days ?? 0;
         // Build topSkills from chart data
         if (data.charts?.skills) {
           const sk = {};
@@ -3641,6 +3644,7 @@ createApp({
       budgetPositions, loadBudgetPositions,
       filteredBudgetDepartments, filteredBudgetSubDepartments, filteredBudgetTitles,
       salaryStats,
+      avgTimeToHire,
       showHeadcountLayoutModal,
       showHeadcountColumnsModal,
       HEADCOUNT_COLUMNS,

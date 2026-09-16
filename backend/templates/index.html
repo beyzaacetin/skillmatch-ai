@@ -3164,7 +3164,7 @@ input:checked + .slider:before {
           </div>
           <div class="stat-card" style="background:#fff; border:1px solid var(--g200); padding:16px; border-radius:12px">
             <div style="font-size:12px; font-weight:600; color:var(--g500)">Ortalama İşe Alım Süresi</div>
-            <div style="font-size:24px; font-weight:700; color:#2563eb; margin-top:8px">18.5 Gün</div>
+            <div style="font-size:24px; font-weight:700; color:#2563eb; margin-top:8px">{{ avgTimeToHire ? avgTimeToHire + ' Gün' : '—' }}</div>
           </div>
         </div>
 
@@ -3287,8 +3287,12 @@ input:checked + .slider:before {
           <div class="card" style="padding:20px">
             <div style="font-weight:700; font-size:15px; color:var(--g800); margin-bottom:12px">İşe Alım Süresi (Process duration benchmark)</div>
             <div style="font-size:13.5px; line-height:1.6; color:var(--g700)">
-              Mevcut verilere göre bir adayın başvuru anından işe alım onayına kadar geçen ortalama süre <b>18.5 gündür</b>.
-              <div style="margin-top:10px; font-size:12px; color:var(--g500)">Sektör ortalaması olan 24 güne kıyasla %23 daha hızlı süreç işletilmektedir.</div>
+              <template v-if="avgTimeToHire">
+                Mevcut verilere göre bir adayın başvuru anından işe alım onayına kadar geçen ortalama süre <b>{{ avgTimeToHire }} gündür</b>.
+              </template>
+              <template v-else>
+                Henüz tamamlanmış bir işe alım yok; ortalama süre hesaplanamıyor.
+              </template>
             </div>
           </div>
 
