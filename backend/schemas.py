@@ -289,6 +289,8 @@ class InterviewOut(BaseModel):
     concerns_noted: Optional[List[str]] = []
     recommendation: Optional[str] = None
     ai_questions: Optional[List[Any]] = []
+    questions_sent_at: Optional[datetime] = None
+    questions_answered_at: Optional[datetime] = None
     ai_summary: Optional[str] = None
     result: Optional[str] = None
     result_note: Optional[str] = None

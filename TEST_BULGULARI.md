@@ -796,6 +796,78 @@ filtre yalnızca daha da daraltabiliyor.
 
 ---
 
+## 2h. Soruları adaya gönderme (D-60 … D-65)
+
+> "Bu hazırlamış olduğumuz testleri İK'nın adaya göndermek için basacağı buton
+> yok ya, bi baksana." — **Haklısın, yoktu.** Üstelik eksik olan sadece buton
+> değildi: zincirin üç halkası birden yoktu ve altından aday portalının
+> tamamen ölü olduğu çıktı.
+
+### 🔴 D-60 — Soruları adaya gönderecek hiçbir yol yoktu
+"AI Sorular" butonu soruları üretip ekranda gösteriyordu, ama orada bitiyordu.
+`email_service.py` içinde hazır yazılmış `send_interview_invitation()` ve
+`send_portal_access_link()` şablonları **hiçbir yerden çağrılmıyordu**. Adayın
+soruları göreceği bir sayfa da yoktu: SPA yalnızca `/portal/job/{id}` ve
+`/portal/walk-in/{id}` (başvuru formları) yollarını tanıyordu.
+
+**Yapıldı** — zincirin tamamı:
+- `POST /api/interviews/{id}/send-questions` — adaya bir kullanıcı + token açar,
+  `/portal/test/{id}?token=...` linkini üretir, mülakat davetini e-postalar,
+  `questions_sent_at` damgasını atar ve denetim kaydı bırakır.
+- `GET /api/portal/interviews/{id}/questions?token=` — aday soruları görür.
+  Sorunun `purpose` (değerlendirme amacı) alanı **adaya gösterilmez**.
+- `POST /api/portal/interviews/{id}/answers?token=` — aday bir kez yanıtlar.
+  Bu uçtan **puan ve İK notu yazılamaz**; yalnızca `candidate_answer`.
+- Arayüz: mülakat kartında **"Adaya Gönder"** butonu, gönderim/yanıt rozeti,
+  **"Linki Kopyala"** ve **"Yanıtları Gör"**; aday tarafında `/portal/test/{id}`
+  sayfası.
+
+SMTP tanımlı değilse gönderim başarısız olur ama **link yine döner ve ekranda
+kalır** — İK linki kopyalayıp WhatsApp/kendi e-postasından iletebilir. Demoda
+SMTP yok, o yüzden akışı bu şekilde göstermek gerekiyor.
+
+### 🔴 D-61 — `candidates.user_id` kolonu hiç yoktu → aday portalının tamamı 500
+`routers/portal.py` baştan sona `models.Candidate.user_id` okuyordu ama böyle bir
+kolon **hiç tanımlanmamıştı**. Geçerli tokenla gelen her portal isteği
+`AttributeError` ile 500 dönüyordu — yani aday portalı yazıldığı günden beri
+hiç çalışmamış. Kolon modele ve migrasyon listesine eklendi.
+
+### 🔴 D-62 — Portal, String kolonları Enum sanıyordu
+`app.status.value`, `iv.interview_type.value`, `iv.status.value` — bunların hepsi
+`String` kolon, Enum değil. `/api/portal/applications` bu yüzden 500'lüyordu.
+Aynı hata sessiz bir sızıntı da yaratıyordu: `app.offer.status != models.OfferStatus.DRAFT`
+karşılaştırması bir string'i Enum üyesiyle kıyasladığı için **asla tutmuyor**, yani
+**taslak teklifler adaya açılıyordu**. Ayrıca `models.OfferStatus` ve
+`models.ApplicationStatus` diye sınıflar **hiç yok** — teklif kabul/ret uçları da
+bu yüzden ölüydü. Hepsi repodaki string sabitlerle (`"draft"`, `"sent"`,
+`"hired"`, `"rejected"`) değiştirildi. `routers/ownership.py` içindeki iki
+`models.ApplicationStatus.REJECTED` kullanımı da aynı sebepten kırıktı, düzeltildi.
+
+### 🔴 D-63 — `offers.expires_at` diye bir kolon yok
+Portal, teklifi olan her aday için `app.offer.expires_at.isoformat()` çağırıyordu.
+Böyle bir kolon yok ve sistemde teklif geçerlilik süresi diye bir kavram da yok
+(arayüzdeki `expires_at` sahiplik kilidinin süresi, alakasız). Alan kaldırıldı.
+
+### 🟡 D-64 — API anahtarı yokken üretilen sorular kaydedilmiyordu
+`GEMINI_API_KEY` boşken `generate-questions` üç yedek soru **döndürüyor ama
+veritabanına yazmıyordu**: sayfa yenilenince kayboluyorlardı ve adaya
+gönderilemiyorlardı. Demoda anahtar olmadığı için bu yol tam da sunumda
+kullanılacak yoldu. Artık yedek sorular da kaydediliyor.
+
+### 🟡 D-65 — Aday linki adres çubuğundan siliniyordu
+`watch(page)` aday sayfaları dışındaki her sayfada adres çubuğunu `/` yapıyordu.
+`public_test` bu istisnanın dışında kaldığı için `?token=...` siliniyor, aday
+"Yanıtlarımı Gönder" dediğinde **401** alıyordu. (Aynı hata daha önce kampanya
+QR'ının `utm_*` parametreleri için düzeltilmişti — istisna listesi eksik kalmış.)
+Ayrıca soru metni `.fl` sınıfı yüzünden **BÜYÜK HARFE** çevriliyordu, düzeltildi.
+
+**Tarayıcıda uçtan uca doğrulandı:** İK "AI Sorular" → "Adaya Gönder" → aday
+linki açıp 3 soruyu yanıtladı → İK "Yanıtları Gör" ile yanıtları okudu.
+Konsol temiz, yatay taşma yok, mobil (390px) temiz, yönetim paneli aday
+sayfasına sızmıyor.
+
+---
+
 ## 3. 📋 Senin sorduğun 3 madde
 
 ### 1. GM ekranlarını tek tek gezmek

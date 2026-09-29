@@ -41,6 +41,10 @@ class Candidate(Base):
     __tablename__ = "candidates"
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, nullable=True, default=1)
+    # Aday portalının tamamı (routers/portal.py) bu kolonu okuyordu ama kolon
+    # hiç tanımlanmamıştı; geçerli bir tokenla gelen her portal isteği
+    # AttributeError ile 500 dönüyordu.
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     position_id = Column(Integer, ForeignKey("positions.id"), nullable=True)
     full_name = Column(String, nullable=True)
     name = Column(String, index=True)
@@ -199,6 +203,10 @@ class Interview(Base):
     concerns_noted = Column(JSON, default=[])
     recommendation = Column(String, nullable=True)  # proceed|reject|hold
     ai_questions = Column(JSON, default=[])          # AI üretimi mülakat soruları
+    # Sorular adaya gönderildiğinde/aday yanıtladığında damgalanır. İK ekranında
+    # "gönderildi mi, yanıtlandı mı" bilgisini bunlar taşıyor.
+    questions_sent_at = Column(DateTime(timezone=True), nullable=True)
+    questions_answered_at = Column(DateTime(timezone=True), nullable=True)
     ai_summary = Column(Text, nullable=True)         # AI mülakat özeti
     result = Column(String, nullable=True)           # "passed", "failed", "pending"
     result_note = Column(Text, nullable=True)        # Sonuç notu

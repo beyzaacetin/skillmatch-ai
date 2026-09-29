@@ -65,7 +65,7 @@ input:checked + .slider:before {
 
 
   <!-- LOGIN SCREEN -->
-  <div v-if="!currentUser && page !== 'public_job' && page !== 'public_walkin'" class="login-page">
+  <div v-if="!currentUser && !isPublicPage" class="login-page">
     <div class="login-card">
       <div class="login-hdr" style="padding-bottom:12px">
         <div style="display:flex; justify-content:center; align-items:center; gap:14px; margin-bottom:16px">
@@ -107,7 +107,7 @@ input:checked + .slider:before {
   </div>
 
   <!-- PUBLIC PORTAL PAGES -->
-  <div v-if="page === 'public_job' || page === 'public_walkin'" style="background:#F6F8F7; min-height:100vh; width:100%; display:flex; flex-direction:column">
+  <div v-if="isPublicPage" style="background:#F6F8F7; min-height:100vh; width:100%; display:flex; flex-direction:column">
     
     <!-- 1. PUBLIC JOB APPLY PAGE (PREMIUM SPLIT LAYOUT) -->
     <div v-if="page==='public_job'" style="display:grid; grid-template-columns:1.05fr 0.95fr; min-height:100vh; width:100%">
@@ -208,6 +208,40 @@ input:checked + .slider:before {
     </div>
 
     <!-- 2. PUBLIC WALK-IN QR APPLY PAGE -->
+    <!-- ADAY MÜLAKAT SORULARI (tokenlı link) -->
+    <div v-if="page==='public_test'" style="max-width:720px; margin:40px auto; padding:0 20px">
+      <div class="card" style="padding:32px; background:#fff; border-radius:12px; border:1px solid var(--g200)">
+        <div v-if="publicTestError" style="text-align:center; color:var(--red); font-size:14px">{{ publicTestError }}</div>
+
+        <template v-else>
+          <div style="text-align:center; margin-bottom:28px">
+            <div style="font-size:24px; font-weight:800; color:var(--primary); font-family:'Georgia', serif">Mülakat Soruları</div>
+            <div style="font-size:13px; color:var(--g500); margin-top:6px">{{ publicTest.position_title }}</div>
+          </div>
+
+          <div v-if="publicTest.submitted_at" style="background:var(--g50); padding:16px; border-radius:8px; font-size:13px; color:var(--g700); line-height:1.5; margin-bottom:24px">
+            Yanıtlarınız {{ formatDate(publicTest.submitted_at) }} tarihinde alınmıştır. Teşekkür ederiz — en kısa sürede sizinle iletişime geçeceğiz.
+          </div>
+          <div v-else style="background:var(--g50); padding:14px 16px; border-radius:8px; font-size:13px; color:var(--g700); line-height:1.5; margin-bottom:24px">
+            Sayın {{ publicTest.candidate_name }}, aşağıdaki soruları yanıtlayıp gönderdiğinizde yanıtlarınız İK ekibimize iletilecektir. Yanıtlarınızı yalnızca bir kez gönderebilirsiniz.
+          </div>
+
+          <form @submit.prevent="submitPublicTest" style="display:flex; flex-direction:column; gap:20px">
+            <div v-for="q in publicTest.questions" :key="q.index" class="fg">
+              <label class="fl" style="text-transform:none; font-size:13px; font-weight:600; color:var(--g900); letter-spacing:0">
+                {{ q.index + 1 }}. {{ q.question }}
+                <span style="font-weight:400; color:var(--g500)">({{ q.category }})</span>
+              </label>
+              <textarea v-model="q.answer" rows="4" class="fi" :disabled="!!publicTest.submitted_at" placeholder="Yanıtınızı buraya yazın"></textarea>
+            </div>
+            <button v-if="!publicTest.submitted_at" type="submit" class="btn btn-primary" :disabled="submittingTest">
+              {{ submittingTest ? 'Gönderiliyor…' : 'Yanıtlarımı Gönder' }}
+            </button>
+          </form>
+        </template>
+      </div>
+    </div>
+
     <div v-if="page==='public_walkin'" style="max-width:600px; margin:40px auto; padding:0 20px">
       <div class="card" style="padding:32px; background:#fff; border-radius:12px; border:1px solid var(--g200)">
         <div style="text-align:center; margin-bottom:28px">
@@ -264,10 +298,10 @@ input:checked + .slider:before {
     </div>
 
   </div>
-  <!-- Aday sayfaları (public_job / public_walkin) bu kabuğun DIŞINDA tanımlı, bu
+  <!-- Aday sayfaları (isPublicPage) bu kabuğun DIŞINDA tanımlı, bu
        yüzden personel oturumu açıkken QR linki açıldığında ikisi birden
        görünüyordu: adayın gördüğü form + arkasında yönetim paneli. -->
-  <template v-if="currentUser && page !== 'public_job' && page !== 'public_walkin'">
+  <template v-if="currentUser && !isPublicPage">
     <aside class="sidebar">
 
       <!-- Logo -->
@@ -5169,6 +5203,9 @@ input:checked + .slider:before {
               </div>
               <div style="display:flex;gap:6px">
                 <button class="btn btn-secondary btn-sm" @click="generateQuestions(iv)">AI Sorular</button>
+                <button v-if="iv.ai_questions?.length" class="btn btn-primary btn-sm" :disabled="sendingQuestions===iv.id" @click="sendQuestionsToCandidate(iv)">
+                  {{ sendingQuestions===iv.id ? 'Gönderiliyor…' : (iv.questions_sent_at ? 'Tekrar Gönder' : 'Adaya Gönder') }}
+                </button>
                 <button class="btn btn-ghost btn-sm" @click="openFeedbackModal(iv)">Değerlendirme</button>
               </div>
             </div>
@@ -5182,6 +5219,29 @@ input:checked + .slider:before {
                 <div style="font-size:11.5px;color:var(--g500)">{{ q.purpose }}</div>
               </div>
               <button v-if="iv.ai_questions.length>3" class="btn btn-ghost btn-sm" @click="showAllQ=!showAllQ">{{ showAllQ?'Daha Az Göster':'Tümünü Göster ('+iv.ai_questions.length+')' }}</button>
+            </div>
+
+            <!-- Adaya gönderim durumu -->
+            <div v-if="iv.questions_sent_at" style="border:1px solid var(--g200);border-radius:8px;padding:10px 12px;margin-bottom:12px;background:var(--g50)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <div style="font-size:12px;color:var(--g700)">
+                  <span class="badge" :class="iv.questions_answered_at ? 'b-hired' : 'b-screening'" style="font-size:10px">
+                    {{ iv.questions_answered_at ? 'Aday yanıtladı' : 'Yanıt bekleniyor' }}
+                  </span>
+                  <span style="margin-left:8px">Gönderim: {{ formatDate(iv.questions_sent_at) }}</span>
+                  <span v-if="iv.questions_answered_at" style="margin-left:8px">· Yanıt: {{ formatDate(iv.questions_answered_at) }}</span>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button v-if="questionLinks[iv.id]" class="btn btn-ghost btn-sm" @click="copyQuestionLink(iv)">Linki Kopyala</button>
+                  <button v-if="iv.questions_answered_at" class="btn btn-secondary btn-sm" @click="loadCandidateAnswers(iv)">Yanıtları Gör</button>
+                </div>
+              </div>
+              <div v-if="candidateAnswers[iv.id]" style="margin-top:10px">
+                <div v-for="a in candidateAnswers[iv.id]" :key="a.index" style="border-top:1px solid var(--g200);padding:8px 0">
+                  <div style="font-size:12px;font-weight:600;color:var(--g900)">{{ a.question }}</div>
+                  <div style="font-size:12px;color:var(--g600);white-space:pre-wrap;margin-top:2px">{{ a.answer || '— yanıtsız —' }}</div>
+                </div>
+              </div>
             </div>
 
             <!-- Scores -->

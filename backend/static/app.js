@@ -186,6 +186,10 @@ createApp({
     const showShareModal = ref(false);
     const showWalkinModal = ref(false);
     const publicJob = ref({});
+    const isPublicPage = computed(() => ['public_job', 'public_walkin', 'public_test'].includes(page.value));
+    const publicTest = ref({ questions: [] });
+    const publicTestError = ref('');
+    const submittingTest = ref(false);
     const publicBranding = ref({});
     const publicApplyForm = ref({ name: '', email: '', phone: '', cover_letter: '' });
     const publicApplyCv = ref(null);
@@ -1817,6 +1821,45 @@ createApp({
       } catch (e) { alert('AI soru üretilemedi: ' + e.message); }
     }
 
+    const sendingQuestions = ref(null);
+    const questionLinks = ref({});
+    const candidateAnswers = ref({});
+
+    async function sendQuestionsToCandidate(iv) {
+      if (!iv.ai_questions?.length) { alert('Önce AI Sorular ile soruları üretin.'); return; }
+      sendingQuestions.value = iv.id;
+      try {
+        const res = await api('POST', `/api/interviews/${iv.id}/send-questions`);
+        iv.questions_sent_at = res.questions_sent_at;
+        questionLinks.value = { ...questionLinks.value, [iv.id]: res.link };
+        // SMTP tanımlı değilse gönderim sessizce başarısız olur; İK linki elle
+        // iletebilsin diye her iki durumda da link ekranda kalıyor.
+        showToast(res.email_sent
+          ? `Sorular ${res.candidate_email} adresine gönderildi.`
+          : 'E-posta gönderilemedi (SMTP tanımsız). Linki kopyalayıp adaya iletebilirsiniz.',
+          res.email_sent ? 'success' : 'warning');
+      } catch (e) { alert('Sorular gönderilemedi: ' + e.message); }
+      finally { sendingQuestions.value = null; }
+    }
+
+    function copyQuestionLink(iv) {
+      const link = questionLinks.value[iv.id];
+      if (!link) return;
+      navigator.clipboard.writeText(link)
+        .then(() => showToast('Link kopyalandı.', 'success'))
+        .catch(() => prompt('Linki kopyalayın:', link));
+    }
+
+    async function loadCandidateAnswers(iv) {
+      try {
+        const res = await api('GET', `/api/applications/${iv.application_id}/interviews?type=${encodeURIComponent(iv.interview_type || 'hr')}`);
+        candidateAnswers.value = {
+          ...candidateAnswers.value,
+          [iv.id]: (res || []).map(a => ({ index: a.question_index, question: a.question, answer: a.candidate_answer })),
+        };
+      } catch (e) { alert('Yanıtlar alınamadı: ' + e.message); }
+    }
+
     function openFeedbackModal(iv) {
       feedbackIv.value = iv;
       ivFeedback.value = {
@@ -2118,6 +2161,46 @@ createApp({
       return 'rgba(11, 74, 58, 0.9)';
     }
 
+    const capturedToken = new URLSearchParams(window.location.search).get('token') || '';
+    function portalToken() {
+      return new URLSearchParams(window.location.search).get('token') || capturedToken;
+    }
+
+    async function loadPublicTest(ivId) {
+      const token = portalToken();
+      if (!token) { publicTestError.value = 'Erişim linki geçersiz. Lütfen e-postanızdaki bağlantıyı kullanın.'; return; }
+      try {
+        const res = await fetch(`/api/portal/interviews/${ivId}/questions?token=${encodeURIComponent(token)}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          publicTestError.value = err.detail || 'Sorulara ulaşılamadı.';
+          return;
+        }
+        publicTest.value = await res.json();
+      } catch (e) { publicTestError.value = 'Sorulara ulaşılamadı: ' + e.message; }
+    }
+
+    async function submitPublicTest() {
+      const token = portalToken();
+      submittingTest.value = true;
+      try {
+        const res = await fetch(`/api/portal/interviews/${publicTest.value.interview_id}/answers?token=${encodeURIComponent(token)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            answers: publicTest.value.questions.map(q => ({ question_index: q.index, candidate_answer: q.answer || '' })),
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.detail || 'Yanıtlar gönderilemedi.');
+          return;
+        }
+        publicTest.value.submitted_at = new Date().toISOString();
+      } catch (e) { alert('Yanıtlar gönderilemedi: ' + e.message); }
+      finally { submittingTest.value = false; }
+    }
+
     function openCandidateByName(name) {
       if (!candidates.value) return;
       const cand = candidates.value.find(c => c.name === name);
@@ -2131,9 +2214,13 @@ createApp({
       const path = window.location.pathname;
       const jobMatch = path.match(/^\/portal\/job\/(\d+)/);
       const walkinMatch = path.match(/^\/portal\/walk-in\/(\d+)/);
+      const testMatch = path.match(/^\/portal\/test\/(\d+)/);
       const candMatch = path.match(/^\/candidates\/(\d+)/);
 
-      if (jobMatch) {
+      if (testMatch) {
+        page.value = 'public_test';
+        await loadPublicTest(parseInt(testMatch[1]));
+      } else if (jobMatch) {
         page.value = 'public_job';
         await loadPublicJobDetails(parseInt(jobMatch[1]));
       } else if (walkinMatch) {
@@ -2178,8 +2265,9 @@ createApp({
         blacklist: '/blacklist'
       };
       // Aday sayfalarında adres çubuğuna dokunma: burada '/' yazmak hem adayı
-      // şaşırtıyor hem de kampanya QR'ının utm_* parametrelerini siliyordu.
-      if (p === 'public_job' || p === 'public_walkin') return;
+      // şaşırtıyor hem de kampanya QR'ının utm_* / mülakat linkinin token
+      // parametresini siliyordu.
+      if (['public_job', 'public_walkin', 'public_test'].includes(p)) return;
 
       const targetPath = reversePathMap[p] || '/';
       if (window.location.pathname !== targetPath) {
@@ -3778,6 +3866,8 @@ createApp({
       dragApp, dropOnCol, createApplicationFromCandidate,
       runDeepAIAnalysis, getCandidateForDeepAI, handlePositionCvDrop, handlePositionCvSelect, startPositionUploads,
       loadAppInterviews, saveInterview, generateQuestions,
+      sendingQuestions, questionLinks, candidateAnswers,
+      sendQuestionsToCandidate, copyQuestionLink, loadCandidateAnswers,
       openFeedbackModal, saveFeedback, generateAISummary, openIvDetail,
       generateAiQuestionsTab, analyzeRawNotesTab,
       loadOffer, saveOffer, generateLetter, sendOffer,
@@ -3850,6 +3940,7 @@ createApp({
       // Phase 3 portal state & methods
       talentSubTab, interviewSubTab, sharingJob, sharingHotel, showShareModal, showWalkinModal,
       publicJob, publicBranding, publicApplyForm, publicApplyCv, submittingPublic,
+      isPublicPage, publicTest, publicTestError, submittingTest, submitPublicTest,
       walkinForm, walkinCv, submittingWalkin,
       loadPublicJobDetails, loadPublicWalkinDetails, submitPublicApplication, onPublicCvSelected,
       submitWalkinApplication, onWalkinCvSelected, getJobShareUrl, getWalkinShareUrl,

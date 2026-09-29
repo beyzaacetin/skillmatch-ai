@@ -105,9 +105,13 @@ def generate_questions(iv_id: int, db: Session = Depends(database.get_db),
     if not iv: raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
     model = _get_gemini()
     if not model:
-        return {"questions": [{"category": "Genel", "question": "Kendinizden bahseder misiniz?", "purpose": "Genel tanışma"},
-                               {"category": "Teknik", "question": "En güçlü teknik yetkinliğiniz nedir?", "purpose": "Teknik değerlendirme"},
-                               {"category": "Davranışsal", "question": "Zor bir proje sürecinde nasıl ilerlediğinizi anlatır mısınız?", "purpose": "Problem çözme"}]}
+        # GEMINI_API_KEY yokken de sorular kaydedilmeli: aksi halde ekranda
+        # görünüp sayfa yenilenince kayboluyor, adaya da gönderilemiyordu.
+        iv.ai_questions = [{"category": "Genel", "question": "Kendinizden bahseder misiniz?", "purpose": "Genel tanışma"},
+                           {"category": "Teknik", "question": "En güçlü teknik yetkinliğiniz nedir?", "purpose": "Teknik değerlendirme"},
+                           {"category": "Davranışsal", "question": "Zor bir proje sürecinde nasıl ilerlediğinizi anlatır mısınız?", "purpose": "Problem çözme"}]
+        db.commit()
+        return {"questions": iv.ai_questions}
     candidate = iv.application.candidate if iv.application else None
     position = iv.application.position if iv.application else None
     skills = ", ".join(candidate.skills or []) if candidate else "Belirtilmemiş"
@@ -148,6 +152,96 @@ JSON formatında döndür:
     iv.ai_questions = questions
     db.commit()
     return {"questions": questions}
+
+def _portal_token_for_candidate(candidate, db: Session) -> str:
+    """Adayın portal tokenı. Aday için bir kullanıcı kaydı yoksa burada açılır —
+    aday hiçbir zaman parola ile giriş yapmaz, linkteki token yeterli."""
+    import secrets
+    user = None
+    if candidate.user_id:
+        user = db.query(models.User).filter(models.User.id == candidate.user_id).first()
+    if not user and candidate.email:
+        user = db.query(models.User).filter(models.User.email == candidate.email).first()
+    if not user:
+        if not candidate.email:
+            raise HTTPException(status_code=400, detail="Adayın e-posta adresi yok, link üretilemiyor")
+        user = models.User(
+            email=candidate.email,
+            full_name=candidate.name or candidate.full_name or candidate.email,
+            hashed_password="",
+            # UserRole enumunda aday rolü yok; bu etiket hiçbir require_roles
+            # kontrolüyle eşleşmiyor ve parola boş olduğu için normal girişe
+            # de yaramıyor — erişim yalnızca linkteki token üzerinden.
+            role="CANDIDATE",
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+    if candidate.user_id != user.id:
+        candidate.user_id = user.id
+    if not user.candidate_access_token:
+        user.candidate_access_token = secrets.token_urlsafe(32)
+    db.commit()
+    return user.candidate_access_token
+
+
+@router.post("/{iv_id}/send-questions")
+async def send_questions_to_candidate(iv_id: int, db: Session = Depends(database.get_db),
+                                      current_user: models.User = Depends(auth.get_current_user)):
+    """Hazırlanan soruları adaya gönderir: tokenlı bir link üretir ve e-postalar.
+
+    SMTP tanımsızsa gönderim sessizce başarısız olur ama link yine döner — İK
+    linki kopyalayıp kendi kanalından iletebilsin diye."""
+    _scoped_interview(iv_id, db, current_user)
+    iv = db.query(models.Interview).options(
+        joinedload(models.Interview.application).joinedload(models.Application.candidate),
+        joinedload(models.Interview.application).joinedload(models.Application.position),
+    ).filter(models.Interview.id == iv_id).first()
+    if not iv:
+        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+    if not iv.ai_questions:
+        raise HTTPException(status_code=400, detail="Önce soruları üretmelisiniz")
+
+    candidate = iv.application.candidate if iv.application else None
+    position = iv.application.position if iv.application else None
+    if not candidate:
+        raise HTTPException(status_code=400, detail="Mülakatın adayı bulunamadı")
+
+    token = _portal_token_for_candidate(candidate, db)
+    link = f"{settings.APP_URL.rstrip('/')}/portal/test/{iv.id}?token={token}"
+
+    email_sent = False
+    try:
+        from services.email_service import send_interview_invitation
+        email_sent = await send_interview_invitation(
+            candidate_email=candidate.email,
+            candidate_name=candidate.name or candidate.full_name or "",
+            position_title=position.title if position else "",
+            interview_type=iv.interview_type or "hr",
+            scheduled_at=iv.scheduled_at.strftime("%d.%m.%Y %H:%M") if iv.scheduled_at else "Tarih bildirilecek",
+            duration_minutes=iv.duration_minutes or 60,
+            location_or_link=iv.meeting_link or iv.location or "",
+            interviewer_name=iv.interviewer_name or "",
+            portal_link=link,
+        )
+    except Exception as mail_err:
+        import logging
+        logging.getLogger(__name__).warning(f"Mülakat daveti gönderilemedi: {mail_err}")
+
+    from datetime import datetime as _dt, timezone as _tz
+    iv.questions_sent_at = _dt.now(_tz.utc)
+    db.add(models.Log(
+        user_id=current_user.id,
+        user_name=current_user.full_name or current_user.email,
+        action="interview_questions_sent",
+        target_type="interview",
+        target_id=iv.id,
+        details={"candidate_id": candidate.id, "email_sent": email_sent},
+    ))
+    db.commit()
+    return {"link": link, "email_sent": email_sent, "candidate_email": candidate.email,
+            "questions_sent_at": iv.questions_sent_at.isoformat()}
+
 
 @router.post("/{iv_id}/ai-summary")
 def generate_ai_summary(iv_id: int, db: Session = Depends(database.get_db),

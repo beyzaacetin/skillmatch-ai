@@ -10,7 +10,7 @@ POST /api/portal/offer/{id}/reject — Teklifi reddet
 GET  /api/portal/notifications     — Bildirimler
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -82,33 +82,39 @@ def get_portal_applications(
         # Adaya gösterilen bilgileri filtrele (iç notları gizle)
         interviews_data = []
         for iv in app.interviews:
+            # status / interview_type birer String kolon, Enum değil: .value
+            # AttributeError veriyor ve uç noktanın tamamını 500'lüyordu.
+            iv_status = iv.status or "scheduled"
             interviews_data.append({
                 "id": iv.id,
-                "interview_type": iv.interview_type.value,
-                "status": iv.status.value,
+                "interview_type": iv.interview_type or "hr",
+                "status": iv_status,
                 "round_number": iv.round_number,
                 "scheduled_at": iv.scheduled_at.isoformat() if iv.scheduled_at else None,
                 "duration_minutes": iv.duration_minutes,
-                "meeting_link": iv.meeting_link if iv.status.value == "scheduled" else None,
-                "location": iv.location if iv.status.value == "scheduled" else None,
+                "meeting_link": iv.meeting_link if iv_status == "scheduled" else None,
+                "location": iv.location if iv_status == "scheduled" else None,
             })
 
         offer_data = None
-        if app.offer and app.offer.status != models.OfferStatus.DRAFT:
+        # Aynı sebeple bu karşılaştırma da hiç tutmuyordu: string bir kolon Enum
+        # üyesine asla eşit olmaz, yani taslak teklifler adaya açılıyordu.
+        if app.offer and app.offer.status != "draft":
             offer_data = {
                 "id": app.offer.id,
-                "status": app.offer.status.value,
+                "status": app.offer.status,
                 "proposed_salary": app.offer.proposed_salary,
                 "currency": app.offer.currency,
                 "start_date": app.offer.start_date.isoformat() if app.offer.start_date else None,
                 "benefits": app.offer.benefits,
                 "letter_content": app.offer.letter_content,
-                "expires_at": app.offer.expires_at.isoformat() if app.offer.expires_at else None,
+                # offers tablosunda expires_at diye bir kolon yok; bu satır
+                # teklifi olan her aday için AttributeError veriyordu.
             }
 
         result.append({
             "id": app.id,
-            "status": app.status.value,
+            "status": app.status,
             "applied_at": app.applied_at.isoformat(),
             "position": {
                 "id": app.position.id if app.position else None,
@@ -132,6 +138,108 @@ def get_portal_applications(
     return result
 
 
+def _portal_interview(iv_id: int, db: Session, portal_user: models.User):
+    """Aday yalnızca kendi başvurusunun mülakatını görebilir."""
+    candidate = db.query(models.Candidate).filter(
+        models.Candidate.user_id == portal_user.id
+    ).first()
+    iv = db.query(models.Interview).options(
+        joinedload(models.Interview.application).joinedload(models.Application.position)
+    ).filter(models.Interview.id == iv_id).first()
+    if not iv or not candidate or not iv.application or iv.application.candidate_id != candidate.id:
+        raise HTTPException(status_code=404, detail="Mülakat bulunamadı")
+    if not iv.questions_sent_at:
+        raise HTTPException(status_code=403, detail="Bu mülakatın soruları size gönderilmemiş")
+    return iv, candidate
+
+
+@router.get("/interviews/{iv_id}/questions")
+def get_portal_questions(
+    iv_id: int,
+    db: Session = Depends(get_db),
+    portal_user: models.User = Depends(_get_portal_user),
+):
+    """Adaya gönderilen mülakat sorularını ve varsa kendi yanıtlarını döner."""
+    iv, candidate = _portal_interview(iv_id, db, portal_user)
+
+    saved = {
+        a.question_index: a.candidate_answer
+        for a in db.query(models.InterviewAnswer).filter(
+            models.InterviewAnswer.application_id == iv.application_id,
+            models.InterviewAnswer.interview_type == iv.interview_type,
+        ).all()
+    }
+
+    return {
+        "interview_id": iv.id,
+        "position_title": iv.application.position.title if iv.application.position else "",
+        "candidate_name": candidate.name,
+        "submitted_at": iv.questions_answered_at.isoformat() if iv.questions_answered_at else None,
+        # "purpose" iç değerlendirme amacı — adaya gösterilmez.
+        "questions": [
+            {
+                "index": i,
+                "category": q.get("category", "Genel"),
+                "question": q.get("question", ""),
+                "answer": saved.get(i, ""),
+            }
+            for i, q in enumerate(iv.ai_questions or [])
+        ],
+    }
+
+
+@router.post("/interviews/{iv_id}/answers")
+def submit_portal_answers(
+    iv_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    portal_user: models.User = Depends(_get_portal_user),
+):
+    """Aday yanıtlarını kaydeder. Puan ve İK notu bu uçtan yazılamaz."""
+    iv, candidate = _portal_interview(iv_id, db, portal_user)
+    if iv.questions_answered_at:
+        raise HTTPException(status_code=400, detail="Yanıtlarınız zaten gönderilmiş")
+
+    questions = iv.ai_questions or []
+    answers = payload.get("answers", [])
+    saved = 0
+    for a in answers:
+        idx = a.get("question_index")
+        if idx is None or not (0 <= int(idx) < len(questions)):
+            continue
+        idx = int(idx)
+        rec = db.query(models.InterviewAnswer).filter(
+            models.InterviewAnswer.application_id == iv.application_id,
+            models.InterviewAnswer.question_index == idx,
+            models.InterviewAnswer.interview_type == iv.interview_type,
+        ).first()
+        if not rec:
+            rec = models.InterviewAnswer(
+                application_id=iv.application_id,
+                question_index=idx,
+                interview_type=iv.interview_type,
+                section=questions[idx].get("category", "Mülakat"),
+                question=questions[idx].get("question", ""),
+            )
+            db.add(rec)
+        rec.candidate_answer = (a.get("candidate_answer") or "").strip()
+        rec.is_completed = True
+        saved += 1
+
+    from datetime import datetime as _dt, timezone as _tz
+    iv.questions_answered_at = _dt.now(_tz.utc)
+
+    db.add(models.CandidateActivity(
+        candidate_id=candidate.id,
+        application_id=iv.application_id,
+        activity_type="note_added",
+        note=f"Aday {len(questions)} soruluk {iv.interview_type} testini yanıtladı.",
+        created_by=candidate.name,
+    ))
+    db.commit()
+    return {"status": "ok", "count": saved}
+
+
 @router.post("/offer/{offer_id}/accept")
 def accept_offer(
     offer_id: int,
@@ -153,17 +261,17 @@ def accept_offer(
     if not candidate or offer.application.candidate_id != candidate.id:
         raise HTTPException(status_code=403, detail="Bu teklife erişim yetkiniz yok")
 
-    if offer.status not in [models.OfferStatus.SENT, models.OfferStatus.NEGOTIATING]:
+    if offer.status not in ("sent", "negotiating"):
         raise HTTPException(status_code=400, detail="Bu teklif kabul edilebilir durumda değil")
 
     from datetime import timezone
     from datetime import datetime
-    offer.status = models.OfferStatus.ACCEPTED
+    offer.status = "accepted"
     offer.responded_at = datetime.now(timezone.utc)
     offer.final_salary = offer.proposed_salary
 
     if offer.application:
-        offer.application.status = models.ApplicationStatus.HIRED
+        offer.application.status = "hired"
         offer.application.hired_at = datetime.now(timezone.utc)
         history = offer.application.status_history or []
         history.append({
@@ -200,13 +308,13 @@ def reject_offer(
         raise HTTPException(status_code=403, detail="Bu teklife erişim yetkiniz yok")
 
     from datetime import timezone, datetime
-    offer.status = models.OfferStatus.REJECTED
+    offer.status = "rejected"
     offer.responded_at = datetime.now(timezone.utc)
     if reason:
         offer.notes = f"{offer.notes or ''}\nRed gerekçesi: {reason}"
 
     if offer.application:
-        offer.application.status = models.ApplicationStatus.OFFER_REJECTED
+        offer.application.status = "rejected"
 
     db.commit()
     return {"message": "Teklif reddedildi"}

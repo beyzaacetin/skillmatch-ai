@@ -191,7 +191,7 @@ def resolve_extension_request(
     elif req.status == "REJECTED" and app:
         # Transfer to common pool instantly
         app.lock_status = 'UNLOCKED'
-        app.status = models.ApplicationStatus.REJECTED
+        app.status = "rejected"
         history = app.status_history or []
         history.append({
             "status": "rejected",
@@ -307,7 +307,7 @@ def force_release_application_lock(
         raise HTTPException(status_code=404, detail="Başvuru bulunamadı.")
     
     app.lock_status = 'UNLOCKED'
-    app.status = models.ApplicationStatus.REJECTED
+    app.status = "rejected"
     history = app.status_history or []
     history.append({
         "status": "rejected",

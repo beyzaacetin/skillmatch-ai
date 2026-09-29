@@ -43,6 +43,7 @@ try:
         queries = [
             # candidates table migration
             "ALTER TABLE candidates ADD COLUMN name VARCHAR(255)",
+            "ALTER TABLE candidates ADD COLUMN user_id INTEGER",
             "ALTER TABLE candidates ADD COLUMN summary TEXT",
             "ALTER TABLE candidates ADD COLUMN skills JSON",
             "ALTER TABLE candidates ADD COLUMN experience JSON",
@@ -114,6 +115,8 @@ try:
             "ALTER TABLE interviews ADD COLUMN concerns_noted JSON",
             "ALTER TABLE interviews ADD COLUMN recommendation VARCHAR(255)",
             "ALTER TABLE interviews ADD COLUMN ai_questions JSON",
+            "ALTER TABLE interviews ADD COLUMN questions_sent_at TIMESTAMP",
+            "ALTER TABLE interviews ADD COLUMN questions_answered_at TIMESTAMP",
             "ALTER TABLE interviews ADD COLUMN ai_summary TEXT",
             "ALTER TABLE interviews ADD COLUMN result VARCHAR(255)",
             "ALTER TABLE interviews ADD COLUMN result_note TEXT",

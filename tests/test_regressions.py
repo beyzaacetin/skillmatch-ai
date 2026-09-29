@@ -1736,3 +1736,161 @@ def test_a_user_is_linked_to_the_permissions_their_role_defines(as_admin):
         checker(current_user=hotel_user, db=db)
     assert denied.value.status_code == 403
     db.close()
+
+
+# ── adaya soru gönderme ──────────────────────────────────────────────────────
+
+def _interview_ready_to_send(as_admin):
+    """Bir otel + pozisyon + aday + başvuru + mülakat kurar."""
+    hotel_id = make_hotel(name="Soru Oteli", code="SRU")
+    db = TestingSessionLocal()
+    pos = models.Position(title="Resepsiyonist", hotel_id=hotel_id, is_active=True)
+    db.add(pos); db.commit(); db.refresh(pos)
+    cand = models.Candidate(name="Aday Bir", email="aday.bir@ornek.com", position_id=pos.id)
+    db.add(cand); db.commit(); db.refresh(cand)
+    appl = models.Application(candidate_id=cand.id, position_id=pos.id,
+                              status="applied", hotel_id=hotel_id)
+    db.add(appl); db.commit(); db.refresh(appl)
+    iv = models.Interview(application_id=appl.id, interview_type="hr", status="scheduled")
+    db.add(iv); db.commit(); db.refresh(iv)
+    ids = (pos.id, cand.id, appl.id, iv.id)
+    db.close()
+    return ids
+
+
+def test_generated_questions_survive_without_an_api_key(as_admin):
+    """GEMINI_API_KEY yokken uç nokta soruları döndürüyor ama kaydetmiyordu:
+    ekran yenilenince kayboluyor, adaya da gönderilemiyorlardı."""
+    _, _, _, iv_id = _interview_ready_to_send(as_admin)
+
+    res = client.post(f"/api/interviews/{iv_id}/generate-questions")
+    assert res.status_code == 200
+    assert len(res.json()["questions"]) >= 3
+
+    db = TestingSessionLocal()
+    iv = db.query(models.Interview).get(iv_id)
+    assert iv.ai_questions, "sorular kaydedilmiyor"
+    db.close()
+
+
+def test_hr_can_send_the_prepared_questions_to_the_candidate(as_admin):
+    """İK'nın hazırlanan soruları adaya gönderebileceği bir uç nokta yoktu:
+    e-posta şablonu yazılıydı ama hiçbir yerden çağrılmıyordu."""
+    _, cand_id, _, iv_id = _interview_ready_to_send(as_admin)
+
+    early = client.post(f"/api/interviews/{iv_id}/send-questions")
+    assert early.status_code == 400, "sorular üretilmeden gönderim engellenmeli"
+
+    client.post(f"/api/interviews/{iv_id}/generate-questions")
+    sent = client.post(f"/api/interviews/{iv_id}/send-questions")
+    assert sent.status_code == 200
+    body = sent.json()
+    # SMTP tanımsızken de link dönmeli: İK elle iletebilsin.
+    assert f"/portal/test/{iv_id}?token=" in body["link"]
+    assert body["candidate_email"] == "aday.bir@ornek.com"
+
+    db = TestingSessionLocal()
+    assert db.query(models.Interview).get(iv_id).questions_sent_at is not None
+    # Aday için bir kullanıcı ve token açılmış, adaya bağlanmış olmalı.
+    cand = db.query(models.Candidate).get(cand_id)
+    assert cand.user_id is not None
+    assert db.query(models.User).get(cand.user_id).candidate_access_token
+    db.close()
+
+
+def test_the_candidate_answers_through_the_token_link(as_admin):
+    """Aday linkten soruları görür ve bir kez yanıtlar; puan/İK notu bu uçtan
+    yazılamaz ve sorunun 'purpose' alanı adaya sızmaz."""
+    _, _, app_id, iv_id = _interview_ready_to_send(as_admin)
+    client.post(f"/api/interviews/{iv_id}/generate-questions")
+    token = client.post(f"/api/interviews/{iv_id}/send-questions").json()["link"].split("token=")[1]
+
+    assert client.get(f"/api/portal/interviews/{iv_id}/questions?token=yanlis").status_code == 401
+
+    res = client.get(f"/api/portal/interviews/{iv_id}/questions?token={token}")
+    assert res.status_code == 200
+    questions = res.json()["questions"]
+    assert questions and all("purpose" not in q for q in questions)
+
+    payload = {"answers": [{"question_index": q["index"], "candidate_answer": f"cevap {q['index']}",
+                            "score": 10, "notes": "İK notu"} for q in questions]}
+    assert client.post(f"/api/portal/interviews/{iv_id}/answers?token={token}", json=payload).status_code == 200
+    # İkinci gönderim reddedilmeli.
+    assert client.post(f"/api/portal/interviews/{iv_id}/answers?token={token}", json=payload).status_code == 400
+
+    db = TestingSessionLocal()
+    answers = db.query(models.InterviewAnswer).filter_by(application_id=app_id).all()
+    assert len(answers) == len(questions)
+    assert all(a.candidate_answer.startswith("cevap") for a in answers)
+    assert all(a.score is None and not a.notes for a in answers), "aday kendine puan yazabiliyor"
+    assert db.query(models.Interview).get(iv_id).questions_answered_at is not None
+    db.close()
+
+
+def test_questions_are_not_readable_before_they_are_sent(as_admin):
+    """Token'ı olan aday, henüz gönderilmemiş bir mülakatın sorularını görmemeli."""
+    _, _, _, iv_id = _interview_ready_to_send(as_admin)
+    client.post(f"/api/interviews/{iv_id}/generate-questions")
+    token = client.post(f"/api/interviews/{iv_id}/send-questions").json()["link"].split("token=")[1]
+
+    # Aynı adaya ikinci bir mülakat: gönderilmediği için kapalı olmalı.
+    db = TestingSessionLocal()
+    appl = db.query(models.Interview).get(iv_id).application_id
+    second = models.Interview(application_id=appl, interview_type="technical", status="scheduled",
+                              ai_questions=[{"category": "Teknik", "question": "?", "purpose": "x"}])
+    db.add(second); db.commit(); db.refresh(second)
+    second_id = second.id
+    db.close()
+
+    res = client.get(f"/api/portal/interviews/{second_id}/questions?token={token}")
+    assert res.status_code == 403
+
+
+def test_the_candidate_portal_reads_its_string_status_columns(as_admin):
+    """Portal, String olan status kolonlarını Enum sanıp .value okuyordu:
+    geçerli tokenla gelen her aday 500 alıyordu. Taslak teklif de sızıyordu."""
+    _, _, app_id, iv_id = _interview_ready_to_send(as_admin)
+    client.post(f"/api/interviews/{iv_id}/generate-questions")
+    token = client.post(f"/api/interviews/{iv_id}/send-questions").json()["link"].split("token=")[1]
+
+    db = TestingSessionLocal()
+    offer = models.Offer(application_id=app_id, status="draft", proposed_salary=50000)
+    db.add(offer); db.commit()
+
+    res = client.get(f"/api/portal/applications?token={token}")
+    assert res.status_code == 200, res.text
+    rows = res.json()
+    assert rows and rows[0]["status"] == "applied"
+    assert rows[0]["interviews"][0]["interview_type"] == "hr"
+    assert rows[0]["offer"] is None, "taslak teklif adaya gösteriliyor"
+
+    # Gönderilmiş teklif görünmeli — ve olmayan bir kolonu okumaya kalkmamalı.
+    offer.status = "sent"
+    db.commit(); db.close()
+    res = client.get(f"/api/portal/applications?token={token}")
+    assert res.status_code == 200, res.text
+    assert res.json()[0]["offer"]["proposed_salary"] == 50000
+
+
+def test_the_candidate_test_page_keeps_its_token_in_the_address_bar():
+    """watch(page) aday sayfaları dışındaki her sayfada adres çubuğunu '/'
+    yapıyordu; mülakat linki için bu ?token=... parametresini siliyor ve aday
+    'Yanıtlarımı Gönder' dediğinde 401 alıyordu."""
+    app_js = open(APP_JS, encoding="utf-8").read()
+    start = app_js.index("Aday sayfalarında adres çubuğuna dokunma")
+    body = app_js[start:start + 400]
+    assert "'public_test'" in body, "aday test sayfası adres çubuğu istisnasında yok"
+
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    # Aday sayfası yönetim kabuğunun dışında kalmalı.
+    assert '<template v-if="currentUser && !isPublicPage">' in html
+    assert "page==='public_test'" in html
+
+
+def test_hr_sees_a_button_to_send_the_questions_to_the_candidate():
+    """Kullanıcının bildirdiği eksik: soruları adaya gönderecek buton yoktu."""
+    html = open(INDEX_HTML, encoding="utf-8").read()
+    assert "sendQuestionsToCandidate(iv)" in html
+    assert "Adaya Gönder" in html
+    app_js = open(APP_JS, encoding="utf-8").read()
+    assert "/send-questions" in app_js
